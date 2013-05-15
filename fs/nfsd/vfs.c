@@ -1938,6 +1938,7 @@ struct buffered_dirent {
 };
 
 struct readdir_data {
+	struct dir_context ctx;
 	char		*dirent;
 	size_t		used;
 	int		full;
@@ -1975,6 +1976,7 @@ static __be32 nfsd_buffered_readdir(struct file *file, filldir_t func,
 	int size;
 	loff_t offset;
 
+	buf.ctx.actor = nfsd_buffered_filldir;
 	buf.dirent = (void *)__get_free_page(GFP_KERNEL);
 	if (!buf.dirent)
 		return nfserrno(-ENOMEM);
@@ -1989,7 +1991,7 @@ static __be32 nfsd_buffered_readdir(struct file *file, filldir_t func,
 		buf.used = 0;
 		buf.full = 0;
 
-		host_err = vfs_readdir(file, nfsd_buffered_filldir, &buf);
+		host_err = iterate_dir(file, &buf.ctx);
 		if (buf.full)
 			host_err = 0;
 
