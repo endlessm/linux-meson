@@ -44,7 +44,6 @@ extern void __init chrdev_init(void);
 /*
  * namei.c
  */
-extern int __inode_permission(struct inode *, int);
 
 /*
  * namespace.c
