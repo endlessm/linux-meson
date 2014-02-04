@@ -478,20 +478,6 @@ int torture_shutdown_init(int ssecs, void (*cleanup)(void))
 EXPORT_SYMBOL_GPL(torture_shutdown_init);
 
 /*
- * Shut down the shutdown task.  Say what???  Heh!  This can happen if
- * the torture module gets an rmmod before the shutdown time arrives.  ;-)
- */
-void torture_shutdown_cleanup(void)
-{
-	if (shutdown_task != NULL) {
-		VERBOSE_TOROUT_STRING("Stopping torture_shutdown task");
-		kthread_stop(shutdown_task);
-	}
-	shutdown_task = NULL;
-}
-EXPORT_SYMBOL_GPL(torture_shutdown_cleanup);
-
-/*
  * Detect and respond to a system shutdown.
  */
 static int torture_shutdown_notify(struct notifier_block *unused1,
@@ -509,6 +495,20 @@ static int torture_shutdown_notify(struct notifier_block *unused1,
 static struct notifier_block torture_shutdown_nb = {
 	.notifier_call = torture_shutdown_notify,
 };
+
+/*
+ * Shut down the shutdown task.  Say what???  Heh!  This can happen if
+ * the torture module gets an rmmod before the shutdown time arrives.  ;-)
+ */
+static void torture_shutdown_cleanup(void)
+{
+	unregister_reboot_notifier(&torture_shutdown_nb);
+	if (shutdown_task != NULL) {
+		VERBOSE_TOROUT_STRING("Stopping torture_shutdown task");
+		kthread_stop(shutdown_task);
+	}
+	shutdown_task = NULL;
+}
 
 /*
  * Variables for stuttering, which means to periodically pause and
@@ -573,7 +573,7 @@ EXPORT_SYMBOL_GPL(torture_stutter_init);
 /*
  * Cleanup after the torture_stutter kthread.
  */
-void torture_stutter_cleanup(void)
+static void torture_stutter_cleanup(void)
 {
 	if (!stutter_task)
 		return;
@@ -581,7 +581,6 @@ void torture_stutter_cleanup(void)
 	kthread_stop(stutter_task);
 	stutter_task = NULL;
 }
-EXPORT_SYMBOL_GPL(torture_stutter_cleanup);
 
 /*
  * Initialize torture module.  Please note that this is -not- invoked via
@@ -617,7 +616,8 @@ EXPORT_SYMBOL_GPL(torture_init_end);
  * Clean up torture module.  Please note that this is -not- invoked via
  * the usual module_exit() mechanism, but rather by an explicit call from
  * the client torture module.  Returns true if a race with system shutdown
- * is detected.
+ * is detected, otherwise, all kthreads started by functions in this file
+ * will be shut down.
  *
  * This must be called before the caller starts shutting down its own
  * kthreads.
@@ -633,8 +633,9 @@ bool torture_cleanup(void)
 	}
 	fullstop = FULLSTOP_RMMOD;
 	mutex_unlock(&fullstop_mutex);
-	unregister_reboot_notifier(&torture_shutdown_nb);
+	torture_shutdown_cleanup();
 	torture_shuffle_cleanup();
+	torture_stutter_cleanup();
 	torture_onoff_cleanup();
 	return false;
 }
