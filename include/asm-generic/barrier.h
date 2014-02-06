@@ -40,6 +40,14 @@
 #define smp_wmb()	barrier()
 #endif
 
+#ifndef smp_mb__before_atomic
+#define smp_mb__before_atomic()	smp_mb()
+#endif
+
+#ifndef smp_mb__after_atomic
+#define smp_mb__after_atomic()	smp_mb()
+#endif
+
 #define set_mb(var, value)  do { var = value;  mb(); } while (0)
 #define set_wmb(var, value) do { var = value; wmb(); } while (0)
 
