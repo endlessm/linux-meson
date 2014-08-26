@@ -233,6 +233,7 @@ int parse_args(const char *doing,
 		tmptype l;						\
 		int ret;						\
 									\
+		param_check_unsafe(kp);					\
 		ret = strtolfn(val, 0, &l);				\
 		if (ret < 0 || ((type)l != l))				\
 			return ret < 0 ? ret : -EINVAL;			\
@@ -266,6 +267,8 @@ int param_set_charp(const char *val, const struct kernel_param *kp)
 		pr_err("%s: string parameter too long\n", kp->name);
 		return -ENOSPC;
 	}
+
+	param_check_unsafe(kp);
 
 	maybe_kfree_parameter(*(char **)kp->arg);
 
@@ -304,6 +307,8 @@ EXPORT_SYMBOL(param_ops_charp);
 /* Actually could be a bool or an int, for historical reasons. */
 int param_set_bool(const char *val, const struct kernel_param *kp)
 {
+	param_check_unsafe(kp);
+
 	/* No equals means "set"... */
 	if (!val) val = "1";
 
@@ -332,6 +337,8 @@ int param_set_invbool(const char *val, const struct kernel_param *kp)
 	bool boolval;
 	struct kernel_param dummy;
 
+	param_check_unsafe(kp);
+
 	dummy.arg = &boolval;
 	ret = param_set_bool(val, &dummy);
 	if (ret == 0)
@@ -357,6 +364,8 @@ int param_set_bint(const char *val, const struct kernel_param *kp)
 	struct kernel_param boolkp;
 	bool v;
 	int ret;
+
+	param_check_unsafe(kp);
 
 	/* Match bool exactly, by re-using it. */
 	boolkp = *kp;
@@ -475,6 +484,8 @@ EXPORT_SYMBOL(param_array_ops);
 int param_set_copystring(const char *val, const struct kernel_param *kp)
 {
 	const struct kparam_string *kps = kp->str;
+
+	param_check_unsafe(kp);
 
 	if (strlen(val)+1 > kps->maxlen) {
 		pr_err("%s: string doesn't fit in %u chars.\n",
