@@ -175,7 +175,7 @@ static int sdio_card_irq_get(struct mmc_card *card)
 {
 	struct mmc_host *host = card->host;
 
-	WARN_ON(!host->claimed);
+	WARN_ON(!host->alldev_claim->claimed);
 
 	if (!host->sdio_irqs++) {
 		atomic_set(&host->sdio_irq_thread_abort, 0);
@@ -196,7 +196,7 @@ static int sdio_card_irq_put(struct mmc_card *card)
 {
 	struct mmc_host *host = card->host;
 
-	WARN_ON(!host->claimed);
+	WARN_ON(!host->alldev_claim->claimed);
 	BUG_ON(host->sdio_irqs < 1);
 
 	if (!--host->sdio_irqs) {

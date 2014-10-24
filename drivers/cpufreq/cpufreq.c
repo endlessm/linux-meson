@@ -33,7 +33,6 @@
 #include <linux/syscore_ops.h>
 
 #include <trace/events/power.h>
-
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
@@ -397,6 +396,7 @@ show_one(cpuinfo_max_freq, cpuinfo.max_freq);
 show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
+show_one(scaling_dflt_freq, dflt);
 show_one(scaling_cur_freq, cur);
 
 static int __cpufreq_set_policy(struct cpufreq_policy *data,
@@ -410,16 +410,22 @@ static ssize_t store_##file_name					\
 (struct cpufreq_policy *policy, const char *buf, size_t count)		\
 {									\
 	unsigned int ret;						\
+	unsigned long freq;						\
 	struct cpufreq_policy new_policy;				\
 									\
 	ret = cpufreq_get_policy(&new_policy, policy->cpu);		\
 	if (ret)							\
 		return -EINVAL;						\
 									\
-	ret = sscanf(buf, "%u", &new_policy.object);			\
+	ret = sscanf(buf, "%lu", &freq);			\
 	if (ret != 1)							\
 		return -EINVAL;						\
-									\
+		\
+	if(freq > policy->cpuinfo.max_freq)	\
+		freq = policy->cpuinfo.max_freq;   \
+	if(freq < policy->cpuinfo.min_freq)	\
+		freq = policy->cpuinfo.min_freq;   \
+	new_policy.object = freq;	\
 	ret = __cpufreq_set_policy(policy, &new_policy);		\
 	policy->user_policy.object = policy->object;			\
 									\
@@ -428,6 +434,7 @@ static ssize_t store_##file_name					\
 
 store_one(scaling_min_freq, min);
 store_one(scaling_max_freq, max);
+store_one(scaling_dflt_freq, dflt);
 
 /**
  * show_cpuinfo_cur_freq - current CPU frequency as detected by hardware
@@ -612,6 +619,7 @@ cpufreq_freq_attr_ro(related_cpus);
 cpufreq_freq_attr_ro(affected_cpus);
 cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
+cpufreq_freq_attr_rw(scaling_dflt_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
 
@@ -621,6 +629,7 @@ static struct attribute *default_attrs[] = {
 	&cpuinfo_transition_latency.attr,
 	&scaling_min_freq.attr,
 	&scaling_max_freq.attr,
+	&scaling_dflt_freq.attr,
 	&affected_cpus.attr,
 	&related_cpus.attr,
 	&scaling_governor.attr,
@@ -814,10 +823,10 @@ static int cpufreq_add_policy_cpu(unsigned int cpu, unsigned int sibling,
 	policy = cpufreq_cpu_get(sibling);
 	WARN_ON(!policy);
 
+	lock_policy_rwsem_write(sibling);
 	if (has_target)
 		__cpufreq_governor(policy, CPUFREQ_GOV_STOP);
 
-	lock_policy_rwsem_write(sibling);
 
 	write_lock_irqsave(&cpufreq_driver_lock, flags);
 
@@ -826,12 +835,12 @@ static int cpufreq_add_policy_cpu(unsigned int cpu, unsigned int sibling,
 	per_cpu(cpufreq_cpu_data, cpu) = policy;
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
-	unlock_policy_rwsem_write(sibling);
 
 	if (has_target) {
 		__cpufreq_governor(policy, CPUFREQ_GOV_START);
 		__cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);
 	}
+	unlock_policy_rwsem_write(sibling);
 
 	ret = sysfs_create_link(&dev->kobj, &policy->kobj, "cpufreq");
 	if (ret) {
@@ -1028,6 +1037,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		return -EINVAL;
 	}
 
+	WARN_ON(lock_policy_rwsem_write(cpu));
 	if (cpufreq_driver->target)
 		__cpufreq_governor(data, CPUFREQ_GOV_STOP);
 
@@ -1037,12 +1047,10 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 			data->governor->name, CPUFREQ_NAME_LEN);
 #endif
 
-	WARN_ON(lock_policy_rwsem_write(cpu));
 	cpus = cpumask_weight(data->cpus);
 
 	if (cpus > 1)
 		cpumask_clear_cpu(cpu, data->cpus);
-	unlock_policy_rwsem_write(cpu);
 
 	if (cpu != data->cpu) {
 		sysfs_remove_link(&dev->kobj, "cpufreq");
@@ -1054,7 +1062,6 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		if (ret) {
 			pr_err("%s: Failed to move kobj: %d", __func__, ret);
 
-			WARN_ON(lock_policy_rwsem_write(cpu));
 			cpumask_set_cpu(cpu, data->cpus);
 
 			write_lock_irqsave(&cpufreq_driver_lock, flags);
@@ -1068,17 +1075,16 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 			return -EINVAL;
 		}
 
-		WARN_ON(lock_policy_rwsem_write(cpu));
 		update_policy_cpu(data, cpu_dev->id);
-		unlock_policy_rwsem_write(cpu);
 		pr_debug("%s: policy Kobject moved to cpu: %d from: %d\n",
 				__func__, cpu_dev->id, cpu);
 	}
 
 	/* If cpu is last user of policy, free policy */
 	if (cpus == 1) {
-		if (cpufreq_driver->target)
+		if (cpufreq_driver->target){
 			__cpufreq_governor(data, CPUFREQ_GOV_POLICY_EXIT);
+		}
 
 		lock_policy_rwsem_read(cpu);
 		kobj = &data->kobj;
@@ -1108,6 +1114,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 			__cpufreq_governor(data, CPUFREQ_GOV_LIMITS);
 		}
 	}
+	unlock_policy_rwsem_write(cpu);
 
 	per_cpu(cpufreq_policy_cpu, cpu) = -1;
 	return 0;
@@ -1712,6 +1719,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 
 	data->min = policy->min;
 	data->max = policy->max;
+	data->dflt = policy->dflt;
 
 	pr_debug("new min and max freqs are %u - %u kHz\n",
 					data->min, data->max);

@@ -1,0 +1,19 @@
+#
+# Input device configuration
+#
+
+menu "Meson Input device support"
+
+source "drivers/amlogic/input/saradc/Kconfig"
+source "drivers/amlogic/input/remote/Kconfig"
+source "drivers/amlogic/input/new_remote/Kconfig"
+source "drivers/amlogic/input/keyboard/Kconfig"
+source "drivers/amlogic/input/touchscreen/Kconfig"
+source "drivers/amlogic/input/simcard_detect/Kconfig"
+source "drivers/amlogic/input/holdkey/Kconfig"
+source "drivers/amlogic/input/call_key/Kconfig"
+source "drivers/amlogic/input/sensor/Kconfig"
+source "drivers/amlogic/input/gpio_key/Kconfig"
+
+endmenu
+

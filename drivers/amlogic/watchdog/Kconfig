@@ -1,0 +1,23 @@
+#
+# watchdog configuration
+#
+
+menuconfig AML_WATCHDOG
+	bool "Watchdog Support"
+	default n
+
+if AML_WATCHDOG
+
+#config AML_WDT
+#	bool "Amlogic Watchdog"
+#	default n
+#	help
+#	  This module works as watch dog for platform.
+
+config AML_WDT_TV
+	bool "Amlogic TV Watchdog"
+	default n
+	help
+	  Amlogic tv watchdog timer embedded in chip.
+
+endif
