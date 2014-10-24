@@ -19,8 +19,8 @@
 
 #include <linux/module.h>
 
-#include <ump/ump_kernel_interface_ref_drv.h>
-#include <ump/ump_kernel_interface.h>
+#include "../../gpu/ump/include/ump/ump_kernel_interface_ref_drv.h"
+#include "../../gpu/ump/include/ump/ump_kernel_interface.h"
 #include <osd_dev.h>
 #include <osd.h>
 #include <osd_main.h>
