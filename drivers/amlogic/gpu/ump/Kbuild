@@ -34,8 +34,8 @@ UDD_FILE_PREFIX = ../mali/
 # Get subversion revision number, fall back to 0000 if no svn info is available
 SVN_REV := $(shell ((svnversion | grep -qv exported && echo -n 'Revision: ' && svnversion) || git svn info | sed -e 's/$$$$/M/' | grep '^Revision: ' || echo ${MALI_RELEASE_NAME}) 2>/dev/null | sed -e 's/^Revision: //')
 
-ccflags-y += -DSVN_REV=$(SVN_REV)
-ccflags-y += -DSVN_REV_STRING=\"$(SVN_REV)\"
+ccflags-y += -DSVN_REV=0
+ccflags-y += -DSVN_REV_STRING=0
 
 ccflags-y += -I$(src) -I$(TOP_KBUILD_SRC)$(src)/common -I$(TOP_KBUILD_SRC)$(src)/linux -I$(TOP_KBUILD_SRC)$(src)/../mali/common -I$(src)/../mali/linux -I$(src)/../ump/include/ump
 ccflags-y += -I$(srctree)/drivers/staging/android
@@ -50,7 +50,7 @@ ccflags-$(CONFIG_UMP_DEBUG) += -DDEBUG
 ifeq ($(wildcard $(TOP_KBUILD_SRC)$(src)/linux/license/gpl/*),)
 ccflags-y += -I$(TOP_KBUILD_SRC)$(src)/linux/license/proprietary
 else
-ccflags-y += -I$(TOP_KBUILD_SRC)$(src)/linux/license/gpl
+ccflags-y += -I$(TOP_KBUILD_SRC)$(src)/linux/license/gpl -I$(TOP_KBUILD_SRC)$(src)/../mali/linux/license/gpl
 endif
 
 
