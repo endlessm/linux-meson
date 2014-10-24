@@ -3,7 +3,7 @@
 #include <mach/power_gate.h>
 
 #include "sii9233_drv.h"
-#include "../../../../hardware/tvin/tvin_frontend.h"
+#include "../../tvin/tvin_frontend.h"
 #include "sii9233_interface.h"
 
 extern int start_tvin_service(int no ,vdin_parm_t *para);
