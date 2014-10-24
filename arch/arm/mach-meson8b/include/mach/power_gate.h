@@ -17,7 +17,7 @@
 
 #define __CLK_GATE_OFF(_MOD) \
 	do{                             \
-		if(--GCLK_ref[GCLK_IDX_##_MOD] <= 0){ \
+		if(GCLK_ref[GCLK_IDX_##_MOD] <= 0){ \
 			if (0) printk(KERN_INFO "gate off %s %x, %x\n", GCLK_NAME_##_MOD, GCLK_REG_##_MOD, GCLK_MASK_##_MOD); \
 			CLEAR_CBUS_REG_MASK(GCLK_REG_##_MOD, GCLK_MASK_##_MOD); \
 			GCLK_ref[GCLK_IDX_##_MOD] = 0; \
@@ -854,7 +854,7 @@ extern spinlock_t gate_lock;
 #define GCLK_MASK_AO_REGS      (1<<3)
 
 #define GCLK_IDX_MAX 132
-extern unsigned char GCLK_ref[GCLK_IDX_MAX];
+extern short GCLK_ref[GCLK_IDX_MAX];
 
 #define REGISTER_CLK(_MOD) \
 static struct clk CLK_##_MOD = {            \

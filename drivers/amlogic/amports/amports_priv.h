@@ -6,6 +6,7 @@
 stream_buf_t *get_buf_by_type(u32  type);
 
 /*video.c provide*/
+struct amvideocap_req;
 int calculation_stream_ext_delayed_ms(u8 type);
 int ext_get_cur_video_frame(vframe_t **vf,int *canvas_index);
 int ext_put_video_frame(vframe_t *vf);

@@ -46,7 +46,10 @@
 #include "vout_log.h"
 #include <linux/amlogic/amlog.h>
 #include <mach/power_gate.h>
-
+#include <mach/cpu.h>
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#include <mach/vpu.h>
+#endif
 
 
 static    disp_module_info_t    *info;
@@ -244,12 +247,15 @@ static const vinfo_t *tv_get_current_info(void)
 
 static int tv_set_current_vmode(vmode_t mod)
 {
-	if ((mod&VMODE_MODE_BIT_MASK)> VMODE_1080P_50HZ )
+	if ((mod&VMODE_MODE_BIT_MASK)> VMODE_1080P_50HZ)
 		return -EINVAL;
 
 	info->vinfo = &tv_info[mod];
 	if(mod&VMODE_LOGO_BIT_MASK)  return 0;
-
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	switch_vpu_mem_pd_vmod(info->vinfo->mode, VPU_MEM_POWER_ON);
+	request_vpu_clk_vmod(info->vinfo->video_clk, info->vinfo->mode);
+#endif
 	tvoutc_setmode2(vmode_tvmode_tab[mod]);
 	//change_vdac_setting2(get_current_vdac_setting(),mod);
 	return 0;
@@ -279,6 +285,13 @@ static int tv_vmode_is_supported(vmode_t mode)
 }
 static int tv_module_disable(vmode_t cur_vmod)
 {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	if (info->vinfo) {
+		release_vpu_clk_vmod(info->vinfo->mode);
+		switch_vpu_mem_pd_vmod(info->vinfo->mode, VPU_MEM_POWER_DOWN);
+	}
+#endif
+
 	video_dac_disable();
 	return 0;
 }

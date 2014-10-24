@@ -8,7 +8,7 @@
 #include <linux/err.h>
 #include <linux/hardirq.h>
 
-unsigned char GCLK_ref[GCLK_IDX_MAX];
+short GCLK_ref[GCLK_IDX_MAX];
 EXPORT_SYMBOL(GCLK_ref);
 
 //#define PRINT_DEBUG_INFO

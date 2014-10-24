@@ -129,7 +129,7 @@ static const struct snd_pcm_hardware aml_i2s_capture = {
 static char snd_i2s_tmp[32*1024];
 
 
-static unsigned int period_sizes[] = { 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
+static unsigned int period_sizes[] = { 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 };
 
 static struct snd_pcm_hw_constraint_list hw_constraints_period_sizes = {
 	.count = ARRAY_SIZE(period_sizes),
@@ -509,7 +509,7 @@ static int aml_i2s_open(struct snd_pcm_substream *substream)
 
 	spin_lock_init(&prtd->s.lock);
 	s= &prtd->s;
-	WRITE_MPEG_REG_BITS( HHI_MPLL_CNTL9, 1,14, 1);
+	WRITE_MPEG_REG_BITS(MPLL_I2S_CNTL, 1,14, 1);
 	mutex_lock(&gate_mutex);
 	if(!num_clk_gate){
         num_clk_gate = 1;
@@ -604,7 +604,7 @@ static int aml_i2s_copy_playback(struct snd_pcm_runtime *runtime, int channel,
           right += 8;
         }
 
-      }else if(runtime->format == SNDRV_PCM_FORMAT_S32_LE && I2S_MODE == AIU_I2S_MODE_PCM32){
+      }else if(runtime->format == SNDRV_PCM_FORMAT_S32_LE /*&& I2S_MODE == AIU_I2S_MODE_PCM32*/){
         int32_t *tfrom, *to, *left, *right;
         tfrom = (int32_t*)buf;
         to = (int32_t*) hwbuf;

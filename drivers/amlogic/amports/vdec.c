@@ -43,7 +43,7 @@
 
 static DEFINE_SPINLOCK(lock);
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
 /*
 HHI_VDEC_CLK_CNTL
 0x1078[11:9] (fclk = 2550MHz)
@@ -827,7 +827,7 @@ static ssize_t dump_trace_show(struct class *class, struct class_attribute *attr
 {
 	int i;
 	char *pbuf = buf;
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	unsigned long flags;
 #endif
 	u16 *trace_buf=kmalloc(debug_trace_num*2,GFP_KERNEL);
@@ -835,7 +835,7 @@ static ssize_t dump_trace_show(struct class *class, struct class_attribute *attr
 		pbuf += sprintf(pbuf, "No Memory bug\n");
 		return (pbuf - buf);
 	}
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     spin_lock_irqsave(&lock, flags);
 	if(!vdec_on(VDEC_1)){
 		spin_unlock_irqrestore(&lock, flags);
@@ -868,7 +868,7 @@ static ssize_t dump_trace_show(struct class *class, struct class_attribute *attr
 		i+=16;
 	};
     printk("dump trace steps:%d finished \n",debug_trace_num);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     spin_unlock_irqrestore(&lock, flags);
 #elif MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
     switch_mod_gate_by_type(MOD_VDEC, 0);

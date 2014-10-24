@@ -445,6 +445,7 @@ static void aml_sdio_timeout(struct work_struct *work)
     }
     if((irqs->sdio_cmd_int)                             // irq have been occured
             || (host->xfer_step == XFER_IRQ_OCCUR)){    // isr have been run
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
         //mod_timer(&host->timeout_tlist, jiffies + 10);
         schedule_delayed_work(&host->timeout, 10);
         
@@ -457,8 +458,9 @@ static void aml_sdio_timeout(struct work_struct *work)
         else
             sdio_err("%s: isr have been run\n",  mmc_hostname(host->mmc));
             
-        spin_unlock_irqrestore(&host->mrq_lock, flags);
         return;
+    } else {
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
     }
 timeout_handle:
     timeout_cnt = 0;
@@ -473,6 +475,7 @@ timeout_handle:
     irqc->arc_cmd_int_en = 0;   // disable cmd irq
     writel(virqc, host->base + SDIO_IRQC);
 
+    spin_lock_irqsave(&host->mrq_lock, flags);
     host->xfer_step = XFER_TIMEDOUT;
     host->mrq->cmd->error = -ETIMEDOUT;
     spin_unlock_irqrestore(&host->mrq_lock, flags);
@@ -746,7 +749,8 @@ static irqreturn_t aml_sdio_irq(int irq, void *dev_id)
         spin_unlock_irqrestore(&host->mrq_lock, flags);
 
     if(irqs->sdio_if_int){
-        if(host->mmc->sdio_irq_thread)
+        if((host->mmc->sdio_irq_thread)
+		&&(!atomic_read(& host->mmc->sdio_irq_thread_abort)))
             mmc_signal_sdio_irq(host->mmc);
     }
 
@@ -797,23 +801,25 @@ irqreturn_t aml_sdio_irq_thread(int irq, void *data)
     host->xfer_step = XFER_TASKLET_DATA;
 
     if(!mrq->data){
-        if(irqs->sdio_response_crc7_ok || send->response_do_not_have_crc7)
+        if(irqs->sdio_response_crc7_ok || send->response_do_not_have_crc7) {
             mrq->cmd->error = 0;
-        else {
+            spin_unlock_irqrestore(&host->mrq_lock, flags);
+        } else {
             mrq->cmd->error = -EILSEQ;
+            spin_unlock_irqrestore(&host->mrq_lock, flags);
             aml_sdio_print_err(host, "cmd crc7 error");
         }
-        spin_unlock_irqrestore(&host->mrq_lock, flags);
         aml_sdio_request_done(host->mmc, mrq);
     }else{
-        if(irqs->sdio_data_read_crc16_ok||irqs->sdio_data_write_crc16_ok)
+        if(irqs->sdio_data_read_crc16_ok||irqs->sdio_data_write_crc16_ok) {
             mrq->cmd->error = 0;
-        else {
+            spin_unlock_irqrestore(&host->mrq_lock, flags);
+        } else {
             mrq->cmd->error = -EILSEQ;
+            spin_unlock_irqrestore(&host->mrq_lock, flags);
             aml_sdio_print_err(host, "data crc16 error");
         }
         mrq->data->bytes_xfered = mrq->data->blksz*mrq->data->blocks;
-        spin_unlock_irqrestore(&host->mrq_lock, flags);
         if(mrq->data->flags & MMC_DATA_READ){
             aml_sg_copy_buffer(mrq->data->sg, mrq->data->sg_len,
                 host->bn_buf, mrq->data->blksz*mrq->data->blocks, 0);

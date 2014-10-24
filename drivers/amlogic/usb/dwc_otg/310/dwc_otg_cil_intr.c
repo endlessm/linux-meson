@@ -425,6 +425,7 @@ host:
 		else
 			dwc_otg_core_init(core_if);
 		dwc_otg_enable_global_interrupts(core_if);
+		((dwc_otg_hcd_t *)(core_if->hcd_cb_p))->flags.d32 = 0;
 		cil_hcd_start(core_if);
 		core_if->suspend_mode = 0;
 	}
@@ -1587,6 +1588,7 @@ int32_t dwc_otg_handle_common_intr(void *dev)
 {
 	int retval = 0;
 	gintsts_data_t gintsts;
+	gintsts_data_t gintsts_tmp;
 	gpwrdn_data_t gpwrdn = {.d32 = 0 };
 	dwc_otg_device_t *otg_dev = dev;
 	dwc_otg_core_if_t *core_if = otg_dev->core_if;
@@ -1626,7 +1628,15 @@ int32_t dwc_otg_handle_common_intr(void *dev)
 			retval |= dwc_otg_handle_conn_id_status_change_intr(core_if);
 		}
 		if (gintsts.b.disconnect) {
-			retval |= dwc_otg_handle_disconnect_intr(core_if);
+			if (gintsts.b.portintr && dwc_otg_is_host_mode(core_if))
+				retval |= dwc_otg_handle_disconnect_intr(core_if);
+			else
+			{
+				gintsts_tmp.d32 = 0;
+				gintsts_tmp.b.disconnect = 1;
+				DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts_tmp.d32);
+				retval |= 1;
+			}
 		}
 		if (gintsts.b.sessreqintr) {
 			retval |= dwc_otg_handle_session_req_intr(core_if);

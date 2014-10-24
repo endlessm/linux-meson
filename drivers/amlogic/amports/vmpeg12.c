@@ -120,7 +120,7 @@ static int vmpeg_event_cb(int type, void *data, void *private_data);
 
 static void vmpeg12_prot_init(void);
 static void vmpeg12_local_init(void);
-static u32 frame_counter = 0;
+
 static const char vmpeg12_dec_id[] = "vmpeg12-dev";
 #define PROVIDER_NAME   "decoder.mpeg12"
 static const struct vframe_operations_s vmpeg_vf_provider =
@@ -371,6 +371,7 @@ static irqreturn_t vmpeg12_isr(int irq, void *dev_id)
             vf = vfq_pop(&newframe_q);
 
             vfbuf_use[index] = 2;
+
             set_frame_info(vf);
 
             vf->index = index;
@@ -387,11 +388,9 @@ static irqreturn_t vmpeg12_isr(int irq, void *dev_id)
             vf->canvas0Addr = vf->canvas1Addr = index2canvas(index);
             vf->pts = (pts_valid) ? pts : 0;
 
-            if (error_skip(info, vf)|| !frame_counter && !((info & PICINFO_TYPE_MASK) == PICINFO_TYPE_I)) {
+            if (error_skip(info, vf)) {
                 vfq_push(&recycle_q, vf);
-
             } else {
-              //  frame_counter = 1;
                 vfq_push(&display_q, vf);
                 vf_notify_receiver(PROVIDER_NAME,VFRAME_EVENT_PROVIDER_VFRAME_READY,NULL);
             }
@@ -414,8 +413,8 @@ static irqreturn_t vmpeg12_isr(int irq, void *dev_id)
             vf->orientation = 0 ;
             vf->canvas0Addr = vf->canvas1Addr = index2canvas(index);
             vf->pts = 0;
-            if (error_skip(info, vf)|| !frame_counter&& !((info & PICINFO_TYPE_MASK) == PICINFO_TYPE_I)) {
-                frame_counter = 1;
+
+            if (error_skip(info, vf)) {
                 vfq_push(&recycle_q, vf);
             } else {
                 vfq_push(&display_q, vf);
@@ -739,7 +738,7 @@ static void vmpeg12_local_init(void)
 
     frame_force_skip_flag = 0;
     wait_buffer_counter = 0;
-    frame_counter = 0;
+
     dec_control &= DEC_CONTROL_INTERNAL_MASK;
 }
 

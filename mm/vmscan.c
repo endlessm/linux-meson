@@ -1048,9 +1048,26 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
  *
  * returns 0 on success, -ve errno on failure.
  */
-int __isolate_lru_page(struct page *page, isolate_mode_t mode)
+int __isolate_lru_page(struct page *page, isolate_mode_t mode, gfp_t gfp_mask)
 {
 	int ret = -EINVAL;
+	unsigned long free_cma, total_free;
+
+#if 1
+	free_cma = global_page_state(NR_FREE_CMA_PAGES);
+	free_cma += free_cma << 1;
+	total_free = global_page_state(NR_FREE_PAGES);
+	if(page){
+		if((free_cma > total_free) && is_migrate_cma(get_pageblock_migratetype(page))){
+			return -EBUSY;
+		}
+	}
+#endif
+
+	if((allocflags_to_migratetype(gfp_mask) & MIGRATE_MOVABLE == 0) \
+		&& is_migrate_cma(get_pageblock_migratetype(page))){
+		return -EBUSY;
+	}
 
 	/* Only take pages on the LRU. */
 	if (!PageLRU(page))
@@ -1149,8 +1166,7 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 		prefetchw_prev_lru_page(page, src, flags);
 
 		VM_BUG_ON(!PageLRU(page));
-
-		switch (__isolate_lru_page(page, mode)) {
+		switch (__isolate_lru_page(page, mode, sc->gfp_mask)) {
 		case 0:
 			nr_pages = hpage_nr_pages(page);
 			mem_cgroup_update_lru_size(lruvec, lru, -nr_pages);

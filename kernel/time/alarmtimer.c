@@ -766,7 +766,7 @@ out:
 
 /* Suspend hook structures */
 static const struct dev_pm_ops alarmtimer_pm_ops = {
-	.suspend = alarmtimer_suspend,
+	.suspend_late = alarmtimer_suspend,
 };
 
 static struct platform_driver alarmtimer_driver = {

@@ -134,6 +134,7 @@ static int cec_ll_tx_once(const unsigned char *msg, unsigned char len)
             hdmi_print(INF, CEC "tx busy time out.\n");
             aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
             aocec_wr_reg(CEC_TX_MSG_CMD, TX_NO_OP);
+            break;
         }
     }
     for (i = 0; i < len; i++)

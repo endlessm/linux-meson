@@ -11,3 +11,4 @@ obj-$(CONFIG_AM_JPEGDEC) += jpeg/
 obj-$(CONFIG_AM_VDEC_H264_4K2K) += h264_4k2k/
 obj-$(CONFIG_AM_ENCODER) += encoder/
 obj-$(CONFIG_AM_JPEG_ENCODER) += jpegenc/
+obj-$(CONFIG_AM_VDEC_AVS) += avs/

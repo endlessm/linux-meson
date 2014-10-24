@@ -94,13 +94,20 @@ static int aml_dai_i2s_startup(struct snd_pcm_substream *substream,
 out:
 	return ret;
 }
-
+extern void  aml_spdif_play();
 static void aml_dai_i2s_shutdown(struct snd_pcm_substream *substream,
 					struct snd_soc_dai *dai)
 {
 	ALSA_TRACE();
+    struct snd_pcm_runtime *runtime = substream->runtime;
+    if(runtime->channels == 8){
+        aml_spdif_play();
+    }
 }
 static int  set_clock = -1;
+#define AOUT_EVENT_IEC_60958_PCM 0x1
+extern int aout_notifier_call_chain(unsigned long val,void * v);
+
 static int aml_dai_i2s_prepare(struct snd_pcm_substream *substream,
 					struct snd_soc_dai *dai)
 {	
@@ -176,6 +183,10 @@ static int aml_dai_i2s_prepare(struct snd_pcm_substream *substream,
     else{       
         s->device_type = AML_AUDIO_I2SOUT;
         aml_hw_i2s_init(runtime);
+    }
+    if(runtime->channels == 8){
+        printk("[%s,%d]8ch PCM output->notify HDMI\n",__FUNCTION__,__LINE__);
+        aout_notifier_call_chain(AOUT_EVENT_IEC_60958_PCM,substream);
     }
     return 0;
 }

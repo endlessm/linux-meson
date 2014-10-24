@@ -652,13 +652,13 @@ static void vpu_driver_disable(void)
 #ifdef CONFIG_PM
 static int vpu_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	vpu_driver_disable();
+	//vpu_driver_disable();
 	return 0;
 }
 
 static int vpu_resume(struct platform_device *pdev)
 {
-	vpu_driver_init();
+	//vpu_driver_init();
 	return 0;
 }
 #endif

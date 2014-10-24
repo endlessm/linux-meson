@@ -139,6 +139,7 @@ struct aml_dmx {
 	int                  aud_chan;
 	int                  vid_chan;
 	int                  sub_chan;
+	int                  pcr_chan;
 	u32                  section_busy[SEC_BUF_BUSY_SIZE];
 	struct dvb_frontend *fe;
 	int                  int_check_count;

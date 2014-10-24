@@ -785,12 +785,14 @@ static ssize_t digital_codec_show(struct class*cla, struct class_attribute* attr
 	"0-pcm",
     "1-old_dts",
     "2-dd",
-    "3-dtshd",
+    "3-dts",
     "4-dd+",
+    "5-dtshd"
+    "6-8chpcm"
   };
   char* pbuf = buf;
 
-  printk("IEC958_mode_codec/%d Digital codec type: %s\n",IEC958_mode_codec, codec_format[IEC958_mode_codec]);
+  //printk("IEC958_mode_codec/%d Digital codec type: %s\n",IEC958_mode_codec, codec_format[IEC958_mode_codec]);
   pbuf += sprintf(pbuf, "%d\n",IEC958_mode_codec);
   return (pbuf-buf);
 }
@@ -808,6 +810,10 @@ static ssize_t digital_codec_store(struct class* class, struct class_attribute* 
       IEC958_mode_codec= 3;   //dts
   }else if(buf[0] == '4'){    
       IEC958_mode_codec=4;   //dd+
+  }else if(buf[0] == '5'){
+      IEC958_mode_codec=5;   //dtshd 
+  }else if(buf[0] == '6'){
+      IEC958_mode_codec=6;   //pcm 8Ch output
   }
   printk("IEC958_mode_codec=%d\n", IEC958_mode_codec);
   return count;

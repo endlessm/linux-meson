@@ -135,6 +135,15 @@ typedef enum {
     PROCESS_FUN_BOB
 }process_fun_index_t;
 
+typedef enum {
+    PULL_DONW_BLEND_0 = 0,//buf1=dup[0]
+    PULL_DOWN_BLEND_2 = 1,//buf1=dup[2]
+    PULL_DOWN_MTN     = 2,//mtn only
+    PULL_DOWN_BUF1    = 3,//do wave with dup[0]
+    PULL_DOWN_EI      = 4,//ei only
+    PULL_DOWN_NORMAL  = 5,//normal di
+}pulldown_mode_t;
+
 typedef struct di_buf_s{
 #ifdef D2D3_SUPPORT
     unsigned int dp_buf_adr;
@@ -171,7 +180,7 @@ typedef struct di_buf_s{
     pulldown_detect_info_t win_pd_info[MAX_WIN_NUM];
 
     unsigned long mtn_info[5];
-    int pulldown_mode;
+    pulldown_mode_t pulldown_mode;
     int win_pd_mode[5];
     process_fun_index_t process_fun_index;
     int early_process_fun_index;

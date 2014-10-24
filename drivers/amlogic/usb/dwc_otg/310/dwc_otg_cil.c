@@ -372,7 +372,7 @@ void dwc_otg_disable_global_interrupts(dwc_otg_core_if_t * core_if)
  * @param core_if Programming view of the DWC_otg controller
  *
  */
-static void dwc_otg_enable_common_interrupts(dwc_otg_core_if_t * core_if)
+void dwc_otg_enable_common_interrupts(dwc_otg_core_if_t * core_if)
 {
 	dwc_otg_core_global_regs_t *global_regs = core_if->core_global_regs;
 	gintmsk_data_t intr_mask = {.d32 = 0 };

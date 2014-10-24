@@ -32,10 +32,10 @@ endif
 
 obj-$(CONFIG_AM_STREAMING) += amports.o
 
-AMPROT_OBJS = amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o
+AMPROT_OBJS = amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o tsync_pcr.o
 
 ifeq ($(CONFIG_ARCH_MESON8B),y)
-amports-y    := amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o
+amports-y    := amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o  tsync_pcr.o
 else
 ifeq ($(CONFIG_ARCH_MESON8),y)
 amports-objs := $(AMPROT_OBJS)
@@ -106,6 +106,12 @@ ifeq ($(CONFIG_ARCH_MESON6TVD),y)
 obj-$(CONFIG_AM_VDEC_AVS) += amvdec_avs.o
 amvdec_avs-objs := vavs.o
 amvdec_avs-y    := vavs.o
+else
+ifeq ($(CONFIG_ARCH_MESON8),y)
+obj-$(CONFIG_AM_VDEC_AVS) += amvdec_avs.o
+amvdec_avs-objs := vavs.o
+amvdec_avs-y    := vavs.o
+endif
 endif
 endif
 
@@ -143,6 +149,7 @@ obj-$(CONFIG_AM_PTSSERVER) += ptsserv.o
 obj-$(CONFIG_AM_SUBTITLE) += subtitle.o
 
 obj-$(CONFIG_VSYNC_RDMA) += rdma.o
+
 
 ifneq ($(CONFIG_AM_DVB),)
 EXTRA_CFLAGS = -DENABLE_DEMUX_DRIVER -DMODIFY_TIMESTAMP_INC_WITH_PLL -DCALC_CACHED_TIME #-DUSE_VMASTER_MODE

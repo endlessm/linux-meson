@@ -383,6 +383,44 @@ typedef enum tv_enc_lcd_type_e{
 #define DCS_CMD_CODE_SET_TEAR_OFF         0xb
 #define DCS_CMD_CODE_SOFT_RESET           0xc
 
+//********************************************************************************
+//      DPHY timing parameter       Value (unit: 0.01ns)
+#define DPHY_TIME_LP_TESC(ui)       (250 * 100) //>100ns //4M
+#define DPHY_TIME_LP_LPX(ui)        (100 * 100) //>50ns
+#define DPHY_TIME_LP_TA_SURE(ui)    DPHY_TIME_LP_LPX(ui) //(lpx, 2*lpx)
+#define DPHY_TIME_LP_TA_GO(ui)      (4 * DPHY_TIME_LP_LPX(ui)) //4*lpx
+#define DPHY_TIME_LP_TA_GETX(ui)    (5 * DPHY_TIME_LP_LPX(ui)) //5*lpx
+#define DPHY_TIME_HS_EXIT(ui)       (120 * 100) //>100ns
+#define DPHY_TIME_HS_TRAIL(ui)      ((ui > (60 * 100 / 4)) ? (8 * ui) : ((60 * 100) + 4 * ui)) //max(8*ui, 60+4*ui) //(teot)<105+12*ui
+#define DPHY_TIME_HS_PREPARE(ui)    (50 * 100 + 4 * t_ui) //(40+4*ui, 85+6*ui)
+#define DPHY_TIME_HS_ZERO(ui)       (160 * 100 + 10 * ui - DPHY_TIME_HS_PREPARE(ui)) //hs_prepare+hs_zero >145+10*ui
+#define DPHY_TIME_CLK_TRAIL(ui)     (70 * 100) //>60ns //(teot)<105+12*ui
+#define DPHY_TIME_CLK_POST(ui)      (70 * 100 + 52 * ui) //>60+52*ui
+#define DPHY_TIME_CLK_PREPARE(ui)   (50 * 100) //(38, 95)
+#define DPHY_TIME_CLK_ZERO(ui)      (320 * 100 - DPHY_TIME_CLK_PREPARE(ui)) //clk_prepare+clk_zero > 300
+#define DPHY_TIME_CLK_PRE(ui)       (10 * ui) //>8*ui
+#define DPHY_TIME_INIT(ui)          (110 * 1000 * 100) //>100us
+#define DPHY_TIME_WAKEUP(ui)        (1020 * 1000 * 100) //>1ms
+typedef struct DSI_Phy_s{
+    unsigned int lp_tesc;
+    unsigned int lp_lpx;
+    unsigned int lp_ta_sure;
+    unsigned int lp_ta_go;
+    unsigned int lp_ta_get;
+    unsigned int hs_exit;
+    unsigned int hs_trail;
+    unsigned int hs_zero;
+    unsigned int hs_prepare;
+    unsigned int clk_trail;
+    unsigned int clk_post;
+    unsigned int clk_zero;
+    unsigned int clk_prepare;
+    unsigned int clk_pre;
+    unsigned int init;
+    unsigned int wakeup;
+}DSI_Phy_t;
+//********************************************************************************
+
 extern unsigned char *get_dsi_init_table(int flag);
 
 #define DSI_CMD_SIZE_MAX		2000

@@ -78,7 +78,7 @@
 #elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B)
 #define DRV_TYPE "c8b"
 #endif
-#define DRIVER_DATE		"20140512"
+#define DRIVER_DATE		"20140522"
 
 //#define LCD_DEBUG_INFO
 #ifdef LCD_DEBUG_INFO
@@ -787,13 +787,8 @@ static void set_tcon_lcd(Lcd_Config_t *pConf)
 	hs_pol = ((pConf->lcd_timing.pol_cntl_addr >> LCD_HS_POL) & 1);	//0 for low active, 1 for high active
 	vs_pol = ((pConf->lcd_timing.pol_cntl_addr >> LCD_VS_POL) & 1);	//0 for low active, 1 for high active
 	
-	if(lcd_type==LCD_DIGITAL_MIPI) {
-		;
-	}
-	else {
-		WRITE_LCD_REG(L_POL_CNTL_ADDR,   ((1 << LCD_TCON_DE_SEL) | (1 << LCD_TCON_VS_SEL) | (1 << LCD_TCON_HS_SEL))); //enable tcon DE, Hsync, Vsync
-		SET_LCD_REG_MASK(L_POL_CNTL_ADDR, ((0 << LCD_DE_POL) | (vs_pol << LCD_VS_POL) | (hs_pol << LCD_HS_POL)));	//adjust hvsync pol
-	}
+	WRITE_LCD_REG(L_POL_CNTL_ADDR,   ((1 << LCD_TCON_DE_SEL) | (1 << LCD_TCON_VS_SEL) | (1 << LCD_TCON_HS_SEL))); //enable tcon DE, Hsync, Vsync
+	SET_LCD_REG_MASK(L_POL_CNTL_ADDR, ((0 << LCD_DE_POL) | ((vs_pol ? 0 : 1) << LCD_VS_POL) | ((hs_pol ? 0 : 1) << LCD_HS_POL)));	//adjust hvsync pol
 	
 	//DE signal
 	WRITE_LCD_REG(L_DE_HS_ADDR,		tcon_adr->oeh_hs_addr);

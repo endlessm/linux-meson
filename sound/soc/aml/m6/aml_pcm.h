@@ -18,6 +18,7 @@ typedef struct audio_stream {
     spinlock_t lock;
     struct snd_pcm_substream *stream;
 	unsigned i2s_mode; //0:master, 1:slave,
+	unsigned int xrun_num;
 } audio_stream_t;
 
 typedef struct aml_audio {

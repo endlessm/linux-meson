@@ -21,6 +21,7 @@
 
 #ifndef STREAMBUF_H
 #define STREAMBUF_H
+#include "amports_config.h"
 
 #define BUF_FLAG_ALLOC          0x01
 #define BUF_FLAG_IN_USE         0x02
@@ -32,7 +33,7 @@
 #define BUF_TYPE_AUDIO      1
 #define BUF_TYPE_SUBTITLE   2
 #define BUF_TYPE_USERDATA   3
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
 #define BUF_TYPE_HEVC       4
 #define BUF_MAX_NUM         5
 #else
@@ -82,6 +83,7 @@ typedef struct stream_port_s {
     u32 vid;
     u32 aid;
     u32 sid;
+    u32 pcrid;
 } stream_port_t;
 
 extern ulong fetchbuf, *fetchbuf_remap;

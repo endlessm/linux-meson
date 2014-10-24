@@ -123,7 +123,7 @@
 	#define LVDS_REPACK					0
 
 /* for video encoder */
-	#define	MIPI_DELAY				2
+	#define	MIPI_DELAY				8
 	#define	LVDS_DELAY				8
 	#define	EDP_DELAY				8
 	#define	TTL_DELAY				19

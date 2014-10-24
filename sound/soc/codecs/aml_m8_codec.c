@@ -283,14 +283,14 @@ static struct snd_soc_dai_ops aml_m8_codec_dai_ops = {
 #define AML_RATES SNDRV_PCM_RATE_8000_96000
 
 #define AML_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
-	SNDRV_PCM_FMTBIT_S24_LE)
+	SNDRV_PCM_FMTBIT_S24_LE|SNDRV_PCM_FMTBIT_S32_LE)
 
 struct snd_soc_dai_driver aml_m8_codec_dai = {
 	.name = "AML-M8",
 	.playback = {
 		.stream_name = "Playback",
 		.channels_min = 1,
-		.channels_max = 2,
+		.channels_max = 8,
 		.rates = AML_RATES,
 		.formats = AML_FORMATS,},
 	.capture = {

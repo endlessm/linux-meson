@@ -566,6 +566,7 @@ SiiPlatformStatus_t SiiMasterI2cTransfer(deviceBusTypes_t busIndex,
     		i2cMsg[idx].buf		= pMsgs[idx].pBuf;
     		i2cMsg[idx].len		= pMsgs[idx].len;
     		i2cMsg[idx].flags	= (pMsgs[idx].cmdFlags & SII_MI2C_RD) ? I2C_M_RD : 0;
+            i2cMsg[idx].flags   |= (1<<1); // 1 for 50k
     		if(pMsgs[idx].cmdFlags & SII_MI2C_TEN) {
     			pMsgs[idx].cmdFlags |= I2C_M_TEN;
     		}

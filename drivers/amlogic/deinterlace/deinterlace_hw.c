@@ -1536,7 +1536,7 @@ void initial_di_post_2 ( int hsize_post, int vsize_post, int hold_line )
                       (0 << 9)  |        				// mif0 to VPP enable.
                       (0 << 10) |        				// post drop first.
                       (0 << 11) |        				// post repeat.
-                      (1 << 12) |        				// post viu link
+                      (0 << 12) |        				// post viu link
                       (hold_line << 16) |      			// post hold line number
                       (0 << 29) |        				// post field number.
                       (0x3 << 30)       				// post soft rst  post frame rst.
@@ -1607,14 +1607,15 @@ void di_post_switch_buffer (
 #else
 
 	//VSYNC_WR_MPEG_REG(DI_BLEND_CTRL, (blend_ctrl&(~(3<<20))&~(0xff))|(blend_mode<<20)|kdeint);
-    VSYNC_WR_MPEG_REG(DI_BLEND_CTRL, (blend_ctrl&0xffffff00)| kdeint0);
+    VSYNC_WR_MPEG_REG(DI_BLEND_CTRL, (blend_ctrl&0xffcfff00)| (blend_mode<<20) | (0xff&kdeint0));
     //if (di_pre_stru.di_wr_buf->mtn_info[4] > di_pre_stru.di_wr_buf->mtn_info[3] & di_pre_stru.di_wr_buf->mtn_info[3] > di_pre_stru.di_wr_buf->mtn_info[2])
     if((reg_mtn_info[0]>mtn_thre_1_high)&(reg_mtn_info[4]<mtn_thre_2_low)){
- 	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffffff00) | kdeint1));}
+ 	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffcfff00) | (blend_mode<<20)| (0xff&kdeint1)));}
     //if((reg_mtn_info[0]<mtn_thre_1_low)&(reg_mtn_info[4]<mtn_thre_2_low)){
     //VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,(0x19700000 | kdeint1));}
 	if(reg_mtn_info[4]>mtn_thre_2_high){
-	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffffff00) | kdeint2));}
+	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffcfff00) | (blend_mode<<20)| (0xff&kdeint2)));
+	}
     VSYNC_WR_MPEG_REG(DI_BLEND_CTRL1, (blend_ctrl1_char_level<< 24 ) |    ( blend_ctrl1_angle_thd << 16 ) |    ( blend_ctrl1_filt_thd<< 8 )  |    ( blend_ctrl1_diff_thd));
     VSYNC_WR_MPEG_REG(DI_BLEND_CTRL2,   (blend_ctrl2_black_level<< 8 ) |     (blend_ctrl2_mtn_no_mov)  );
 #ifdef NEW_DI_V1
@@ -1659,7 +1660,8 @@ void enable_di_post_2 (
   	{
      	set_di_if1_mif( di_buf1_mif, di_vpp_en, hold_line );
   	}
-
+//printk("%s: ei_only %d,buf1_en %d,ei_en %d,di_vpp_en %d,di_ddr_en %d,blend_mtn_en %d,blend_mode %d.\n",
+			 //__func__,ei_only,buf1_en,ei_en,di_vpp_en,di_ddr_en,blend_mtn_en,blend_mode);
    	// motion for current display field.
     if ( blend_mtn_en )
     {
@@ -1697,14 +1699,16 @@ void enable_di_post_2 (
 #else
 
 	//VSYNC_WR_MPEG_REG(DI_BLEND_CTRL, (blend_ctrl&(~(3<<20))&~(0xff))|(blend_mode<<20)|kdeint);
-    VSYNC_WR_MPEG_REG(DI_BLEND_CTRL, (blend_ctrl&0xffffff00)| kdeint0);
+    VSYNC_WR_MPEG_REG(DI_BLEND_CTRL, (blend_ctrl&0xffcfff00)|(blend_mode<<20)|(0xff&kdeint0));
     //if (di_pre_stru.di_wr_buf->mtn_info[4] > di_pre_stru.di_wr_buf->mtn_info[3] & di_pre_stru.di_wr_buf->mtn_info[3] > di_pre_stru.di_wr_buf->mtn_info[2])
     if((reg_mtn_info[0]>mtn_thre_1_high)&(reg_mtn_info[4]<mtn_thre_2_low)){
- 	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffffff00) | kdeint1));}
+ 	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffcfff00) | (blend_mode<<20)| (0xff&kdeint1)));
+ 	}
     //if((reg_mtn_info[0]<mtn_thre_1_low)&(reg_mtn_info[4]<mtn_thre_2_low)){
     //VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,(0x19700000 | kdeint1));}
 	if(reg_mtn_info[4]>mtn_thre_2_high){
-	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffffff00) | kdeint2));}
+	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,((blend_ctrl&0xffcfff00) | (blend_mode<<20)| (0xff&kdeint2)));
+	}
     VSYNC_WR_MPEG_REG(DI_BLEND_CTRL1, (blend_ctrl1_char_level<< 24 ) |    ( blend_ctrl1_angle_thd << 16 ) |    ( blend_ctrl1_filt_thd<< 8 )  |    ( blend_ctrl1_diff_thd));
     VSYNC_WR_MPEG_REG(DI_BLEND_CTRL2,   (blend_ctrl2_black_level<< 8 ) |     (blend_ctrl2_mtn_no_mov)  );
 #ifdef NEW_DI_V1
@@ -1754,7 +1758,7 @@ void enable_di_post_2 (
         VSYNC_WR_MPEG_REG(DI_EI_CTRL3, ei_ctrl3);
 #endif
 }
-
+#if 0
 void di_post_switch_buffer_pd (
     DI_MIF_t        *di_buf0_mif,
     DI_MIF_t        *di_buf1_mif,
@@ -1952,13 +1956,14 @@ void enable_di_post_pd(
                   );
 #endif
 }
-
+#endif
 
 void disable_post_deinterlace_2(void)
 {
 	VSYNC_WR_MPEG_REG(DI_POST_CTRL, 0x3 << 30);
     VSYNC_WR_MPEG_REG(DI_POST_SIZE, (32-1) | ((128-1) << 16));
-	VSYNC_WR_MPEG_REG(DI_IF1_GEN_REG, Rd(DI_IF1_GEN_REG) & 0xfffffffe);
+    VSYNC_WR_MPEG_REG(DI_IF1_GEN_REG, 0x3 << 30);
+    //VSYNC_WR_MPEG_REG(DI_IF1_GEN_REG, Rd(DI_IF1_GEN_REG) & 0xfffffffe);
 }
 
 void enable_di_mode_check_2( int win0_start_x, int win0_end_x, int win0_start_y, int win0_end_y,

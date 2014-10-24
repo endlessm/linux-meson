@@ -64,6 +64,8 @@ static int adc_sign_bit       = 0;
 #define BATTERY_CHARGING      1
 #define BATTERY_DISCHARGING   0
 
+static int pmu_init_chgvol = 0;
+static int ocv_voltage = 0;
 
 #ifdef CONFIG_AMLOGIC_USB
 struct work_struct          aml1216_otg_work;
@@ -71,6 +73,12 @@ extern int dwc_otg_power_register_notifier(struct notifier_block *nb);
 extern int dwc_otg_power_unregister_notifier(struct notifier_block *nb);
 extern int dwc_otg_charger_detect_register_notifier(struct notifier_block *nb);
 extern int dwc_otg_charger_detect_unregister_notifier(struct notifier_block *nb);
+struct later_job {
+    int flag;
+    int value;
+};
+static struct later_job aml1216_charger_job = {};
+static struct later_job aml1216_otg_job = {};
 #endif
 
 static int aml1216_update_state(struct aml_charger *charger);
@@ -81,6 +89,7 @@ static int      current_dir    = -1;
 static int      power_flag     = 0;
 static int      pmu_version    = 0;
 static int      chg_status_reg  = 0;
+static int      usb_bc_mode    = 0;
 
 int aml1216_get_battery_voltage(void)
 {
@@ -298,8 +307,57 @@ int aml1216_set_usb_voltage_limit(int voltage)
 }
 EXPORT_SYMBOL_GPL(aml1216_set_usb_voltage_limit);
 
+int aml1216_get_vsys_voltage(void)
+{
+    uint8_t val[2] = {};
+    int     result;
+    aml1216_write(0x00AA, 0xC3);                            // select VBUS channel
+    aml1216_write(0x009A, 0x28);
+    udelay(100);
+    aml1216_reads(0x00B1, val, 2);
+    result = ((val[1] & 0x1f) << 8) + val[0];
+    if (result & 0x1000) {                                  // complement code
+        result = 0;                                         // avoid ADC offset 
+    } else {
+        result = result * 6400 / 4096;
+    }
+    return result;
+}
+
+int aml1216_get_otp_version()
+{
+    uint8_t val = 0; 
+    int  otp_version = 0;
+    aml1216_read(0x007e, &val);
+    otp_version = (val & 0x60) >> 5;
+    return otp_version;
+}
+
+int aml1216_set_full_charge_voltage(int voltage);
 int aml1216_set_charge_enable(int enable)
 {
+    uint8_t val = 0; 
+    uint8_t val_t = 0;
+    int otp_version = 0;
+    int charge_status = 0;
+    int ocv = 0;
+    otp_version = aml1216_get_otp_version();
+    if (otp_version == 0)
+    {   
+        aml1216_set_full_charge_voltage(4050000);
+        if (usb_bc_mode == USB_BC_MODE_SDP) {
+            return aml1216_set_bits(0x0017, 0x00, 0x01);
+        }
+        if (ocv_voltage > 3950)
+        {   
+            printk("%s, otp_version:%d, ocv = %d, do not open charger.\n", __func__, otp_version, ocv_voltage);
+            return aml1216_set_bits(0x0017, 0x00, 0x01);
+        }
+    }
+    else if(otp_version >= 1)
+    {
+        aml1216_set_full_charge_voltage(pmu_init_chgvol);
+    }
     return aml1216_set_bits(0x0017, ((enable & 0x01)), 0x01); 
 }
 EXPORT_SYMBOL_GPL(aml1216_set_charge_enable);
@@ -314,6 +372,7 @@ EXPORT_SYMBOL_GPL(aml1216_set_recharge_voltage);
 int aml1216_set_charging_current(int curr)
 {
     int idx_cur, idx_to, val = 0;
+    int rem;
 
     if (curr > 2100 * 1000 || curr < 0) {
         AML1216_DBG("%s, wrong input of charge current:%d\n", __func__, curr);
@@ -332,6 +391,10 @@ int aml1216_set_charging_current(int curr)
 #endif
 
     idx_to = (curr - 300) / 150;
+    rem = curr % 150;                       // round up
+    if (rem) {
+        idx_to += 1;    
+    }
     aml1216_read(0x012b, (unsigned char *)&val);
     AML1216_DBG("%s to %dmA, idx_to:%x, idx_cur:%x\n", __func__, idx_to * 150 + 300, idx_to, val);
     idx_cur = val & 0x0f;
@@ -506,18 +569,27 @@ EXPORT_SYMBOL_GPL(aml1216_get_battery_percent);
 
 int aml1216_first_init(struct aml1216_supply *supply)
 {
+    int vbat, vsys;
     /*
      * initialize charger from battery parameters
      */
     if (aml1216_battery) {
         aml1216_set_charging_current   (aml1216_battery->pmu_init_chgcur);
-        aml1216_set_full_charge_voltage(aml1216_battery->pmu_init_chgvol);
+        //aml1216_set_full_charge_voltage(aml1216_battery->pmu_init_chgvol);
         aml1216_set_charge_end_rate    (aml1216_battery->pmu_init_chgend_rate);
         aml1216_set_trickle_time       (aml1216_battery->pmu_init_chg_pretime);
         aml1216_set_rapid_time         (aml1216_battery->pmu_init_chg_csttime);
         aml1216_set_recharge_voltage   ();
         aml1216_set_long_press_time    (aml1216_battery->pmu_pekoff_time);
-        aml1216_set_charge_enable      (aml1216_battery->pmu_init_chg_enabled);
+        pmu_init_chgvol = aml1216_battery->pmu_init_chgvol;
+        vbat = aml1216_get_battery_voltage();
+        vsys = aml1216_get_vsys_voltage();
+        if ((vsys > vbat) && (vsys - vbat < 500)) {
+            printk("%s, vsys is not large, vsys:%d, vbat:%d\n", __func__, vsys, vbat);
+            aml1216_set_charge_enable  (0);
+        } else {
+            aml1216_set_charge_enable  (aml1216_battery->pmu_init_chg_enabled);
+        }
 
         if (aml1216_battery->pmu_usbvol_limit) {
             aml1216_set_usb_voltage_limit(aml1216_battery->pmu_usbvol); 
@@ -834,6 +906,12 @@ static void aml1216_otg_work_fun(struct work_struct *work)
 
 int aml1216_otg_change(struct notifier_block *nb, unsigned long value, void *pdata)
 {
+    if (!g_aml1216_supply) {
+        AML1216_DBG("%s, driver is not ready, do it later\n", __func__);
+        aml1216_otg_job.flag  = 1;
+        aml1216_otg_job.value = value;
+        return 0;
+    }
     aml1216_otg_value = value;
     schedule_work(&aml1216_otg_work);
     return 0;
@@ -841,14 +919,38 @@ int aml1216_otg_change(struct notifier_block *nb, unsigned long value, void *pda
 
 int aml1216_usb_charger(struct notifier_block *nb, unsigned long value, void *pdata)
 {
+    if (!g_aml1216_supply) {
+        AML1216_DBG("%s, driver is not ready, do it later\n", __func__);
+        aml1216_charger_job.flag  = 1;
+        aml1216_charger_job.value = value;
+        return 0;
+    }
+    usb_bc_mode = value;
     switch (value) {
-    case USB_BC_MODE_DISCONNECT:                                        // disconnect
     case USB_BC_MODE_SDP:                                               // pc
+        if (aml1216_get_otp_version() == 0) {
+            printk("disable charger for REVB chip when connect to PC\n");
+            aml1216_set_charge_enable(0);
+        }
+        if (g_aml1216_init->vbus_dcin_short_connect) {
+            aml1216_set_dcin(0);                            // cut off dcin for single usb port device
+        }
         if (aml1216_battery && aml1216_battery->pmu_usbcur_limit) {     // limit usb current
             aml1216_set_usb_current_limit(aml1216_battery->pmu_usbcur); 
         }
         break;
 
+    case USB_BC_MODE_DISCONNECT:                                        // disconnect
+        if (g_aml1216_init->vbus_dcin_short_connect) {
+            aml1216_set_dcin(1); 
+        }
+        if (aml1216_battery && aml1216_battery->pmu_usbcur_limit) {     // limit usb current
+            aml1216_set_usb_current_limit(aml1216_battery->pmu_usbcur); 
+        }
+        if (aml1216_get_otp_version() == 0) {
+            aml1216_set_charge_enable(1);
+        }
+        break;
     case USB_BC_MODE_DCP:                                               // charger
     case USB_BC_MODE_CDP:                                               // PC + charger
         if (aml1216_battery) {                                          // limit usb current
@@ -1190,22 +1292,6 @@ int aml1216_cal_ocv(int ibat, int vbat, int dir)
     return result;
 }
 
-int aml1216_get_vsys_voltage(void)
-{
-    uint8_t val[2] = {};
-    int     result;
-    aml1216_write(0x00AA, 0xC3);                            // select VBUS channel
-    aml1216_write(0x009A, 0x28);
-    udelay(100);
-    aml1216_reads(0x00B1, val, 2);
-    result = ((val[1] & 0x1f) << 8) + val[0];
-    if (result & 0x1000) {                                  // complement code
-        result = 0;                                         // avoid ADC offset 
-    } else {
-        result = result * 6400 / 4096;
-    }
-    return result;
-}
 static int aml1216_update_state(struct aml_charger *charger)
 {
     uint8_t val;
@@ -1251,11 +1337,20 @@ static int aml1216_update_state(struct aml_charger *charger)
     charger->vbat = aml1216_get_battery_voltage();
     charger->ocv  = aml1216_cal_ocv(charger->ibat, charger->vbat, charger->charge_status);
 
+    ocv_voltage = charger->ocv;
     if (val & 0x40) {
         AML1216_DBG("%s, charge timeout, val:0x%02x, reset charger now\n", __func__, val);
         aml1216_set_charge_enable(0);
         msleep(1000);
         aml1216_set_charge_enable(1);               
+    }
+    if (aml1216_get_otp_version() == 0) {
+        if ((vsys_voltage > charger->vbat) && (vsys_voltage - charger->vbat < 500) || charger->vbat > 3950) {
+            printk("%s, vsys is not large, or vbat is too large, vsys:%d, vbat:%d\n", __func__, vsys_voltage, charger->vbat);
+            aml1216_set_charge_enable(0);
+        } else {
+            aml1216_set_charge_enable(1);
+        }
     }
 
     return 0;
@@ -1319,7 +1414,7 @@ static void aml1216_charging_monitor(struct work_struct *work)
         (pre_chg_status != charger->charge_status) ||
         charger->resume                            ||
         power_protection) {
-        AML1216_DBG("battery vol change: %d->%d \n", pre_rest_cap, charger->rest_vol);
+        AML1216_DBG("battery vol change: %d->%d vsys:%d\n", pre_rest_cap, charger->rest_vol, aml1216_get_vsys_voltage());
         if (unlikely(charger->resume)) {
             charger->resume = 0;                                        // MUST clear this flag
         }
@@ -1343,8 +1438,8 @@ static void aml1216_earlysuspend(struct early_suspend *h)
     struct aml1216_supply *supply = (struct aml1216_supply *)h->param;
     if (aml1216_battery) {
         aml1216_set_charging_current(aml1216_battery->pmu_suspend_chgcur);
-        early_power_status = supply->aml_charger.ext_valid; 
     }
+    early_power_status = supply->aml_charger.ext_valid; 
     in_early_suspend = 1;
 }
 
@@ -1355,10 +1450,10 @@ static void aml1216_lateresume(struct early_suspend *h)
     schedule_work(&supply->work.work);                                      // update for upper layer 
     if (aml1216_battery) {
         aml1216_set_charging_current(aml1216_battery->pmu_resume_chgcur);
-        early_power_status = supply->aml_charger.ext_valid; 
         input_report_key(aml1216_power_key, KEY_POWER, 0);                  // cancel power key 
         input_sync(aml1216_power_key);
     }
+    early_power_status = supply->aml_charger.ext_valid; 
     in_early_suspend = 0;
     wake_unlock(&aml1216_lock);
 }
@@ -1408,6 +1503,7 @@ static int aml1216_battery_probe(struct platform_device *pdev)
     uint32_t tmp2;
 
 	AML1216_DBG("call %s in", __func__);
+
     g_aml1216_init = pdev->dev.platform_data;
     if (g_aml1216_init == NULL) {
         AML1216_DBG("%s, NO platform data\n", __func__);
@@ -1488,8 +1584,17 @@ static int aml1216_battery_probe(struct platform_device *pdev)
     charger->soft_limit_to99     = g_aml1216_init->soft_limit_to99;
     charger->coulomb_type        = COULOMB_BOTH; 
     supply->charge_timeout_retry = g_aml1216_init->charge_timeout_retry;
+    aml1216_update_state(charger);
 #ifdef CONFIG_AMLOGIC_USB
     INIT_WORK(&aml1216_otg_work, aml1216_otg_work_fun);
+    if (aml1216_charger_job.flag) {     // do later job for usb charger detect
+        aml1216_usb_charger(NULL, aml1216_charger_job.value, NULL);    
+        aml1216_charger_job.flag = 0;
+    }
+    if (aml1216_otg_job.flag) {
+        aml1216_otg_change(NULL, aml1216_otg_job.value, NULL);    
+        aml1216_otg_job.flag = 0;
+    }
 #endif
     if (supply->irq == AML1216_IRQ_NUM) {
         INIT_WORK(&supply->irq_work, aml1216_irq_work_func); 

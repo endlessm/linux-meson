@@ -141,7 +141,7 @@ config AM_VDEC_REAL
 
 config AM_VDEC_AVS
 	tristate "Amlogic AVS Video Decoder"
-    default n
+    default y
     
 	select AM_PTSSERVER
     help

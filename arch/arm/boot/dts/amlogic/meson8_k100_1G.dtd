@@ -1126,7 +1126,7 @@ sdio{
 		clock_hz_pol=<207700000 0>;	/** clock_hz(unit in Hz, both support clk and frame_rate, >200 regard as clk, <200 regard as frame_rate), clk_pol(only valid for TTL) */
 		hsync_width_backporch=<5 120>;	/** hsync_width, hsync_backporch(include hsync_width) */
 		vsync_width_backporch=<1 22>;	/** vsync_width, vsync_backporch(include vsync_width) */
-		pol_hsync_vsync=<0 0>;	/** hsync_polarity, vsync_polarity : (0=negative, 1=positive) */
+		pol_hsync_vsync=<1 1>;	/** hsync_polarity, vsync_polarity : (0=negative, 1=positive) */
 	};
 
 //$$ MATCH "lcd_model_config_match" = <&lcd_B080XAN01>

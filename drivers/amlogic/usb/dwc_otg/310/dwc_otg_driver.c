@@ -889,6 +889,8 @@ static int dwc_otg_driver_probe(
 	int gpio_work_mask =1;
 	int gpio_vbus_power_pin = -1;
 	int charger_detect = 0;
+	int host_only_core = 0;
+	int pmu_apply_power = 0;
 	unsigned int phy_reg_addr = 0;
 	unsigned int ctrl_reg_addr = 0;
 	const char *s_clock_name = NULL;
@@ -969,6 +971,14 @@ static int dwc_otg_driver_probe(
 					gpio_work_mask = of_read_ulong(prop,1);	
 			}
 
+			prop = of_get_property(of_node, "host-only-core", NULL);
+			if(prop)
+				host_only_core = of_read_ulong(prop,1);
+
+			prop = of_get_property(of_node, "pmu-apply-power", NULL);
+			if(prop)
+				pmu_apply_power = of_read_ulong(prop,1);
+			
 			ctrl_reg_addr = (unsigned long)usb_platform_data.ctrl_regaddr[port_index];
 			phy_reg_addr = (unsigned long)usb_platform_data.phy_regaddr[port_index];
 			_dev->irq = usb_platform_data.irq_no[port_index];
@@ -1224,6 +1234,8 @@ static int dwc_otg_driver_probe(
 	dwc_otg_device->core_if->vbus_power_pin = gpio_vbus_power_pin;
 	dwc_otg_device->core_if->vbus_power_pin_work_mask= gpio_work_mask;
 	dwc_otg_device->core_if->charger_detect = charger_detect;
+	if(host_only_core&&pmu_apply_power)
+		dwc_otg_device->core_if->swicth_int_reg = 1;
 
 	if (port_type == USB_PORT_TYPE_HOST) {
 		/*

@@ -251,7 +251,7 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
 	unsigned int scan_line_number = 0;
 	unsigned char output_type=0;
 	u32 data32 = 0;
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
 	if (osd_ext_hw.rotate[OSD1].on_off > 0 && osd_ext_hw.rotate[OSD1].angle > 0){
 		data32 = ((osd_ext_hw.rotation_pandata[OSD1].y_start + osd_ext_hw.pandata[OSD1].y_start) & 0x1fff)
 				| ((osd_ext_hw.rotation_pandata[OSD1].y_end  + osd_ext_hw.pandata[OSD1].y_start) & 0x1fff) << 16 ;
@@ -936,7 +936,7 @@ void osd_ext_get_osd_ext_rotate_angle_hw(u32 index,u32 *angle)
 
 void osd_ext_set_osd_ext_rotate_on_hw(u32 index, u32 on_off)
 {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
 	static dispdata_t save_disp_data={0,0,0,0};
 	static dispdata_t save_disp_data2={0,0,0,0};
 	osd_ext_hw.rotate[index].on_off = on_off;
@@ -1370,10 +1370,10 @@ static void osd1_update_enable(void)
 {
 	if (osd_ext_hw.free_scale_mode[OSD1]){
 		if (osd_ext_hw.enable[OSD1] == ENABLE){
-			aml_set_reg32_mask(P_VPP_MISC,VPP_OSD1_POSTBLEND);
-			aml_set_reg32_mask(P_VPP_MISC,VPP_POSTBLEND_EN);
+			aml_set_reg32_mask(P_VPP2_MISC,VPP_OSD1_POSTBLEND);
+			aml_set_reg32_mask(P_VPP2_MISC,VPP_POSTBLEND_EN);
 		}else{
-			aml_clr_reg32_mask(P_VPP_MISC,VPP_OSD1_POSTBLEND);
+			aml_clr_reg32_mask(P_VPP2_MISC,VPP_OSD1_POSTBLEND);
 		}
 	}else{
 		u32 video_enable = 0;
@@ -1408,10 +1408,10 @@ static void osd2_update_enable(void)
 {
 	if (osd_ext_hw.free_scale_mode[OSD2]){
 		if (osd_ext_hw.enable[OSD1] == ENABLE){
-			aml_set_reg32_mask(P_VPP_MISC,VPP_OSD2_POSTBLEND);
-			aml_set_reg32_mask(P_VPP_MISC,VPP_POSTBLEND_EN);
+			aml_set_reg32_mask(P_VPP2_MISC,VPP_OSD2_POSTBLEND);
+			aml_set_reg32_mask(P_VPP2_MISC,VPP_POSTBLEND_EN);
 		}else{
-			aml_clr_reg32_mask(P_VPP_MISC,VPP_OSD2_POSTBLEND);
+			aml_clr_reg32_mask(P_VPP2_MISC,VPP_OSD2_POSTBLEND);
 		}
 	}else{
 		u32 video_enable = 0;
@@ -1485,7 +1485,7 @@ static void osd1_update_disp_osd_rotate(void)
 	y_end = osd_ext_hw.rotation_pandata[OSD1].y_end;
 	y_len_m1 = y_end-y_start;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
 	osd_ext_set_prot(
                 x_rev,
                 y_rev,
@@ -1558,7 +1558,7 @@ static void osd2_update_disp_osd_rotate(void)
 	y_end = osd_ext_hw.rotation_pandata[OSD2].y_end;
 	y_len_m1 = y_end-y_start;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
 	osd_ext_set_prot(
                 x_rev,
                 y_rev,
@@ -2188,7 +2188,7 @@ void osd_ext_clone_pan(u32 index)
 		osd_ext_hw.pandata[index].y_start += offset;
 		osd_ext_hw.pandata[index].y_end += offset;
 		if (osd_ext_hw.angle[index]) {
-			osd_clone_update_pan(osd_ext_hw.pandata[index].y_start ? 1: 0);
+			osd_ext_clone_update_pan(osd_ext_hw.pandata[index].y_start ? 1: 0);
 		}
 		add_to_update_list(index, DISP_GEOMETRY);
 		osd_ext_wait_vsync_hw();
@@ -2203,7 +2203,7 @@ void osd_ext_get_angle_hw(u32 index, u32 * angle)
 
 void osd_ext_set_angle_hw(u32 index, u32 angle)
 {
-#ifndef OSD_GE2D_CLONE_SUPPORT
+#ifndef OSD_EXT_GE2D_CLONE_SUPPORT
 	printk("++ osd_clone depends on GE2D module!\n");
 	return;
 #endif
@@ -2215,11 +2215,11 @@ void osd_ext_set_angle_hw(u32 index, u32 angle)
 
 	if (osd_ext_hw.clone[index] == 0) {
 		printk("++ set osd_ext[%d]->angle: %d->%d\n", index, osd_ext_hw.angle[index], angle);
-		osd_clone_set_angle(angle);
+		osd_ext_clone_set_angle(angle);
 		osd_ext_hw.angle[index] = angle;
 	} else if (!((osd_ext_hw.angle[index] == 0) || (angle == 0))) {
 		printk("++ set osd_ext[%d]->angle: %d->%d\n", index, osd_ext_hw.angle[index], angle);
-		osd_clone_set_angle(angle);
+		osd_ext_clone_set_angle(angle);
 		osd_ext_hw.angle[index] = angle;
 		osd_ext_clone_pan(index);
 	}
@@ -2242,7 +2242,7 @@ void osd_ext_set_clone_hw(u32 index, u32 clone)
 	if (osd_ext_hw.clone[index]) {
 		if (osd_ext_hw.angle[index]) {
 			osd_ext_hw.color_info[index] = osd_hw.color_info[index];
-			osd_clone_task_start();
+			osd_ext_clone_task_start();
 		} else {
 			color_info[index] = osd_ext_hw.color_info[index];
 			osd_ext_hw.color_info[index] = osd_hw.color_info[index];
@@ -2251,7 +2251,7 @@ void osd_ext_set_clone_hw(u32 index, u32 clone)
 		}
 	} else {
 		if (osd_ext_hw.angle[index]) {
-			osd_clone_task_stop();
+			osd_ext_clone_task_stop();
 		} else {
 			color_info[index] = osd_ext_hw.color_info[index];
 			canvas_update_addr(osd_ext_hw.fb_gem[index].canvas_idx, osd_ext_hw.fb_gem[index].addr);

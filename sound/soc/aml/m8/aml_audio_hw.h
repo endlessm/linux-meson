@@ -155,4 +155,11 @@ unsigned audio_aiu_pg_enable(unsigned char enable);
 #define MCLKFS_RATIO 256
 #endif
 
+#define I2S_PLL_SRC         1   // MPLL0
+#define MPLL_I2S_CNTL		HHI_MPLL_CNTL7  
+
+#define I958_PLL_SRC        2   // MPLL1
+#define MPLL_958_CNTL		HHI_MPLL_CNTL8
+
+
 #endif

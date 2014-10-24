@@ -217,11 +217,12 @@ void cec_node_init(hdmitx_dev_t* hdmitx_device)
     aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) | (1 << 23));            // Enable the hdmi cec interrupt
 
 #endif
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
 #if 1           // Please match with H/W cec config
 // GPIOAO_12
-    aml_set_reg32_bits(P_AO_RTI_PULL_UP_REG, 0, 12, 1);       // disable AO_12 internal pull-up   //fe60002c
-    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 1, 17, 1);      // AO_CEC pinmux                    //fe600014
+    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 0, 14, 1);       // bit[14]: AO_PWM_C pinmux                  //0xc8100014
+    aml_set_reg32_bits(P_AO_RTI_PULL_UP_REG, 0, 12, 1);       // bit[12]: disable AO_12 internal pull-up   //0xc810002c
+    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 1, 17, 1);       // bit[17]: AO_CEC pinmux                    //0xc8100014
     ao_cec_init();
 #else
 // GPIOH_3
@@ -276,7 +277,7 @@ void cec_node_init(hdmitx_dev_t* hdmitx_device)
 #ifdef CONFIG_ARCH_MESON6
             hdmi_wr_reg(CEC0_BASE_ADDR+CEC_LOGICAL_ADDR0, (0x1 << 4) | player_dev[i]);
 #endif
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
             aocec_wr_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | player_dev[i]);
 #endif
      		hdmi_print(INF, CEC "Set logical address: %d\n", player_dev[i]);
@@ -648,7 +649,7 @@ static irqreturn_t cec_isr_handler(int irq, void *dev_instance)
 
     //cec_disable_irq();
 
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
     intr_stat = aml_read_reg32(P_AO_CEC_INTR_STAT);
     hdmi_print(INF, CEC "aocec irq %x\n", intr_stat);
 
@@ -1587,7 +1588,7 @@ static int __init cec_init(void)
         return -EFAULT;
     }
 #endif
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
     if(request_irq(INT_AO_CEC, &cec_isr_handler,
                 IRQF_SHARED, "amhdmitx-aocec",
                 (void *)hdmitx_device)){
@@ -1636,7 +1637,7 @@ static void __exit cec_uninit(void)
         aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) & ~(1 << 23));            // Disable the hdmi cec interrupt
         free_irq(INT_HDMI_CEC, (void *)hdmitx_device);
 #endif
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
         free_irq(INT_AO_CEC, (void *)hdmitx_device);
 #endif
     	kthread_stop(hdmitx_device->task_cec);
@@ -1764,7 +1765,7 @@ void cec_usrcmd_set_dispatch(const char * buf, size_t count)
             i ++;
     }
     param[j]=0;
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
     if(strncmp(buf, "waocec", 6)==0){
         bit_set = simple_strtoul(buf+6, NULL, 16);
         time_set = simple_strtoul(buf+8, NULL, 16);

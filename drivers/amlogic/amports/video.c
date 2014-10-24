@@ -1218,7 +1218,7 @@ static void vsync_toggle_frame(vframe_t *vf)
 
     if(debug_flag& DEBUG_FLAG_BLACKOUT){
         if(first_picture){
-            printk("[video4osd] first %s picture {%d,%d}\n", (vf->source_type==VFRAME_SOURCE_TYPE_OSD)?"OSD":"", vf->width, vf->height);
+            printk("[video4osd] first %s picture {%d,%d} pts:%x, \n", (vf->source_type==VFRAME_SOURCE_TYPE_OSD)?"OSD":"", vf->width, vf->height, vf->pts);
         }
     }
     /* switch buffer */
@@ -1861,12 +1861,18 @@ static inline bool vpts_expire(vframe_t *cur_vf, vframe_t *next_vf)
         pts = timestamp_vpts_get() + (cur_vf ? DUR2PTS(cur_vf->duration) : 0);
 			//printk("system=0x%x vpts=0x%x\n", systime, timestamp_vpts_get());
         if ((int)(systime - pts) >= 0){
-            tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, next_vf->pts);
-	    		printk(" discontinue, system=0x%x vpts=0x%x\n", systime, pts);
-		    if(systime>next_vf->pts || next_vf->pts==0){// pts==0 is a keep frame maybe.
-            	return true;
-            }
-            return false;
+		if(next_vf->pts != 0)
+      			tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, next_vf->pts);
+		else
+			tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, pts);
+		
+    		printk(" discontinue, system=0x%x vpts=0x%x\n", systime, pts);
+
+		if(systime>next_vf->pts || next_vf->pts==0){// pts==0 is a keep frame maybe.
+            		return true;
+	 	}
+		
+            	return false;
         }
     }
 
@@ -3872,8 +3878,7 @@ static ssize_t video_crop_show(struct class *cla, struct class_attribute *attr, 
 {
     u32 t, l, b, r;
 
-    vpp_get_video_layer_position(&t, &l, &b, &r);
-
+    vpp_get_video_source_crop(&t, &l, &b, &r);
     return snprintf(buf, 40, "%d %d %d %d\n", t, l, b, r);
 }
 
@@ -4087,6 +4092,56 @@ static ssize_t video_contrast_store(struct class *cla, struct class_attribute *a
     return count;
 }
 
+static ssize_t vpp_brightness_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+    s32 val = (READ_VCBUS_REG(VPP_VADJ2_Y + cur_dev->vpp_off) >> 8) & 0x1ff;
+
+    val = (val << 23) >> 23;
+
+    return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t vpp_brightness_store(struct class *cla, struct class_attribute *attr, const char *buf,
+                                      size_t count)
+{
+    size_t r;
+    int val;
+
+    r = sscanf(buf, "%d", &val);
+    if ((r != 1) || (val < -255) || (val > 255)) {
+        return -EINVAL;
+    }
+
+    WRITE_VCBUS_REG_BITS(VPP_VADJ2_Y + cur_dev->vpp_off, val, 8, 9);
+    WRITE_VCBUS_REG(VPP_VADJ_CTRL + cur_dev->vpp_off, VPP_VADJ2_EN);
+
+    return count;
+}
+
+static ssize_t vpp_contrast_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", (int)(READ_VCBUS_REG(VPP_VADJ2_Y + cur_dev->vpp_off) & 0xff) - 0x80);
+}
+
+static ssize_t vpp_contrast_store(struct class *cla, struct class_attribute *attr, const char *buf,
+                                    size_t count)
+{
+    size_t r;
+    int val;
+
+    r = sscanf(buf, "%d", &val);
+    if ((r != 1) || (val < -127) || (val > 127)) {
+        return -EINVAL;
+    }
+
+    val += 0x80;
+
+    WRITE_VCBUS_REG_BITS(VPP_VADJ2_Y + cur_dev->vpp_off, val, 0, 8);
+    WRITE_VCBUS_REG(VPP_VADJ_CTRL + cur_dev->vpp_off, VPP_VADJ2_EN);
+
+    return count;
+}
+
 static ssize_t video_saturation_show(struct class *cla, struct class_attribute *attr, char *buf)
 {
     return sprintf(buf, "%d\n", READ_VCBUS_REG(VPP_VADJ1_Y + cur_dev->vpp_off) & 0xff);
@@ -4108,6 +4163,42 @@ static ssize_t video_saturation_store(struct class *cla, struct class_attribute 
 
     return count;
 }
+
+static ssize_t vpp_saturation_hue_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+    return sprintf(buf, "0x%x\n", READ_VCBUS_REG(VPP_VADJ2_MA_MB));
+}
+
+static ssize_t vpp_saturation_hue_store(struct class *cla, struct class_attribute *attr, const char *buf,
+                                      size_t count)
+{
+    size_t r;
+    s32 mab = 0;
+    s16 mc = 0, md = 0;
+
+    r = sscanf(buf, "0x%x", &mab);
+    if ((r != 1) || (mab&0xfc00fc00)) {
+        return -EINVAL;
+    }
+
+    WRITE_VCBUS_REG(VPP_VADJ2_MA_MB, mab);
+    mc = (s16)((mab<<22)>>22); // mc = -mb
+    mc = 0 - mc;
+    if (mc> 511)
+        mc= 511;
+    if (mc<-512)
+        mc=-512;
+    md = (s16)((mab<<6)>>22);  // md =  ma;
+    mab = ((mc&0x3ff)<<16)|(md&0x3ff);
+    WRITE_VCBUS_REG(VPP_VADJ2_MC_MD, mab);
+    //WRITE_MPEG_REG(VPP_VADJ_CTRL, 1);
+    WRITE_VCBUS_REG_BITS(VPP_VADJ_CTRL + cur_dev->vpp_off, 1, 2, 1);
+#ifdef PQ_DEBUG_EN
+    printk("\n[amvideo..] set vpp_saturation OK!!!\n");
+#endif
+    return count;
+}
+
 
 // [   24] 1/enable, 0/disable
 // [23:16] Y
@@ -4637,10 +4728,22 @@ static struct class_attribute amvideo_class_attrs[] = {
     S_IRUGO | S_IWUSR,
     video_contrast_show,
     video_contrast_store),
+    __ATTR(vpp_brightness,
+    S_IRUGO | S_IWUSR,
+    vpp_brightness_show,
+    vpp_brightness_store),
+    __ATTR(vpp_contrast,
+    S_IRUGO | S_IWUSR,
+    vpp_contrast_show,
+    vpp_contrast_store),
     __ATTR(saturation,
     S_IRUGO | S_IWUSR,
     video_saturation_show,
     video_saturation_store),
+    __ATTR(vpp_saturation_hue,
+    S_IRUGO | S_IWUSR,
+    vpp_saturation_hue_show,
+    vpp_saturation_hue_store),
     __ATTR(test_screen,
     S_IRUGO | S_IWUSR,
     video_test_screen_show,

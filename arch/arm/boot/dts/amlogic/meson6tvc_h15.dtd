@@ -115,6 +115,17 @@
 		delay_setting = <500 50 20 20 50 0 0 200>;  /** CLK ON/OFF,PWM ON/OFF,PANEL_PWR ON/OFF,BL ON/OFF delay */
 	};
 
+	backlight{
+		compatible = "amlogic,backlight";
+		dev_name = "backlight";
+		status = "okay";
+		power_pin = "GPIOX_2";
+		pwm_hz = <160>;   /* Hz */
+		pinctrl-names = "pwm_a","pwm_vs";
+		pinctrl-0 = <&lcd_bl_pwm_a_pins>;	/* pwma pinmux */
+		pinctrl-1 = <&lcd_bl_pwm_vs_pins>;	/* pwm_vs pinmux */
+	};
+
 /// ***************************************************************************************
 ///	-	ION
 //$$ MODULE="ION"
@@ -134,7 +145,7 @@
 		compatible = "amlogic,deinterlace";
 		dev_name = "deinterlace";
 		status = "okay";
-		reserve-memory = <0x01900000>;//1920x1088x3/2 + 256x1088/2= 25m
+		reserve-memory = <0x02000000>;//10x(1920x1088x3/2 + 256x1088/2)= 32m
 		reserve-iomap = "true";
 	};
 /// ***************************************************************************************
@@ -528,7 +539,7 @@
 		aml,sound_card = "AML-M6TV";
 		//aml,codec_dai = "tas5711-","rt5616-aif1","rt5631-hifi","wm8960-hifi";
 		dev_name = "aml_m6tv_audio.0";
-		mute_gpio = "GPIOW_19";
+		mute_gpio = "GPIOAO_10";
 		pinctrl-names = "aml_m6tv_audio";
 		pinctrl-0 = <&aml_i2s_pins>;
 	};
@@ -634,6 +645,18 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&smc_pins>;
 	};
+
+	//$$ DEVICE="wifi_power"
+	//$$ L2 PROP_STR = "status"
+	//$$ L2 PROP_STR = "power_gpio"
+	wifi_power {
+		compatible = "amlogic,wifi_power";
+		dev_name = "wifi_power";
+		status = "okay";
+		power_gpio = "GPIOW_19";
+		valid = "low";
+	};
+
 	gpio:gpio {
 		compatible = "amlogic,m6tv-gpio";
 		dev_name = "gpio";
@@ -756,6 +779,31 @@
 					   8 0x00000800>;
 			amlogic,pins = "GPIOA_12","GPIOA_13","GPIOA_14","GPIOA_15";
 		};
+
+//$$ MATCH "lcd_bl_pwm_a_pins_match" = "&lcd_bl_pwm_a_pins"
+//$$ L2 PROP_U32 2 = "amlogic,setmask"
+//$$ L2 PROP_U32 2 = "amlogic,clrmask"
+//$$ L2 PROP_STR = "amlogic,pins"
+		lcd_bl_pwm_a_pins:lcd_bl_pwm_a_pin {
+			amlogic,setmask=<2 0x1>;
+			amlogic,clrmask=<2 0x4
+					   	1 0x100000
+					   	9 0x10000000>;
+			amlogic,pins = "GPIOP_6";
+		};
+
+//$$ MATCH "lcd_bl_pwm_vs_pins_match" = "&lcd_bl_pwm_vs_pins"
+//$$ L2 PROP_U32 2 = "amlogic,setmask"
+//$$ L2 PROP_U32 2 = "amlogic,clrmask"
+//$$ L2 PROP_STR = "amlogic,pins"
+		lcd_bl_pwm_vs_pins:lcd_bl_pwm_vs_pin {
+			amlogic,setmask=<2 0x4>;
+			amlogic,clrmask=<2 0x1
+					   	1 0x100000
+					   	9 0x10000000>;
+			amlogic,pins = "GPIOP_6";
+		};
+
 //$$ MATCH "dvb_p_ts0_pins_match" = "&dvb_p_ts0_pins"
 //$$ L2 PROP_U32 2 = "amlogic,setmask"
 //$$ L2 PROP_U32 8 = "amlogic,clrmask"
@@ -1021,7 +1069,7 @@
 		dtv_demod0_reset_value = <0>;
 		dtv_demod0_reset_gpio = "GPIOX_8" ;
 		dtv_demod0_mem = <1>;
-		reserve-memory = <0x06400000>;
+		reserve-memory = <0xa00000>;
 		reserve-iomap = "true";
 		fe0_dtv_demod = <0>;
 		fe0_ts = <0>;

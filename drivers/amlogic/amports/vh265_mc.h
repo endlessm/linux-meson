@@ -23,5 +23,6 @@
 #define VH265MVC_MC_H
 
 extern const u32 vh265_mc[0x1000];
+extern const u32 vh265_mc_send_param_with_reg_mc[0x1000];
 
 #endif

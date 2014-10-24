@@ -1,6 +1,8 @@
 #ifndef AMPORTS_CONFIG_HHH
 #define AMPORTS_CONFIG_HHH
 #include <mach/cpu.h>
+#include <linux/kconfig.h>
+
 /*
 value seem:
 arch\arm\plat-meson\include\plat\cpu.h
@@ -34,6 +36,9 @@ arch\arm\plat-meson\include\plat\cpu.h
 
 #endif
 
+#ifndef CONFIG_AM_VDEC_H265
+#define HAS_HEVC_VDEC 0
+#endif
 
 
 #endif //AMPORTS_CONFIG_HHH

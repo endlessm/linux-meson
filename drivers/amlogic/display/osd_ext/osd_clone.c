@@ -42,17 +42,17 @@
 
 #include "osd_clone.h"
 
-#ifdef OSD_GE2D_CLONE_SUPPORT
+#ifdef OSD_EXT_GE2D_CLONE_SUPPORT
 typedef struct {
 	bool inited;
 	int angle;
 	int pan;
 	config_para_ex_t ge2d_config;
 	ge2d_context_t *ge2d_context;
-} osd_clone_t;
+} osd_ext_clone_t;
 
-static DEFINE_MUTEX(osd_clone_mutex);
-static osd_clone_t s_osd_clone;
+static DEFINE_MUTEX(osd_ext_clone_mutex);
+static osd_ext_clone_t s_osd_ext_clone;
 
 
 static void osd_clone_process(void)
@@ -64,24 +64,24 @@ static void osd_clone_process(void)
 	unsigned char x_rev = 0;
 	unsigned char y_rev = 0;
 	unsigned char xy_swap = 0;
-	config_para_ex_t *ge2d_config = &s_osd_clone.ge2d_config;
-	ge2d_context_t *context = s_osd_clone.ge2d_context;
+	config_para_ex_t *ge2d_config = &s_osd_ext_clone.ge2d_config;
+	ge2d_context_t *context = s_osd_ext_clone.ge2d_context;
 
 	canvas_read(OSD1_CANVAS_INDEX, &cs);
 	canvas_read(OSD3_CANVAS_INDEX, &cd);
 
-	if (s_osd_clone.pan == 1) {
+	if (s_osd_ext_clone.pan == 1) {
 		y0 = cs.height/2;
 		y1 = cd.height/2;
 	}
 
-	if (s_osd_clone.angle == 1) {
+	if (s_osd_ext_clone.angle == 1) {
 		xy_swap = 1;
 		x_rev = 1;
-	} else if (s_osd_clone.angle == 2) {
+	} else if (s_osd_ext_clone.angle == 2) {
 		x_rev = 1;
 		y_rev = 1;
-	} else if (s_osd_clone.angle == 3) {
+	} else if (s_osd_ext_clone.angle == 3) {
 		xy_swap = 1;
 		y_rev = 1;
 	}
@@ -135,56 +135,59 @@ static void osd_clone_process(void)
 	stretchblt(context, x0, y0, cs.width/4, cs.height/2, x0, y1, cd.width/4, cd.height/2);
 }
 
-void osd_clone_update_pan(int pan)
+void osd_ext_clone_update_pan(int pan)
 {
-	if (!s_osd_clone.inited)
+	if (!s_osd_ext_clone.inited)
 		return;
 
-	mutex_lock(&osd_clone_mutex);
-	s_osd_clone.pan = pan;
-	mutex_unlock(&osd_clone_mutex);
+	mutex_lock(&osd_ext_clone_mutex);
+	s_osd_ext_clone.pan = pan;
+	mutex_unlock(&osd_ext_clone_mutex);
 	osd_clone_process();
 }
 
-void osd_clone_set_angle(int angle)
+void osd_ext_clone_set_angle(int angle)
 {
-	mutex_lock(&osd_clone_mutex);
-	s_osd_clone.angle = angle;
-	mutex_unlock(&osd_clone_mutex);
+	mutex_lock(&osd_ext_clone_mutex);
+	s_osd_ext_clone.angle = angle;
+	mutex_unlock(&osd_ext_clone_mutex);
 }
 
-int osd_clone_task_start(void)
+int osd_ext_clone_task_start(void)
 {
-	if (s_osd_clone.inited) {
-		printk("osd_clone_task already started.\n");
+	if (s_osd_ext_clone.inited) {
+		printk("osd_ext_clone_task already started.\n");
 		return 0;
 	}
 
-	printk("osd_clone_task start.\n");
+	printk("osd_ext_clone_task start.\n");
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 	switch_mod_gate_by_name("ge2d", 1);
 #endif
-	if (s_osd_clone.ge2d_context == NULL)
-		s_osd_clone.ge2d_context = create_ge2d_work_queue();
+	if (s_osd_ext_clone.ge2d_context == NULL)
+		s_osd_ext_clone.ge2d_context = create_ge2d_work_queue();
 
-	memset(&s_osd_clone.ge2d_config, 0, sizeof(config_para_ex_t));
-	s_osd_clone.inited = true;
+	memset(&s_osd_ext_clone.ge2d_config, 0, sizeof(config_para_ex_t));
+	s_osd_ext_clone.inited = true;
 
 	return 0;
 }
 
-void osd_clone_task_stop(void)
+void osd_ext_clone_task_stop(void)
 {
-	if (!s_osd_clone.inited) {
-		printk("osd_clone_task already stopped.\n");
+	if (!s_osd_ext_clone.inited) {
+		printk("osd_ext_clone_task already stopped.\n");
 		return;
 	}
 
-	printk("osd_clone_task stop.\n");
-	if (s_osd_clone.ge2d_context) {
-		destroy_ge2d_work_queue(s_osd_clone.ge2d_context);
-		s_osd_clone.ge2d_context = NULL;
+	printk("osd_ext_clone_task stop.\n");
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
+	switch_mod_gate_by_name("ge2d", 0);
+#endif
+	if (s_osd_ext_clone.ge2d_context) {
+		destroy_ge2d_work_queue(s_osd_ext_clone.ge2d_context);
+		s_osd_ext_clone.ge2d_context = NULL;
 	}
-	s_osd_clone.inited = false;
+	s_osd_ext_clone.inited = false;
 }
 #endif

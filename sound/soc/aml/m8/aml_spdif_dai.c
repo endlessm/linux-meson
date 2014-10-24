@@ -43,7 +43,7 @@ extern int aout_notifier_call_chain(unsigned long val, void *v);
 //static  unsigned  playback_substream_handle = 0 ;
 extern unsigned int IEC958_mode_codec;
 static int iec958buf[32+16];
-static void  aml_spdif_play()
+void  aml_spdif_play()
 {
    	 _aiu_958_raw_setting_t set;
    	 _aiu_958_channel_status_t chstat;	 
@@ -255,9 +255,10 @@ static void aml_hw_iec958_init(struct snd_pcm_substream *substream)
 		//audio_set_i2s_mode(AIU_I2S_MODE_PCM16);
 		//audio_set_aiubuf(start, size);		
 	}else{
-		set.chan_stat->chstat0_l = 0x1902;
-                set.chan_stat->chstat0_r = 0x1902;
-		if(IEC958_mode_codec == 4){ //DD+
+
+        set.chan_stat->chstat0_l = 0x1902;
+        set.chan_stat->chstat0_r = 0x1902;
+        if(IEC958_mode_codec == 4 || IEC958_mode_codec == 5){ //DD+
 			if(runtime->rate == 32000){
 				set.chan_stat->chstat1_l = 0x300;
 				set.chan_stat->chstat1_r = 0x300;
@@ -292,9 +293,10 @@ static void aml_hw_iec958_init(struct snd_pcm_substream *substream)
 	}
 	ALSA_DEBUG("aiu 958 pcm buffer size %d \n",size);	
 	audio_set_958_mode(iec958_mode, &set);
-	if(IEC958_mode_codec == 4)  //dd+
+	if(IEC958_mode_codec == 4 || IEC958_mode_codec == 5){  //dd+
 		WRITE_MPEG_REG_BITS(AIU_CLK_CTRL, 0, 4, 2); // 4x than i2s
-	else
+        	printk("DEBUG--> IEC958_mode_codec/%d  4x than i2s\n",IEC958_mode_codec);
+	}else
 #if OVERCLOCK == 1 || IEC958_OVERCLOCK == 1	
 		WRITE_MPEG_REG_BITS(AIU_CLK_CTRL, 3, 4, 2);//512fs divide 4 == 128fs
 #else
@@ -308,8 +310,9 @@ static void aml_hw_iec958_init(struct snd_pcm_substream *substream)
         }
         else if(IEC958_mode_codec == 4){
                 aout_notifier_call_chain(AOUT_EVENT_RAWDATA_DOBLY_DIGITAL_PLUS,substream);
-        }
-        else{
+        }else if(IEC958_mode_codec == 5){
+		aout_notifier_call_chain(AOUT_EVENT_RAWDATA_DTS_HD,substream);
+        }else{
 	        aout_notifier_call_chain(AOUT_EVENT_IEC_60958_PCM,substream);
         }
 }
@@ -366,6 +369,7 @@ static int aml_dai_spdif_startup(struct snd_pcm_substream *substream,
 out:
 	return ret;
 }
+
 static void aml_dai_spdif_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
@@ -375,9 +379,11 @@ static void aml_dai_spdif_shutdown(struct snd_pcm_substream *substream,
 		ALSA_TRACE();
 	if(substream->stream == SNDRV_PCM_STREAM_PLAYBACK){
 		memset((void*)runtime->dma_area,0,snd_pcm_lib_buffer_bytes(substream));
-		aml_spdif_play();
-
-
+        if(IEC958_mode_codec == 6){
+            printk("[%s %d]8chPCM output:disable aml_spdif_play()\n",__FUNCTION__,__LINE__);
+        }else{
+            aml_spdif_play();
+        }
 	//	audio_spdifout_pg_enable(0);	
 	}
 	

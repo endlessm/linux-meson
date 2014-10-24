@@ -653,7 +653,7 @@ sdio{
         pmu_resume_chgcur = <10>;           /** resume charge current, 0.1c          */
         pmu_shutdown_chgcur = <20>;         /** shutdown charge current, 0.2c        */
         pmu_usbcur_limit = <1>;             /** enable usb current limit?            */
-        pmu_usbcur = <500>;                 /** usb limit current value if enabled   */
+        pmu_usbcur = <1000>;                 /** usb limit current value if enabled   */
         pmu_usbvol_limit = <1>;             /** enable usb vbus voltage limit        */
         pmu_usbvol = <4400>;                /** voltage limit value if enabled       */
         pmu_pwroff_vol = <3200>;            /** hardware force power off voltage     */

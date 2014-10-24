@@ -44,6 +44,7 @@ typedef enum {
 typedef enum {
     TSYNC_MODE_VMASTER,
     TSYNC_MODE_AMASTER,
+    TSYNC_MODE_PCRMASTER,
 } tsync_mode_t;
 
 extern void tsync_avevent_locked(avevent_t event, u32 param);

@@ -378,18 +378,38 @@ int tvoutc_setmode(tvmode_t mode)
     }
 
 #if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+	// for hdmi mode, disable HPLL as soon as possible
+	if( (mode==TVMODE_480I) || (mode==TVMODE_480P) ||
+		(mode==TVMODE_576I) || (mode==TVMODE_576P) ||
+		(mode==TVMODE_720P) || (mode==TVMODE_720P_50HZ) ||
+		(mode==TVMODE_1080I) || (mode==TVMODE_1080I_50HZ) ||
+		(mode==TVMODE_1080P) || (mode==TVMODE_1080P_50HZ) ||
+		(mode==TVMODE_1080P_24HZ) || (mode==TVMODE_4K2K_24HZ) ||
+		(mode==TVMODE_4K2K_25HZ) || (mode==TVMODE_4K2K_30HZ) ||
+		(mode==TVMODE_4K2K_SMPTE) )
+	{
+		WRITE_CBUS_REG_BITS(HHI_VID_PLL_CNTL, 0x0, 30, 1);
+	}
     cvbs_cntl_output(0);
 #endif
     while (MREG_END_MARKER != s->reg)
         setreg(s++);
     printk("%s[%d]\n", __func__, __LINE__);
 
-    if(mode >= TVMODE_VGA || mode <= TVMODE_SXGA){
+    if(mode >= TVMODE_VGA && mode <= TVMODE_SXGA){
         aml_write_reg32(P_PERIPHS_PIN_MUX_0,aml_read_reg32(P_PERIPHS_PIN_MUX_0)|(3<<20));
     }else{
 	aml_write_reg32(P_PERIPHS_PIN_MUX_0,aml_read_reg32(P_PERIPHS_PIN_MUX_0)&(~(3<<20)));
     }
-    set_tvmode_misc(mode);
+
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+	// for hdmi mode, leave the hpll setting to be done by hdmi module.
+	if( (mode==TVMODE_480CVBS) || (mode==TVMODE_576CVBS) )
+		set_tvmode_misc(mode);
+#else
+	set_tvmode_misc(mode);
+#endif
+
 #ifdef CONFIG_ARCH_MESON1
 	tvoutc_setclk(mode);
     printk("%s[%d]\n", __func__, __LINE__);

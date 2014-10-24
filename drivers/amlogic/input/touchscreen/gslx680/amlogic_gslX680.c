@@ -332,8 +332,8 @@ static void judge_chip_type(struct i2c_client *client)
 	{
 		chip_type = CHIP_1680E;
 		is_noid_version = 0;
-		SCREEN_MAX_X = 600;
-		SCREEN_MAX_Y = 1024;
+		SCREEN_MAX_X = 1024;
+		SCREEN_MAX_Y = 600;
 		printk("chip type: 1680E\n");
 	}
 	

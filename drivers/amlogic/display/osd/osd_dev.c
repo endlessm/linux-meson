@@ -259,6 +259,31 @@ void osddev_set_osd_antiflicker(u32 index, u32 vmode, u32 yres)
         osd_set_osd_antiflicker_hw(index, vmode, yres);
 }
 
+void osddev_get_osd_angle(u32 index, u32 *angle)
+{
+        osd_get_osd_angle_hw(index, angle);
+}
+
+void osddev_set_osd_angle(u32 index, u32 angle, u32  virtual_osd1_yres, u32 virtual_osd2_yres)
+{
+        osd_set_osd_angle_hw(index, angle, virtual_osd1_yres, virtual_osd2_yres);
+}
+
+void osddev_get_osd_clone(u32 index, u32 *clone)
+{
+        osd_get_osd_clone_hw(index, clone);
+}
+
+void osddev_set_osd_clone(u32 index, u32 clone)
+{
+        osd_set_osd_clone_hw(index, clone);
+}
+
+void osddev_set_osd_update_pan(u32 index)
+{
+        osd_set_osd_update_pan_hw(index);
+}
+
 void osddev_get_osd_rotate_angle(u32 index, u32 *angle)
 {
         osd_get_osd_rotate_angle_hw(index, angle);

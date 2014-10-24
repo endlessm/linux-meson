@@ -61,7 +61,7 @@ void osd_antiflicker_enable(u32 enable)
 #endif
 
 #if 0
-static void osd_antiflicker_process(void)
+static int osd_antiflicker_process(void)
 {
 	canvas_t cs, cd;
 	u32 x0 = 0;
@@ -192,8 +192,9 @@ static void osd_antiflicker_process_2(void)
 }
 #endif
 
-static void osd_antiflicker_process(void)
+static int osd_antiflicker_process(void)
 {
+	int ret = -1;
 	canvas_t cs, cd;
 	u32 x0 = 0;
 	u32 y0 = 0;
@@ -252,16 +253,21 @@ static void osd_antiflicker_process(void)
 	ge2d_config->dst_para.y_rev = 0;
 	ge2d_config->dst_xy_swap = 0;
 
-	if (ge2d_context_config_ex(context, ge2d_config) < 0) {
+	mutex_lock(&osd_antiflicker_mutex);
+	ret = ge2d_context_config_ex(context, ge2d_config);
+	mutex_unlock(&osd_antiflicker_mutex);
+	if ( ret < 0) {
 		printk("++ osd antiflicker ge2d config ex error.\n");
-		return;
+		return ret;
 	}
 	stretchblt(context, x0, y0, cs.width/4, (cs.height/yres), x0, y1, cd.width/4, (cd.height/yres));
+	return ret;
 }
 
 #ifdef OSD_GE2D_ANTIFLICKER_SUPPORT
 void osd_antiflicker_update_pan(u32 yoffset, u32 yres)
 {
+	int ret = -1;
 	if (!ge2d_osd_antiflicker.inited)
 		return;
 
@@ -273,7 +279,7 @@ void osd_antiflicker_update_pan(u32 yoffset, u32 yres)
 	osd_antiflicker_process();
 	osd_antiflicker_process_2();
 #endif
-	osd_antiflicker_process();
+	ret = osd_antiflicker_process();
 }
 
 int osd_antiflicker_task_start(void)

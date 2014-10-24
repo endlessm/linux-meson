@@ -724,6 +724,7 @@ static int aml_pcm_trigger(struct snd_pcm_substream *substream,
 	  }
 
 	  s->active = 1;
+	  s->xrun_num = 0;
 	  spin_unlock(&s->lock);
 	  break;		/* SNDRV_PCM_TRIGGER_START */
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -732,6 +733,7 @@ static int aml_pcm_trigger(struct snd_pcm_substream *substream,
 		// TODO
 	    spin_lock(&s->lock);
 	    s->active = 0;
+		s->xrun_num = 0;
 	    if(substream->stream == SNDRV_PCM_STREAM_PLAYBACK){
             //printk("aml_pcm_trigger: playback stop\n");
 	  		audio_enable_ouput(0);
@@ -759,6 +761,7 @@ static int aml_pcm_trigger(struct snd_pcm_substream *substream,
 	  //switch_mod_gate_by_type(MOD_AUDIO, 1);
 #endif
 	    s->active = 1;
+		s->xrun_num = 0;
 	    if(substream->stream == SNDRV_PCM_STREAM_PLAYBACK){
             //printk("aml_pcm_trigger: playback resume\n");
 			audio_enable_ouput(1);
@@ -874,9 +877,9 @@ static void aml_pcm_timer_callback(unsigned long data)
     struct snd_pcm_substream *substream = (struct snd_pcm_substream *)data;
     struct snd_pcm_runtime *runtime = substream->runtime;
     struct aml_runtime_data *prtd = runtime->private_data;
-		audio_stream_t *s = &prtd->s;
+    audio_stream_t *s = &prtd->s;
 
-    unsigned int last_ptr, size;
+    unsigned int last_ptr = 0, size = 0;
 	if(substream->stream == SNDRV_PCM_STREAM_PLAYBACK){
 				if(s->active == 1){
 						spin_lock(&s->lock);
@@ -910,7 +913,13 @@ static void aml_pcm_timer_callback(unsigned long data)
 						last_ptr = (audio_in_i2s_wr_ptr() - s->I2S_addr) / 2;
 						if (last_ptr < s->last_ptr) {
 				        size = runtime->dma_bytes + last_ptr - (s->last_ptr);
-				    } else {
+				    } else if(last_ptr == s->last_ptr){
+				        if(s->xrun_num ++ > 100){
+							printk(KERN_INFO "alsa capture long time no data, quit xrun !\n");
+							s->xrun_num = 0;
+							s->size = runtime->period_size;
+				        }
+					} else {
 				        size = last_ptr - (s->last_ptr);
 				    }
     				s->last_ptr = last_ptr;
@@ -1003,6 +1012,8 @@ static int aml_pcm_open(struct snd_pcm_substream *substream)
 	runtime->private_data = prtd;
 
 	spin_lock_init(&prtd->s.lock);
+	audio_stream_t *s = &prtd->s;
+	s->xrun_num = 0;
  out:
 	return ret;
 }

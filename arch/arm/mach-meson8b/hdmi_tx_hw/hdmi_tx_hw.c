@@ -71,7 +71,7 @@ static void hdmi_audio_init(unsigned char spdif_flag);
 static void hdmitx_dump_tvenc_reg(int cur_VIC, int printk_flag);
 
 static void hdmi_phy_suspend(void);
-static void hdmi_phy_wakeup(void);
+static void hdmi_phy_wakeup(hdmitx_dev_t* hdmitx_device);
 
 unsigned char hdmi_pll_mode = 0; /* 1, use external clk as hdmi pll source */
 static unsigned char aud_para = 0x49;
@@ -501,7 +501,7 @@ static void hdmi_tvenc480i_set(Hdmi_tx_video_para_t* param)
             aml_write_reg32(P_ENCI_DVI_VSO_END_EVN,   vso_begin_evn);
         }
     }
-
+    aml_set_reg32_bits(P_HHI_GCLK_OTHER, 1, 8, 1);      // Enable VENCI gate
     // Check if there are duplicate or missing timing settings
     //if ((vso_bline_evn_reg_wr_cnt != 1) || (vso_bline_odd_reg_wr_cnt != 1) ||
     //    (vso_eline_evn_reg_wr_cnt != 1) || (vso_eline_odd_reg_wr_cnt != 1)) {
@@ -949,9 +949,10 @@ void hdmi_hw_set_powermode(hdmitx_dev_t* hdmitx_device)
     case HDMI_1080p50:
     case HDMI_1080p60:
     default:
-        aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, 0x08c38d0b);
+        //aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, 0x08c38d0b);
+        break;
     }
-    aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 2);
+    //aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 2);
 }
 
 void hdmi_hw_init(hdmitx_dev_t* hdmitx_device)
@@ -1342,6 +1343,11 @@ static void hdmi_hw_reset(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t *par
     tmp_add_data |= TX_INPUT_COLOR_DEPTH    << 0; // [1:0] input_color_depth:   0=24-b; 1=30-b; 2=36-b; 3=48-b.
     hdmi_wr_reg(TX_VIDEO_DTV_OPTION_L, tmp_add_data); // 0x50
 
+    if(hdmitx_device->cur_audio_param.channel_num > CC_2CH) {
+        i2s_to_spdif_flag = 0;
+    }else{
+        i2s_to_spdif_flag = 1;
+    }
     tmp_add_data  = 0;
     tmp_add_data |= 0                       << 4; // [7:4] Rsrv
     tmp_add_data |= TX_OUTPUT_COLOR_RANGE   << 2; // [3:2] output_color_range:  0=16-235/240; 1=16-240; 2=1-254; 3=0-255.
@@ -1654,6 +1660,28 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
     }
 }
 
+static int hdmitx_set_phy(hdmitx_dev_t* hdmitx_device)
+{
+    switch(hdmitx_device->cur_video_param->VIC) {
+        case HDMI_1080p60:
+        default:
+            aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, 0x08c31e8b);
+            break;
+    }
+// P_HHI_HDMI_PHY_CNTL1     bit[1]: enable clock    bit[0]: soft reset
+#define RESET_HDMI_PHY()                        \
+    aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 3);   \
+    msleep(1);                                  \
+    aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 2);   \
+    msleep(1)
+
+    RESET_HDMI_PHY();
+    RESET_HDMI_PHY();
+    RESET_HDMI_PHY();
+#undef RESET_HDMI_PHY
+    hdmi_print(IMP, SYS "phy setting done\n");
+}
+
 static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t *param)
 {
     if(param == NULL){ //disable HDMI
@@ -1692,6 +1720,7 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
 
     hdmi_hw_reset(hdmitx_device, param);    
     hdmitx_set_pll(param);
+    hdmitx_set_phy(hdmitx_device);
 
     if((param->VIC==HDMI_720p60)||(param->VIC==HDMI_720p50)||
         (param->VIC==HDMI_1080i60)||(param->VIC==HDMI_1080i50)){
@@ -1908,6 +1937,11 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
     hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_1, 0x30);     // reset audio master & sample
     hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_1, 0x00);
 
+    if(hdmitx_device->cur_audio_param.channel_num > CC_2CH) {
+        i2s_to_spdif_flag = 0;
+    }else{
+        i2s_to_spdif_flag = 1;
+    }
     if(!hdmi_audio_off_flag){
         hdmi_audio_init(i2s_to_spdif_flag);
     }
@@ -2060,6 +2094,7 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
             audio_N_para *= 4;
             break;
         case CT_DTS_HD:
+            audio_N_para *= 4;
             break;
         case CT_MAT:
             break;
@@ -2812,7 +2847,7 @@ static int hdmitx_cntl_misc(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned 
         break;
     case MISC_TMDS_PHY_OP:
         if(argv == TMDS_PHY_ENABLE) {
-            hdmi_phy_wakeup();  // TODO
+            hdmi_phy_wakeup(hdmitx_device);  // TODO
         }
         if(argv == TMDS_PHY_DISABLE) {
             hdmi_phy_suspend();
@@ -2910,8 +2945,8 @@ static void hdmi_phy_suspend(void)
     //hdmi_print(INF, SYS "phy suspend\n");
 }
 
-static void hdmi_phy_wakeup(void)
+static void hdmi_phy_wakeup(hdmitx_dev_t* hdmitx_device)
 {
-    aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, hdmi_phy_save);
+    hdmitx_set_phy(hdmitx_device);
     //hdmi_print(INF, SYS "phy wakeup\n");
 }

@@ -120,7 +120,7 @@ static int __init nulldisp_init(void)
 
 static void __exit nulldisp_exit(void)
 {
-    vout_unregister_server(&nulldisp_vout_server);
+    vout2_unregister_server(&nulldisp_vout_server);
 }
 
 //module_init(nulldisp_init);

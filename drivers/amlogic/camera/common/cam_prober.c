@@ -822,16 +822,15 @@ static resolution_size_t get_res_size(const char* res_str)
 #ifdef CONFIG_ARCH_MESON8B
 static inline void cam_enable_clk(int clk)
 {
-	aml_set_reg32_bits(P_HHI_MPLL_CNTL7, 0x15d063, 0, 25);
 	if (clk == 12000)
-		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0x6809, 0, 16);
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 3, 16, 2);
 	else
-		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0x6804, 0, 16);
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 16, 2);
 }
 
 static inline void cam_disable_clk(void)
 {
-	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 0, 16); //close clock
+	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 16, 2); //close clock
 }
 #elif defined CONFIG_ARCH_MESON8
 static inline void cam_enable_clk(int clk)

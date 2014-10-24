@@ -60,7 +60,7 @@ static DEFINE_MUTEX(clock_ops_lock);
 #define SYS_PLL_TABLE_MIN	 24000000
 #define SYS_PLL_TABLE_MAX	2112000000
 
-#define CPU_FREQ_LIMIT 1608000000
+#define CPU_FREQ_LIMIT 1488000000
 
 struct sys_pll_s {
     unsigned int freq;
@@ -849,8 +849,11 @@ void meson_set_cpu_power_ctrl(uint32_t cpu,int is_power_on)
 	BUG_ON(cpu == 0);
 
 	if(is_power_on){
-		/* SCU Power on CPU */
+		/* SCU Power on CPU & CPU PWR_A9_CNTL0 CTRL_MODE bit. 
+		    CTRL_MODE bit may write forward to SCU when cpu reset. So, we need clean it here to avoid the forward write happen.*/
 		aml_set_reg32_bits(MESON_CPU_POWER_CTRL_REG, 0x0 ,(cpu << 3),2);
+		aml_set_reg32_bits(P_AO_RTI_PWR_A9_CNTL0, 0x0, 2*cpu + 16, 2);
+		udelay(5);
 
 #ifndef CONFIG_MESON_CPU_EMULATOR
 		/* Reset enable*/
@@ -859,14 +862,22 @@ void meson_set_cpu_power_ctrl(uint32_t cpu,int is_power_on)
 
 		aml_set_reg32_bits(P_AO_RTI_PWR_A9_MEM_PD0, 0, (32 - cpu * 4) ,4);
 		aml_set_reg32_bits(P_AO_RTI_PWR_A9_CNTL1, 0x0, ((cpu +1) << 1 ), 2);
+
 		udelay(10);
+		while(!(readl(P_AO_RTI_PWR_A9_CNTL1) & (1<<(cpu+16)))){
+			printk("wait power...0x%08x 0x%08x\n",readl(P_AO_RTI_PWR_A9_CNTL0),readl(P_AO_RTI_PWR_A9_CNTL1));
+			udelay(10);
+		};
 		/* Isolation disable */
 		aml_set_reg32_bits(P_AO_RTI_PWR_A9_CNTL0, 0x0, cpu, 1);
 		/* Reset disable */
 		aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 0 , (cpu + 24), 1);
+
+		aml_set_reg32_bits(MESON_CPU_POWER_CTRL_REG, 0x0 ,(cpu << 3),2);
 #endif
 	}else{
 		aml_set_reg32_bits(MESON_CPU_POWER_CTRL_REG,0x3,(cpu << 3),2);
+		aml_set_reg32_bits(P_AO_RTI_PWR_A9_CNTL0, 0x3, 2*cpu + 16, 2);
 
 #ifndef CONFIG_MESON_CPU_EMULATOR
 		/* Isolation enable */

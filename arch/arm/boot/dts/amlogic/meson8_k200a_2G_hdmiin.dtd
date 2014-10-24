@@ -571,7 +571,7 @@ sdio{
 		pinctrl-0=<&b_i2c_master>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		use_pio = <0>;
+		use_pio = <641>;  /* INT_I2C_MASTER1=160, interrupt mode */
 		master_i2c_speed = <300000>;
  	};
 

@@ -852,7 +852,7 @@ extern spinlock_t gate_lock;
 #define GCLK_MASK_AO_REGS      (1<<3)
 
 #define GCLK_IDX_MAX 132
-extern unsigned char GCLK_ref[GCLK_IDX_MAX];
+extern short GCLK_ref[GCLK_IDX_MAX];
 
 #define REGISTER_CLK(_MOD) \
 static struct clk CLK_##_MOD = {            \

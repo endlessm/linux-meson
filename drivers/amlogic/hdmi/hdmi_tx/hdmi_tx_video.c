@@ -368,7 +368,7 @@ static int is_dvi_device(rx_cap_t* pRXCap)
 {
     hdmitx_dev_t *hdmitx_device = container_of(pRXCap, struct hdmi_tx_dev_s, RXCap);
 
-#ifndef AML_HDMI_TX_CTS_DVI
+#ifndef CONFIG_AML_HDMI_TX_CTS_DVI
     hdmi_print(IMP, SYS "fixed HDMI mode output\n");
     return 0;
 #endif
@@ -408,6 +408,7 @@ int hdmitx_set_display(hdmitx_dev_t* hdmitx_device, HDMI_Video_Codes_t VideoCode
     }
 
     param = hdmi_get_video_param(VideoCode);
+    hdmitx_device->cur_video_param = param;
     if(param){
         param->color = param->color_prefer;
         if(hdmi_output_rgb){

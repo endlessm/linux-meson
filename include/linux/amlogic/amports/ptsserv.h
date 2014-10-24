@@ -72,5 +72,6 @@ extern int first_lookup_pts_failed(u8 type);
 extern int first_pts_checkin_complete(u8 type);
 extern int calculation_stream_delayed_ms(u8 type,u32 *latestbirate,u32*avg_bitare);
 
+extern int calculation_vcached_delayed(void);
 
 #endif /* PTSSERV_H */

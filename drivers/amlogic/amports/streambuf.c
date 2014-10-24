@@ -35,6 +35,7 @@
 #include "vdec.h"
 #include "streambuf_reg.h"
 #include "streambuf.h"
+#include "amports_config.h"
 
 #define STBUF_SIZE   (64*1024)
 #define STBUF_WAIT_INTERVAL  HZ/100
@@ -56,7 +57,7 @@ static s32 _stbuf_alloc(stream_buf_t *buf)
         }
 
         printk("%s stbuf alloced at 0x%x, size = %d\n",
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
                (buf->type == BUF_TYPE_HEVC) ? "HEVC" :
 #endif
                (buf->type == BUF_TYPE_VIDEO) ? "Video" :
@@ -171,7 +172,7 @@ static void _stbuf_timer_func(unsigned long arg)
 u32 stbuf_level(struct stream_buf_s *buf)
 {
     return 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     (buf->type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_LEVEL) :
 #endif
     _READ_ST_REG(LEVEL);
@@ -180,7 +181,7 @@ u32 stbuf_level(struct stream_buf_s *buf)
 u32 stbuf_rp(struct stream_buf_s *buf)
 {
     return
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     (buf->type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_RD_PTR) :
 #endif
     _READ_ST_REG(RP);
@@ -191,7 +192,7 @@ u32 stbuf_space(struct stream_buf_s *buf)
     /* reserved space for safe write, the parser fifo size is 1024byts, so reserve it */
     int size;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (buf->type == BUF_TYPE_HEVC) {
         size = buf->canusebuf_size - READ_VREG(HEVC_STREAM_LEVEL);
     } else
@@ -211,7 +212,7 @@ u32 stbuf_space(struct stream_buf_s *buf)
     if(buf->canusebuf_size>=buf->buf_size/2)
         size=size-6*1024;//old reversed value,tobe full, reversed only...
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if ((buf->type == BUF_TYPE_VIDEO) || (buf->type == BUF_TYPE_HEVC)) {
 #else
     if (buf->type == BUF_TYPE_VIDEO) {
@@ -250,7 +251,7 @@ s32 stbuf_init(struct stream_buf_s *buf)
 
     init_waitqueue_head(&buf->wq);
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (buf->type == BUF_TYPE_HEVC) {
         CLEAR_VREG_MASK(HEVC_STREAM_CONTROL, 1);
         WRITE_VREG(HEVC_STREAM_START_ADDR, phy_addr);

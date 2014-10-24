@@ -18,7 +18,7 @@
 #ifndef _TV_CEC_H_
 #define _TV_CEC_H_
 #include <linux/amlogic/hdmi_tx/hdmi_tx_module.h> 
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
 #include <mach/hdmi_parameter.h>
 #endif
 
@@ -581,7 +581,7 @@ void cec_set_standby(void);
 void cec_isr_post_process(void);
 void cec_clear_buf(unsigned int flag);
 
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
 void cec_arbit_bit_time_set(unsigned bit_set, unsigned time_set, unsigned flag);
 void tx_irq_handle(void);
 void cec_arbit_bit_time_read(void);

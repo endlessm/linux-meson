@@ -752,6 +752,7 @@ typedef struct csi_parm_s {
 	unsigned ui_val; //ns
 	unsigned hs_freq; //hz
 	unsigned urgent;
+        unsigned settle;
 
         unsigned int lane_mask;
 

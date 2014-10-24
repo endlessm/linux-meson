@@ -73,8 +73,8 @@
 //night sharpness
 #define  Pre_Value_P0_0x71  0x05
 #define  Pre_Value_P0_0x72  0x01
-#define  Pre_Value_P0_0x73  0x03
-#define  Pre_Value_P0_0x74  0x46
+#define  Pre_Value_P0_0x73  0x02
+#define  Pre_Value_P0_0x74  0x44
 //color
 #define  Pre_Value_P0_0x7f  0xd7  //R 
 #define  Pre_Value_P0_0x87  0xf8  //B
@@ -89,8 +89,8 @@
 #define  Pre_Value_P0_0xf9  0x68
 #define  Pre_Value_P0_0xfa  0x53
 //HEQ
-#define  Pre_Value_P0_0xdd  0x70
-#define  Pre_Value_P0_0xde  0x90
+#define  Pre_Value_P0_0xdd  0x80
+#define  Pre_Value_P0_0xde  0x98
 //AWB pre gain
 #define  Pre_Value_P1_0x28  0x75
 #define  Pre_Value_P1_0x29  0x4e
@@ -566,26 +566,26 @@ struct aml_camera_i2c_fig1_s SP0838_script[] = {
     {0x59,0x10},
     {0x56,0x70},
     //smooth
-    {0x5a,0x02},
-    {0x5b,0x06},
+    {0x5a,0x08},
+    {0x5b,0x08},
     {0x5c,0x30},
     //sharp
     {0x65,0x03},
     {0x66,0x01},
-    {0x67,0x06},
-    {0x68,0x46},
+    {0x67,0x02},//06
+    {0x68,0x44},//46
     {0x69,0x7f},
     {0x6a,0x01},
     {0x6b,0x04},
     {0x6c,0x01},
-    {0x6d,0x04}, //03
-    {0x6e,0x46}, //46
+    {0x6d,0x02}, //03
+    {0x6e,0x44}, //46
     {0x6f,0x7f},
     {0x70,0x01},
     {0x71,0x05},
     {0x72,0x01},
-    {0x73,0x03},
-    {0x74,0x46},
+    {0x73,0x02},
+    {0x74,0x44},
     {0x75,0x7f},
     {0x76,0x01},
     {0xcb,0x07},
@@ -599,8 +599,8 @@ struct aml_camera_i2c_fig1_s SP0838_script[] = {
     {0xd4,0x00},
     {0xd6,0x1c},
     {0xd7,0x16},
-    {0xdd,0x70},
-    {0xde,0x98},
+    {0xdd,0x70},//70
+    {0xde,0x90},
     {0x7f,0xd7},
     {0x80,0xbc},
     {0x81,0xed},
@@ -677,7 +677,7 @@ struct aml_camera_i2c_fig1_s SP0838_script[] = {
     {0x15,0x0f},
 
 	//sensor AE settings:
-	
+	/*
 	{0xfd,0x00},
 	{0x05,0x00},
 	{0x06,0x00},
@@ -715,6 +715,44 @@ struct aml_camera_i2c_fig1_s SP0838_script[] = {
 	{0xca,0x70},
 	{0xcb,0x0c},
 	{0xfd,0x00},
+	*/
+{0xfd,0x00},
+{0x05,0x00},
+{0x06,0x00},
+{0x09,0x04},
+{0x0a,0xa0},
+{0xf0,0x3b},
+{0xf1,0x00},
+{0xf2,0x56},
+{0xf5,0x6f},
+{0xfd,0x01},
+{0x00,0xa5},
+{0x0f,0x57},
+{0x16,0x57},
+{0x17,0x95},
+{0x18,0x9d},
+{0x1b,0x57},
+{0x1c,0x9d},
+{0xb4,0x21},
+{0xb5,0x39},
+{0xb6,0x39},
+{0xb9,0x40},
+{0xba,0x4f},
+{0xbb,0x47},
+{0xbc,0x45},
+{0xbd,0x43},
+{0xbe,0x42},
+{0xbf,0x42},
+{0xc0,0x42},
+{0xc1,0x41},
+{0xc2,0x41},
+{0xc3,0x70},
+{0xc4,0x41},
+{0xc5,0x41},
+{0xc6,0x41},
+{0xca,0x70},
+{0xcb,0x0a},
+{0xfd,0x00},
 
 
 	{0xfd,0x00},
@@ -808,39 +846,29 @@ static int set_flip(struct sp0838_device *dev)
 static void sp0838_set_resolution(struct sp0838_device *dev,int height,int width)
 {
 	int i=0;
-    unsigned char buf[2];
+	unsigned char buf[2];
 	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
 	struct aml_camera_i2c_fig1_s* resolution_script;
-	if (width*height >= 640*480) {
-		printk("set resolution 640X480\n");
-		resolution_script = resolution_640x480_script;
-		sp0838_h_active = 640;
-		sp0838_v_active = 478; //480 
-		sp0838_frmintervals_active.denominator 	= 15;
-		sp0838_frmintervals_active.numerator	= 1;
-		//SP0838_init_regs(dev);
-		//return;
-	} else {
-		printk("set resolution 320X240\n");
-		sp0838_h_active = 320;
-		sp0838_v_active = 238;
-	    sp0838_frmintervals_active.denominator 	= 15;
-		sp0838_frmintervals_active.numerator	= 1;
-		resolution_script = resolution_320x240_script;
-	}
+
+	printk("set resolution 640X480\n");
+	resolution_script = resolution_640x480_script;
+	sp0838_h_active = 640;
+	sp0838_v_active = 478; //480 
+	sp0838_frmintervals_active.denominator 	= 15;
+	sp0838_frmintervals_active.numerator	= 1;
 	
 	while(1) {
-        buf[0] = resolution_script[i].addr;
-        buf[1] = resolution_script[i].val;
-        if(resolution_script[i].val==0xff&&resolution_script[i].addr==0xff) {
-            break;
-        }
-        if((i2c_put_byte_add8(client,buf, 2)) < 0) {
-            printk("fail in setting resolution \n");
-            return;
-        }
-        i++;
-    }
+		buf[0] = resolution_script[i].addr;
+		buf[1] = resolution_script[i].val;
+		if(resolution_script[i].val==0xff&&resolution_script[i].addr==0xff) {
+		    break;
+		}
+		if((i2c_put_byte_add8(client,buf, 2)) < 0) {
+		    printk("fail in setting resolution \n");
+		    return;
+		}
+		i++;
+	}
     	set_flip(dev);
 }
 /*************************************************************************
@@ -905,10 +933,10 @@ void set_SP0838_param_wb(struct sp0838_device *dev,enum  camera_wb_flip_e para)
 				buf[1]=0x01;
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x28;
-				buf[1]=0x71;
+				buf[1]=0x88;//71
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x29;
-				buf[1]=0x41;
+				buf[1]=0x42;//41
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0xfd;
 				buf[1]=0x00;
@@ -927,10 +955,10 @@ void set_SP0838_param_wb(struct sp0838_device *dev,enum  camera_wb_flip_e para)
 				buf[1]=0x01;
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x28;
-				buf[1]=0xb0;
+				buf[1]=0x6b;//b0
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x29;
-				buf[1]=0x70;
+				buf[1]=0x48;//70
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0xfd;
 				buf[1]=0x00;
@@ -949,10 +977,10 @@ void set_SP0838_param_wb(struct sp0838_device *dev,enum  camera_wb_flip_e para)
 				buf[1]=0x01;
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x28;
-				buf[1]=0x6b;
+				buf[1]=0x41;//6b
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x29;
-				buf[1]=0x48;
+				buf[1]=0x71;//48
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0xfd;
 				buf[1]=0x00;
@@ -971,10 +999,10 @@ void set_SP0838_param_wb(struct sp0838_device *dev,enum  camera_wb_flip_e para)
 				buf[1]=0x01;
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x28;
-				buf[1]=0x98;
+				buf[1]=0x5a;//98
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x29;
-				buf[1]=0xc0;
+				buf[1]=0x62;//c0
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0xfd;
 				buf[1]=0x00;
@@ -993,10 +1021,10 @@ void set_SP0838_param_wb(struct sp0838_device *dev,enum  camera_wb_flip_e para)
 				buf[1]=0x01;
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x28;
-				buf[1]=0x41;
+				buf[1]=0x4e;//41
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0x29;
-				buf[1]=0x71;
+				buf[1]=0x68;//71
 				i2c_put_byte_add8(client,buf,2);
 				buf[0]=0xfd;
 				buf[1]=0x00;

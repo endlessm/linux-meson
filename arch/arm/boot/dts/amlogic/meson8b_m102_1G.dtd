@@ -113,10 +113,9 @@ void root_func(){
 		compatible = "amlogic,vpu";
 		dev_name = "vpu";	
 		status = "ok";
-		clk_level = <4>;
+		clk_level = <3>;
 		/**    	0: 106.25M		1: 127.5M		2: 159.375M
-				3: 182.15M		4: 212.5M		5: 255M
-		    	6: 318.75M		7: 364.3M					 */
+				3: 182.15M		4: 212.5M	 */
 	};
 	
 /// **************************************************************************************	
@@ -131,11 +130,12 @@ void root_func(){
 		compatible = "amlogic,mesonfb";
 		dev_name = "mesonfb";
 		status = "okay";
-        reserve-memory = <0x0900000  0x00100000>;//9M+1M=10M
+        reserve-memory = <0x0900000  0x0b00000>;//9M+1M=10M
 	   	reserve-iomap = "true";
         vmode = <1>; /**0:VMODE_720P 1:VMODE_LCD  2:VMODE_LVDS_1080P 3:VMODE_1080P*/
         display_size_default = <768 1024 768 3072 32>;//1024x768x4x3==0x0900000,9MB
 	};
+
 //$$ DEVICE = "mesonfb-ext"
 //$$ L2 PROP_STR = "status"
 //$$ L3 PROP_U32 4 ="reg"
@@ -146,8 +146,7 @@ void root_func(){
 		status = "ok";
 		need-memory = <0>; /*0:no need,1:need*/
 	   	reserve-iomap = "true";
-        display_size_default = <768 1024 768 3072 32>;//1024x768x4x3==0x0900000 < 0x01000000
-	 
+        display_size_default = <768 1024 768 3072 32>;//768x1024x4x3==0x0900000 < 0x01000000
 	};
 
 /// ***************************************************************************************
@@ -420,7 +419,6 @@ void root_func(){
            gpio_dat3 = "CARD_4";
            jtag_pin = "CARD_0";
            gpio_cd = "CARD_6";
-           gpio_ro = "GPIODV_25";
            irq_in = <3>;
            irq_out = <5>;
            card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
@@ -690,7 +688,7 @@ void root_func(){
 //$$ L2 PROP_U32 16*3 = "dvfs_table"
         vcck_dvfs {
             dvfs_id     = <1>;                                  /** must be value of (1 << n)            */
-            table_count = <13>;                                 /** must be correct count for dvfs_table */
+            table_count = <12>;                                 /** must be correct count for dvfs_table */
             dvfs_table  = <
             /* NOTE: frequent in this table must be ascending order */
             /* frequent(Khz)    min_uV      max_uV                  */
@@ -706,7 +704,6 @@ void root_func(){
                 1200000         925000      925000
                 1320000        1000000     1000000
                 1488000        1075000     1075000
-                1608000        1150000     1150000
             >;
         };
     };
@@ -780,7 +777,7 @@ void root_func(){
         pmu_resume_chgcur = <20>;           /** resume charge current, 0.2c          */
         pmu_shutdown_chgcur = <30>;         /** shutdown charge current, 0.3c        */
         pmu_usbcur_limit = <1>;             /** enable usb current limit?            */
-        pmu_usbcur = <500>;                 /** usb limit current value if enabled   */
+        pmu_usbcur = <1000>;                 /** usb limit current value if enabled   */
         pmu_usbvol_limit = <1>;             /** enable usb vbus voltage limit        */
         pmu_usbvol = <4400>;                /** voltage limit value if enabled       */
         pmu_pwroff_vol = <3200>;            /** hardware force power off voltage     */
@@ -817,6 +814,7 @@ void root_func(){
         compatible = "amlogic, aml_pmu_prober";                 /* fixed for pmu driver, don't change   */
         #address-cells = <1>;
         #size-cells = <0>;
+        driver_version = "v0.60";
 //$$ DEVICE = "Pmu_axp202"
 //$$ L2 PROP_STR = "sub_type"
 //$$ L2 PROP_STR = "i2c_bus"
@@ -946,6 +944,8 @@ void root_func(){
 			port-config = <0>; /** 0: default */
 			port-dma = <0>; /** 0: default, 1: single, 2: incr, 3: incr4, 4: incr8, 5: incr16, 6: disable*/
 			port-id-mode = <1>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
+			host-only-core = <1>;
+			pmu-apply-power = <1>;
 			status = "okay";
 		};
 		
@@ -973,6 +973,7 @@ void root_func(){
 			port-id-mode = <0>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
 			gpio-vbus-power = "PMU";
 			gpio-work-mask	= <1>; /**0: work on pulldown,1:work on pullup*/
+            charger_detect = <1>;
 			status = "okay";
 		};
 	};
@@ -1206,7 +1207,7 @@ void root_func(){
             status = "okay";
             address = <0x4c>;
             i2c_bus = "i2c_bus_b";
-            acc_dir = <0x1100>;
+            acc_dir = <0x1111>;
         };
 //$$ DEVICE="mma7660"
 //$$ L2 PROP_STR = "status"
@@ -1218,8 +1219,17 @@ void root_func(){
 //            address = <0x4c>;
 //            i2c_bus = "i2c_bus_b";
 //       };
-
-
+//$$ DEVICE="stk8313"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_U32 = "address"
+//$$ L2 PROP_STR = "i2c_bus"
+        stk831x{
+            dev_name = "stk8313";
+            status = "okay";
+            address = <0x22>;
+            i2c_bus = "i2c_bus_b";
+            acc_dir = <0x0101>;
+        };
 	};
 
 
@@ -1409,7 +1419,7 @@ void root_func(){
 			i2c_bus = "i2c_bus_d";
 			gpio_pwdn = "GPIOH_6";
 			gpio_rst = "GPIOH_4";
-			mirror_flip = <1>;
+			mirror_flip = <0>;
 			vertical_flip = <0>;	
 			bt_path = "gpio";
 			status = "okay";
@@ -1430,8 +1440,8 @@ void root_func(){
 			i2c_bus = "i2c_bus_d";
 			gpio_pwdn = "GPIOH_6";
 			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <1>;
+			mirror_flip = <1>;
+			vertical_flip = <0>;
 			status = "okay";
 		};
 ///	-	gc0328
@@ -1470,8 +1480,8 @@ void root_func(){
 			i2c_bus = "i2c_bus_d";
 			gpio_pwdn = "GPIOH_5";
 			gpio_rst = "GPIOH_4";
-			mirror_flip = <1>;
-			vertical_flip = <1>;
+			mirror_flip = <0>;
+			vertical_flip = <0>;
 			status = "okay";
 		};
 ///	-	sp2518
@@ -1490,8 +1500,8 @@ void root_func(){
 			i2c_bus = "i2c_bus_d";
 			gpio_pwdn = "GPIOH_5";
 			gpio_rst = "GPIOH_4";
-			mirror_flip = <1>;
-			vertical_flip = <1>;
+			mirror_flip = <0>;
+			vertical_flip = <0>;
 			status = "okay";
 		};
 	};	
@@ -1564,8 +1574,9 @@ void root_func(){
 		interrupt_pin = "GPIOX_21";
 		irq_num = <4>;
 		irq_trigger_type = "GPIO_IRQ_HIGH";
-//		power_on_pin = "GPIOAO_6";
-		power_on_pin2 = "GPIOX_11";
+		power_on_pin = "GPIOX_11";
+		valid = "high";
+//		power_on_pin2 = "GPIOX_11";
 		clock_32k_pin = "GPIOX_10";
 	};
     
@@ -1634,13 +1645,30 @@ void root_func(){
 		compatible = "amlogic-thermal";
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
-		trip_point=<60 1608001 1608001 511 511 2 3
-			    70 1200001 1200001 435 435 2 3
+		trip_point=<60 1488001 1488001 511 511 2 2
+			    70 1200001 1200001 435 435 2 2
 			    80  800001 800001  328 328 1 1
 			    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
-
+        use_virtual_thermal;
+        freq_sample_period=<30>;
+        report_time=<1 10 30 60>;         /* based on freq_sample_period */
+        cpu_virtual=<
+             500000  40  40  40  40
+             600000  45  55  60  65
+             800000  50  60  65  70
+            1000000  55  65  70  75
+            1200000  60  70  75  80
+            1350000  65  75  80  85
+        >;
+        gpu_virtual=<
+            183      40  40  40  40
+            251      40  45  50  55
+            319      50  60  65  70
+            426      55  65  70  75
+            511      60  70  75  80
+        >;
 	};
 	
 /// ***************************************************************************************
@@ -1666,11 +1694,14 @@ void root_func(){
 		compatible = "amlogic,unifykey";
 		status = "ok";
 
-		/*efuse-version = <0>;*/ /*m6 efuse version 2,m3 efuse version 1, not config efuse version in default*/
-		unifykey-num = <3>;
+		/*efuse-version = <20>;*/ /*m6 efuse version 2,m3 efuse version 1, not config efuse version in default*/
+		unifykey-num = <6>;
 		unifykey-index-0 = <&keysn_0>;
 		unifykey-index-1 = <&keysn_1>;
 		unifykey-index-2 = <&keysn_2>;
+		unifykey-index-3 = <&keysn_3>;
+		unifykey-index-4 = <&keysn_4>;
+		unifykey-index-5 = <&keysn_5>;
 
 
 //$$ MATCH "Unifykey_0_match" = <&keysn_0>
@@ -1679,9 +1710,9 @@ void root_func(){
 //$$ L2 PROP_STR = "key-dataformat"
 //$$ L2 PROP_STR 3 = "key-permit"
 		keysn_0: key_0{
-			key-name = "key0";
+			key-name = "usid";
 			key-device = "nandkey";
-			key-dataformat = "hexdata";
+			key-dataformat = "allascii";
 			key-permit = "read","write","del";
 		};
 		
@@ -1691,7 +1722,7 @@ void root_func(){
 //$$ L2 PROP_STR = "key-dataformat"
 //$$ L2 PROP_STR 3 = "key-permit"
 		keysn_1:key_1{
-			key-name = "key1";
+			key-name = "mac";
 			key-device = "nandkey";
 			key-dataformat = "hexdata";
 			key-permit = "read","write","del";
@@ -1703,13 +1734,48 @@ void root_func(){
 //$$ L2 PROP_STR = "key-dataformat"
 //$$ L2 PROP_STR 3 = "key-permit"
 		keysn_2:key_2{
-			key-name = "key2";
+			key-name = "hdcp";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+
+//$$ MATCH "Unifykey_3_match" = <&keysn_3>
+//$$ L2 PROP_STR = "key-name"
+//$$ L2 PROP_STR = "key-device"
+//$$ L2 PROP_STR = "key-dataformat"
+//$$ L2 PROP_STR 3 = "key-permit"
+		keysn_3:key_3{
+			key-name = "secure_boot_set";
+			key-device = "efusekey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write";
+		};
+		
+//$$ MATCH "Unifykey_4_match" = <&keysn_4>
+//$$ L2 PROP_STR = "key-name"
+//$$ L2 PROP_STR = "key-device"
+//$$ L2 PROP_STR = "key-dataformat"
+//$$ L2 PROP_STR 3 = "key-permit"
+		keysn_4:key_4{
+			key-name = "mac_bt";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+		
+//$$ MATCH "Unifykey_5_match" = <&keysn_5>
+//$$ L2 PROP_STR = "key-name"
+//$$ L2 PROP_STR = "key-device"
+//$$ L2 PROP_STR = "key-dataformat"
+//$$ L2 PROP_STR 3 = "key-permit"
+		keysn_5:key_5{
+			key-name = "mac_wifi";
 			key-device = "nandkey";
 			key-dataformat = "hexdata";
 			key-permit = "read","write","del";
 		};
 	};
-
 	
 /// ***************************************************************************************
 ///	-	PowerManager
@@ -2069,9 +2135,9 @@ sdhc_sd_clk_cmd_pins:sdhc_sd_clk_cmd_pins{
 //$$ L2 PROP_STR 10 = "amlogic,pins"	
         aml_cam_gpio_pins: aml_cam_gpio_pins{
 			amlogic,setmask=<3 0x80000
+			                 4 0x2
 					 9 0x37c>;
 			amlogic,clrmask=<3 0x37
-					 4 0x2
 					 5 0xc0
 					 6 0x800
 					 8 0x10000>;

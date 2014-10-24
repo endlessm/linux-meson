@@ -371,7 +371,7 @@ static int set_disp_mode_auto(void)
 
     if((vic_ready != HDMI_Unkown) && (vic_ready == vic)) {
         hdmi_print(IMP, SYS "[%s] ALREADY init VIC = %d\n", __func__, vic);
-#ifdef AML_HDMI_TX_CTS_DVI
+#ifdef CONFIG_AML_HDMI_TX_CTS_DVI
         if(hdmitx_device.RXCap.IEEEOUI == 0) {
             // DVI case judgement. In uboot, directly output HDMI mode
             hdmitx_device.HWOp.CntlConfig(&hdmitx_device, CONF_HDMI_DVI_MODE, DVI_MODE);
@@ -626,6 +626,9 @@ static ssize_t store_config(struct device * dev, struct device_attribute *attr, 
         }
     }
     else if(strncmp(buf, "3d", 2)==0){
+			// First, disable HDMI TMDS
+			hdmitx_device.HWOp.CntlMisc(&hdmitx_device, MISC_TMDS_PHY_OP, TMDS_PHY_DISABLE);
+			// Second, set 3D parameters
         if(strncmp(buf+2, "tb", 2)==0){
             hdmi_set_3d(&hdmitx_device, 6, 0);
         }
@@ -638,6 +641,9 @@ static ssize_t store_config(struct device * dev, struct device_attribute *attr, 
         else if(strncmp(buf+2, "off", 3)==0){
             hdmi_set_3d(&hdmitx_device, 0xf, 0);
         }
+				// Last, delay sometime and enable HDMI TMDS
+				msleep(20);
+				hdmitx_device.HWOp.CntlMisc(&hdmitx_device, MISC_TMDS_PHY_OP, TMDS_PHY_ENABLE);
     }
     else if(strncmp(buf, "audio_", 6)==0) {
         if(strncmp(buf+6, "off", 3) == 0) {
@@ -820,6 +826,14 @@ static ssize_t show_hpd_state(struct device * dev, struct device_attribute *attr
     return pos;
 }
 
+static ssize_t show_support_3d(struct device * dev, struct device_attribute *attr, char * buf)
+{
+    int pos=0;
+
+    pos += snprintf(buf+pos, PAGE_SIZE,"%d\r\n", hdmitx_device.RXCap.threeD_present);
+    return pos;
+}
+
 void hdmi_print(int dbg_lvl, const char *fmt, ...)
 {
     va_list args;
@@ -843,6 +857,7 @@ static DEVICE_ATTR(aud_ch, S_IWUSR | S_IRUGO | S_IWGRP, show_aud_ch, store_aud_c
 static DEVICE_ATTR(disp_cap_3d, S_IWUSR | S_IRUGO, show_disp_cap_3d, NULL);
 static DEVICE_ATTR(hdcp_ksv_info, S_IWUSR | S_IRUGO, show_hdcp_ksv_info, NULL);
 static DEVICE_ATTR(hpd_state, S_IWUSR | S_IRUGO, show_hpd_state, NULL);
+static DEVICE_ATTR(support_3d, S_IWUSR | S_IRUGO, show_support_3d, NULL);
 static DEVICE_ATTR(cec, S_IWUSR | S_IRUGO, show_cec, store_cec);
 static DEVICE_ATTR(cec_config, S_IWUSR | S_IRUGO | S_IWGRP, show_cec_config, store_cec_config);
 //static DEVICE_ATTR(cec_config, S_IWUGO | S_IRUGO , NULL, store_cec_config);
@@ -1115,8 +1130,10 @@ static int hdmi_task_handle(void *data)
         if(hdmitx_device->HWOp.Cntl) {
             static int st = 0;
             st = hdmitx_device->HWOp.CntlMisc(hdmitx_device, MISC_HPD_GPI_ST, 0);
+wait:
             if(hdmitx_device->hpd_lock == 1) {
-                goto next;
+                msleep_interruptible(2000);
+                goto wait;
             }
             if((st == 0) && (hdmitx_device->hpd_state == 1)) {
                 hdmitx_device->hpd_event = 2;
@@ -1124,10 +1141,6 @@ static int hdmi_task_handle(void *data)
             if((st == 1) && (hdmitx_device->hpd_state == 0)) {
                 hdmitx_device->hpd_event = 1;
             }
-        }
-
-        if(hdmitx_device->hpd_state == 0) {
-            hdmitx_device->HWOp.CntlMisc(hdmitx_device, MISC_TMDS_PHY_OP, TMDS_PHY_DISABLE);
         }
 
         if (hdmitx_device->hpd_event == 1)
@@ -1448,6 +1461,7 @@ static int amhdmitx_probe(struct platform_device *pdev)
     ret=device_create_file(hdmitx_dev, &dev_attr_aud_ch);
     ret=device_create_file(hdmitx_dev, &dev_attr_hdcp_ksv_info);
     ret=device_create_file(hdmitx_dev, &dev_attr_hpd_state);
+    ret=device_create_file(hdmitx_dev, &dev_attr_support_3d);
     ret=device_create_file(hdmitx_dev, &dev_attr_cec);
     ret=device_create_file(hdmitx_dev, &dev_attr_cec_config);
     ret=device_create_file(hdmitx_dev, &dev_attr_cec_lang_config);
@@ -1575,6 +1589,7 @@ static int amhdmitx_remove(struct platform_device *pdev)
     device_remove_file(hdmitx_dev, &dev_attr_disp_cap);
     device_remove_file(hdmitx_dev, &dev_attr_disp_cap_3d);
     device_remove_file(hdmitx_dev, &dev_attr_hpd_state);
+    device_remove_file(hdmitx_dev, &dev_attr_support_3d);
     device_remove_file(hdmitx_dev, &dev_attr_cec);
 
     cdev_del(&hdmitx_device.cdev);

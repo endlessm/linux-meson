@@ -137,7 +137,7 @@ int __cpuinit meson_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	meson_secondary_set(cpu);
 	dsb_sev();
 
-	smp_send_reschedule(cpu);
+//	smp_send_reschedule(cpu);
 	timeout = jiffies + (10* HZ);
 	while (time_before(jiffies, timeout)) {
 		smp_rmb();

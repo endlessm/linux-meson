@@ -134,7 +134,7 @@
 		compatible = "amlogic,deinterlace";
 		dev_name = "deinterlace";
 		status = "okay";
-		reserve-memory = <0x01900000>;//1920x1088x3/2 + 256x1088/2= 25m
+		reserve-memory = <0x02000000>;//10x(1920x1088x3/2 + 256x1088/2)= 32m
 		reserve-iomap = "true";
 	};
 /// ***************************************************************************************
@@ -517,7 +517,7 @@
 		aml,sound_card = "AML-M6TV";
 		//aml,codec_dai = "tas5711-","rt5616-aif1","rt5631-hifi","wm8960-hifi";
 		dev_name = "aml_m6tv_audio.0";
-		mute_gpio = "GPIOW_19";
+		mute_gpio = "GPIOAO_10";
 		pinctrl-names = "aml_m6tv_audio";
 		pinctrl-0 = <&aml_i2s_pins>;
 	};
@@ -562,14 +562,14 @@
 			ocr_avail = <0x200000>; /*VDD voltage 3.3 ~ 3.4 */
 			caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
 			f_min = <300000>;
-			f_max = <50000000>;
+			f_max = <40000000>;
 			f_max_w = <50000000>;
 			max_req_size = <0x20000>; /*128KB*/
 			gpio_dat3 = "BOOT_3";
 			#gpio_cd = "CARD_6";
 			#gpio_power = "CARD_8";
 			#power_level = <0>;
-			card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+			card_type = <1>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
 		};
 	}; /* end of sdio */
 	saradc {
@@ -623,6 +623,18 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&smc_pins>;
 	};
+
+	//$$ DEVICE="wifi_power"
+	//$$ L2 PROP_STR = "status"
+	//$$ L2 PROP_STR = "power_gpio"
+	wifi_power {
+		compatible = "amlogic,wifi_power";
+		dev_name = "wifi_power";
+		status = "okay";
+		power_gpio = "GPIOW_19";
+		valid = "low";
+	};
+
 	gpio:gpio {
 		compatible = "amlogic,m6tv-gpio";
 		dev_name = "gpio";
@@ -1007,7 +1019,7 @@
 		dtv_demod0_reset_value = <0>;
 		dtv_demod0_reset_gpio = "GPIOX_8" ;
 		dtv_demod0_mem = <1>;
-		reserve-memory = <0x400000>;
+		reserve-memory = <0xa00000>;
 		reserve-iomap = "true";
 		fe0_dtv_demod = <0>;
 		fe0_ts = <0>;

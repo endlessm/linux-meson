@@ -18,6 +18,8 @@ static u32 system_time = 0;
 static u32 system_time_up = 0;
 static u32 audio_pts_up = 0;
 static u32 audio_pts_started = 0;
+static u32 first_vpts = 0;
+static u32 first_apts = 0;
 
 #ifdef MODIFY_TIMESTAMP_INC_WITH_PLL
 #define PLL_FACTOR 10000
@@ -129,6 +131,32 @@ void timestamp_pcrscr_set(u32 pts)
 }
 
 EXPORT_SYMBOL(timestamp_pcrscr_set);
+
+void timestamp_firstvpts_set(u32 pts)
+{
+    first_vpts = pts;
+}
+
+EXPORT_SYMBOL(timestamp_firstvpts_set);
+
+u32 timestamp_firstvpts_get(void)
+{
+    return first_vpts;
+}
+EXPORT_SYMBOL(timestamp_firstvpts_get);
+
+void timestamp_firstapts_set(u32 pts)
+{
+    first_apts = pts;
+}
+
+EXPORT_SYMBOL(timestamp_firstapts_set);
+
+u32 timestamp_firstapts_get(void)
+{
+    return first_apts;
+}
+EXPORT_SYMBOL(timestamp_firstapts_get);
 
 void timestamp_pcrscr_inc(s32 inc)
 {

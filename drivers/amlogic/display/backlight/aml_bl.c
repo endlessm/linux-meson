@@ -685,6 +685,206 @@ struct aml_bl {
     struct platform_device          *pdev;
 };
 
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV)||(MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD)
+
+ #define CONFIG_AML_BL_CTL_PWM 1
+
+#define BL_POWER_ON		0
+#define BL_POWER_OFF		1
+
+#define TV_BL_MAX_LEVEL    255
+#define TV_BL_MIN_LEVEL    0
+
+typedef struct {
+	unsigned int pwm_hz;
+	unsigned int ref_bl_level;
+
+	unsigned int bl_power_pin;
+	struct aml_bl *amlbl;
+	struct pinctrl *p;
+} TV_Bl_Config_t;
+
+static TV_Bl_Config_t tv_bl_config = {
+	.pwm_hz = 0,
+	.ref_bl_level = 0,
+	.bl_power_pin = -1,
+};
+
+#ifdef CONFIG_AML_BL_PWM_ATTR
+static void tv_init_bl(unsigned int pwm)
+{
+#ifdef CONFIG_AML_BL_CTL_PWM
+	char buf[8] = "pwm_a";
+	tv_bl_config.pwm_hz = pwm;
+	tv_bl_config.p = devm_pinctrl_get_select(&tv_bl_config.amlbl->pdev->dev, buf);
+	if (IS_ERR(tv_bl_config.p))
+		pr_err("get backlight pinmux pwm_a error.\n");
+	WRITE_CBUS_REG(PERIPHS_PIN_MUX_2, (READ_CBUS_REG(PERIPHS_PIN_MUX_2) | (1 << 0)) );
+#endif // CONFIG_AML_BL_CTL_PWM
+}
+#else
+static void tv_init_bl(void)
+{
+#ifdef CONFIG_AML_BL_CTL_PWM
+	char bufa[8] = "pwm_a";
+	tv_bl_config.p = devm_pinctrl_get_select(&tv_bl_config.amlbl->pdev->dev, bufa);
+	if (IS_ERR(tv_bl_config.p))
+		pr_err("get backlight pinmux pwm_a error.\n");
+	WRITE_CBUS_REG(PERIPHS_PIN_MUX_2, (READ_CBUS_REG(PERIPHS_PIN_MUX_2) | (1 << 0)) );
+#ifdef CONFIG_AML_BL_PWM_60HZ
+	char bufvs[8] = "pwm_vs";
+	tv_bl_config.p = devm_pinctrl_get_select(&tv_bl_config.amlbl->pdev->dev, bufvs);
+	if (IS_ERR(tv_bl_config.p))
+		pr_err("get backlight pinmux pwm_vs error.\n");
+#endif
+#endif // CONFIG_AML_BL_CTL_PWM
+}
+#endif
+
+static void tv_power_on_bl(void)
+{
+	bl_gpio_direction_output(tv_bl_config.bl_power_pin,BL_POWER_ON);
+	pr_info("%s\n", __func__);
+}
+
+static void tv_power_off_bl (void)
+{
+	bl_gpio_direction_output(tv_bl_config.bl_power_pin,BL_POWER_OFF);
+	pr_info("%s\n", __func__);
+}
+
+static unsigned tv_get_bl_level(void)
+{
+	return tv_bl_config.ref_bl_level;
+}
+
+void pwm_enable(void)
+{
+	WRITE_CBUS_REG_BITS(PERIPHS_PIN_MUX_2,1,2,1);
+}
+EXPORT_SYMBOL(pwm_enable);
+
+void pwm_disable(void)
+{
+	aml_set_reg32_bits(P_PREG_PAD_GPIO1_EN_N,0,30,1);
+	aml_set_reg32_bits(P_PREG_PAD_GPIO1_O,0,30,1);
+	WRITE_CBUS_REG_BITS(PERIPHS_PIN_MUX_2,0,2,1);
+}
+EXPORT_SYMBOL(pwm_disable);
+
+#ifdef CONFIG_AML_BL_PWM_ATTR
+static void tv_set_bl_level(unsigned int level,unsigned int pwm)
+{
+	int pwm_max = 0;
+
+	if(pwm) {
+		tv_bl_config.pwm_hz = pwm;
+	}
+
+	pwm_max = (160 * 1248) / tv_bl_config.pwm_hz;
+
+	tv_bl_config.ref_bl_level = level;
+
+	if (level > TV_BL_MAX_LEVEL)
+		level = TV_BL_MAX_LEVEL;
+
+	if (level < TV_BL_MIN_LEVEL)
+		level = TV_BL_MIN_LEVEL;
+
+#ifdef CONFIG_AML_BL_CTL_GPIO
+	level = level * 15 / TV_BL_MAX_LEVEL;
+	level = 15 - level;
+	aml_set_reg32_bits(P_LED_PWM_REG0, level, 0, 4);
+#endif // CONFIG_AML_BL_CTL_GPIO
+
+#ifdef CONFIG_AML_BL_CTL_PWM
+	if(tv_bl_config.pwm_hz == 60) {
+		WRITE_CBUS_REG(0x2730,0x02320000);
+		WRITE_CBUS_REG(0x2734,0x000a000a);
+		WRITE_CBUS_REG(0x2730,(level*1000)/255<<16);
+	} else {
+		WRITE_CBUS_REG(PWM_MISC_REG_AB, ((READ_CBUS_REG(PWM_MISC_REG_AB) &~((1 << 15)|(0x7F << 8)|(0x3 << 4)))|(1 << 0))|\
+					((1 << 15)|(0x77 << 8)|(0x0<< 4)|(1 << 0)) ); //0xf701 120div=119
+		level = level * pwm_max / TV_BL_MAX_LEVEL ;
+		WRITE_CBUS_REG( PWM_PWM_A, ((level << 16) | ((pwm_max - level) << 0)) );
+		//pr_info("%s,%d PWM_A level=%d\n", __func__, __LINE__, level);
+	}
+#endif // CONFIG_AML_BL_CTL_PWM
+}
+#else
+static void tv_set_bl_level(unsigned int level)
+{
+	int pwm_max = 0;
+
+	tv_bl_config.ref_bl_level = level;
+
+	if (level > TV_BL_MAX_LEVEL)
+		level = TV_BL_MAX_LEVEL;
+
+	if (level < TV_BL_MIN_LEVEL)
+		level = TV_BL_MIN_LEVEL;
+
+	pwm_max = (160 * 1248) / tv_bl_config.pwm_hz;
+
+#ifdef CONFIG_AML_BL_CTL_GPIO
+	level = level * 15 / TV_BL_MAX_LEVEL;
+	level = 15 - level;
+	aml_set_reg32_bits(P_LED_PWM_REG0, level, 0, 4);
+#endif // CONFIG_AML_BL_CTL_GPIO
+
+#ifdef CONFIG_AML_BL_CTL_PWM
+	WRITE_CBUS_REG(PWM_MISC_REG_AB, ((READ_CBUS_REG(PWM_MISC_REG_AB) &~((1 << 15)|(0x7F << 8)|(0x3 << 4)))|(1 << 0)) |\
+				((1 << 15)|(0x77 << 8)|(0x0<< 4)|(1 << 0))); //0xf701 120div=119
+	level = level * pwm_max / TV_BL_MAX_LEVEL ;
+	WRITE_CBUS_REG( PWM_PWM_A, ((level << 16) | ((pwm_max - level) << 0)) );
+	//pr_info("%s,%d PWM_A level=%d\n", __func__, __LINE__, level);
+#ifdef CONFIG_AML_BL_PWM_60HZ
+	WRITE_CBUS_REG(0x2730,0x02320000);
+	WRITE_CBUS_REG(0x2734,0x000a000a);
+	WRITE_CBUS_REG(0x2730,(level*1000)/255<<16);
+#endif
+#endif // CONFIG_AML_BL_CTL_PWM
+}
+#endif // CONFIG_AML_BL_PWM_ATTR
+
+static int tv_get_backlight_config(struct platform_device *pdev)
+{
+	const char *gpio_name = NULL;
+	unsigned int bl_power_pin = -1;
+	unsigned int value;
+	int ret = 0;
+
+	if (pdev->dev.of_node) {
+		gpio_name = of_get_property(pdev->dev.of_node, "power_pin", NULL);
+		if(gpio_name) {
+			bl_power_pin = amlogic_gpio_name_map_num(gpio_name);
+			bl_gpio_request(bl_power_pin);
+			tv_bl_config.bl_power_pin = bl_power_pin;
+		} else {
+			pr_err("don't find to match \"power_pin\" \n");
+		}
+
+		ret = of_property_read_u32(pdev->dev.of_node, "pwm_hz", &value);
+		if(!ret) {
+			tv_bl_config.pwm_hz = value;
+		} else {
+			pr_err("don't find to match \"pwm_hz\" \n");
+		}
+	}
+	return ret;
+}
+
+static int tv_rm_backlight_config(struct platform_device *pdev)
+{
+	if (pdev->dev.of_node) {
+		if(tv_bl_config.bl_power_pin != -1) {
+			bl_gpio_free(tv_bl_config.bl_power_pin);
+		}
+	}
+	return 0;
+}
+#endif // MESON_CPU_TYPE
+
 static int aml_bl_update_status(struct backlight_device *bd)
 {
     struct aml_bl *amlbl = bl_get_data(bd);
@@ -722,6 +922,17 @@ static const struct backlight_ops aml_bl_ops = {
 };
 
 #ifdef CONFIG_USE_OF
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV)||(MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD)
+static struct aml_bl_platform_data meson_backlight_platform = {
+	.bl_init            = tv_init_bl,
+	.power_on_bl        = tv_power_on_bl,
+	.power_off_bl       = tv_power_off_bl,
+	.get_bl_level       = tv_get_bl_level,
+	.set_bl_level       = tv_set_bl_level,
+	.max_brightness     = 255,
+	.dft_brightness     = 200,
+};
+#else
 static struct aml_bl_platform_data meson_backlight_platform =
 {
     //.power_on_bl = power_on_backlight,
@@ -731,6 +942,7 @@ static struct aml_bl_platform_data meson_backlight_platform =
     .max_brightness = BL_LEVEL_MAX,
     .dft_brightness = BL_LEVEL_DEFAULT,
 };
+#endif
 
 #define AMLOGIC_BL_DRV_DATA ((kernel_ulong_t)&meson_backlight_platform)
 
@@ -1086,7 +1298,12 @@ static int aml_bl_probe(struct platform_device *pdev)
     }
 
 #ifdef CONFIG_USE_OF
-    _get_backlight_config(pdev);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV)||(MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD)
+	tv_bl_config.amlbl = amlbl;
+	tv_get_backlight_config(pdev);
+#else
+	_get_backlight_config(pdev);
+#endif
 #endif
 
     amlbl->pdata = pdata;
@@ -1155,6 +1372,10 @@ static int __exit aml_bl_remove(struct platform_device *pdev)
 
     if (bl_config.workqueue)
         destroy_workqueue(bl_config.workqueue);
+
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV)||(MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD)
+	tv_rm_backlight_config(pdev);
+#endif
 
     backlight_device_unregister(amlbl->bldev);
     platform_set_drvdata(pdev, NULL);

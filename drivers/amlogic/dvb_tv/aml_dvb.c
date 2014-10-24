@@ -75,6 +75,7 @@ static int aml_tsdemux_free_irq(void);
 static int aml_tsdemux_set_vid(int vpid);
 static int aml_tsdemux_set_aid(int apid);
 static int aml_tsdemux_set_sid(int spid);
+static int aml_tsdemux_set_pcrid(int pcrpid);
 static int aml_tsdemux_set_skipbyte(int skipbyte);
 static int aml_tsdemux_set_demux(int id);
 
@@ -86,6 +87,7 @@ static struct tsdemux_ops aml_tsdemux_ops = {
 .set_vid        = aml_tsdemux_set_vid,
 .set_aid        = aml_tsdemux_set_aid,
 .set_sid        = aml_tsdemux_set_sid,
+.set_pcrid      = aml_tsdemux_set_pcrid,
 .set_skipbyte   = aml_tsdemux_set_skipbyte,
 .set_demux      = aml_tsdemux_set_demux
 };
@@ -1522,6 +1524,44 @@ static int aml_tsdemux_set_sid(int spid)
 		if((spid>=0) && (spid<0x1FFF)) {
 			dmx->sub_chan = dmx_alloc_chan(dmx, DMX_TYPE_TS, DMX_PES_SUBTITLE, spid);
 			if(dmx->sub_chan==-1) {
+				ret = -1;
+			}
+		}
+
+		spin_unlock_irqrestore(&dvb->slock, flags);
+
+		mutex_unlock(&dmx->dmxdev.mutex);
+	}
+
+	return ret;
+}
+
+static int aml_tsdemux_set_pcrid(int pcrpid)
+{
+	struct aml_dvb *dvb = &aml_dvb_device;
+	struct aml_dmx *dmx;
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&dvb->slock, flags);
+
+	dmx = get_stb_dmx();
+
+	spin_unlock_irqrestore(&dvb->slock, flags);
+
+	if(dmx) {
+		mutex_lock(&dmx->dmxdev.mutex);
+
+		spin_lock_irqsave(&dvb->slock, flags);
+
+		if(dmx->pcr_chan!=-1) {
+			dmx_free_chan(dmx, dmx->pcr_chan);
+			dmx->pcr_chan = -1;
+		}
+
+		if((pcrpid>=0) && (pcrpid<0x1FFF)) {
+			dmx->pcr_chan = dmx_alloc_chan(dmx, DMX_TYPE_TS, DMX_PES_PCR, pcrpid);
+			if(dmx->pcr_chan==-1) {
 				ret = -1;
 			}
 		}

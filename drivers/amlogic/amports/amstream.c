@@ -65,6 +65,8 @@
 #include "rmparser.h"
 #include "amvideocap_priv.h"
 #include "amports_priv.h"
+#include "amports_config.h"
+
 #include <linux/firmware.h>
 
 #include <linux/of.h>
@@ -281,7 +283,7 @@ static stream_port_t ports[] = {
         .type  = PORT_TYPE_USERDATA,
         .fops  = &userdata_fops,
     },
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     {
         .name  = "amstream_hevc",
         .type  = PORT_TYPE_ES | PORT_TYPE_VIDEO | PORT_TYPE_HEVC,
@@ -320,7 +322,7 @@ static stream_buf_t bufs[BUF_MAX_NUM] = {
         .buf_size = 0,
         .first_tstamp = INVALID_PTS
     },
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     {
         .reg_base = HEVC_STREAM_REG_BASE,
         .type = BUF_TYPE_HEVC,
@@ -333,10 +335,18 @@ static stream_buf_t bufs[BUF_MAX_NUM] = {
 
 stream_buf_t *get_buf_by_type(u32  type)
 {
-   if(type<BUF_MAX_NUM)
-       return &bufs[type];
-   else 
-       return NULL;
+    switch (type) {
+        case PTS_TYPE_VIDEO:
+            return &bufs[BUF_TYPE_VIDEO];
+        case PTS_TYPE_AUDIO:
+            return &bufs[BUF_TYPE_AUDIO];
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+        case PTS_TYPE_HEVC:
+            return &bufs[BUF_TYPE_HEVC];
+#endif
+        default:
+            return NULL;
+    }
 }
 
 void set_sample_rate_info(int arg)
@@ -356,7 +366,7 @@ EXPORT_SYMBOL(get_audio_info);
 
 static void amstream_change_vbufsize(stream_port_t *port,struct stream_buf_s *pvbuf)
 {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if ((pvbuf->type == BUF_TYPE_VIDEO) || (pvbuf->type == BUF_TYPE_HEVC)) {
 #else
     if (pvbuf->type == BUF_TYPE_VIDEO) {
@@ -406,7 +416,7 @@ static  int video_port_init(stream_port_t *port, struct stream_buf_s * pbuf)
 	
     amstream_change_vbufsize(port,pbuf);
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (port->type & PORT_TYPE_MPTS) {
         if (pbuf->type == BUF_TYPE_HEVC) {
             vdec_poweroff(VDEC_1);
@@ -627,7 +637,7 @@ static  int amstream_port_init(stream_port_t *port)
         pubuf->buf_wp = 0;
         pubuf->buf_rp = 0;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         if (port->vformat == VFORMAT_HEVC) {
             pvbuf = &bufs[BUF_TYPE_HEVC];
         }
@@ -649,15 +659,17 @@ static  int amstream_port_init(stream_port_t *port)
     }
 
     if (port->type & PORT_TYPE_MPTS) {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         r = tsdemux_init((port->flag & PORT_FLAG_VID) ? port->vid : 0xffff,
                          (port->flag & PORT_FLAG_AID) ? port->aid : 0xffff,
                          (port->flag & PORT_FLAG_SID) ? port->sid : 0xffff,
+                         port->pcrid,
                          (port->vformat == VFORMAT_HEVC));
 #else
         r = tsdemux_init((port->flag & PORT_FLAG_VID) ? port->vid : 0xffff,
                          (port->flag & PORT_FLAG_AID) ? port->aid : 0xffff,
-                         (port->flag & PORT_FLAG_SID) ? port->sid : 0xffff);
+                         (port->flag & PORT_FLAG_SID) ? port->sid : 0xffff,
+                         port->pcrid);
 #endif
         if (r < 0) {
             printk("tsdemux_init  failed\n");
@@ -707,7 +719,7 @@ static  int amstream_port_release(stream_port_t *port)
     stream_buf_t *pabuf = &bufs[BUF_TYPE_AUDIO];
     stream_buf_t *psbuf = &bufs[BUF_TYPE_SUBTITLE];
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (port->vformat == VFORMAT_HEVC) {
         pvbuf = &bufs[BUF_TYPE_HEVC];
     }
@@ -776,7 +788,7 @@ static ssize_t amstream_vbuf_write(struct file *file, const char *buf,
                                    size_t count, loff_t * ppos)
 {
     stream_port_t *port = (stream_port_t *)file->private_data;
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     stream_buf_t *pbuf = (port->type & PORT_TYPE_HEVC) ? &bufs[BUF_TYPE_HEVC] : &bufs[BUF_TYPE_VIDEO];
 #else
     stream_buf_t *pbuf = &bufs[BUF_TYPE_VIDEO];
@@ -828,7 +840,7 @@ static ssize_t amstream_mpts_write(struct file *file, const char *buf,
                                    size_t count, loff_t * ppos)
 {
     stream_port_t *port = (stream_port_t *)file->private_data;
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     stream_buf_t *pvbuf = (port->vformat == VFORMAT_HEVC) ? &bufs[BUF_TYPE_HEVC] : &bufs[BUF_TYPE_VIDEO];
 #else
     stream_buf_t *pvbuf = &bufs[BUF_TYPE_VIDEO];
@@ -1084,7 +1096,7 @@ static int amstream_open(struct inode *inode, struct file *file)
     if (this->type & PORT_TYPE_VIDEO) {
         switch_mod_gate_by_name("vdec", 1);
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         if (this->type & (PORT_TYPE_MPTS | PORT_TYPE_HEVC)) {
             vdec_poweron(VDEC_HEVC);
         }
@@ -1107,6 +1119,7 @@ static int amstream_open(struct inode *inode, struct file *file)
     this->vid = 0;
     this->aid = 0;
     this->sid = 0;
+    this->pcrid = 0;
     file->f_op = this->fops;
     file->private_data = this;
 
@@ -1132,6 +1145,18 @@ static int amstream_release(struct inode *inode, struct file *file)
     if (this->flag & PORT_FLAG_INITED) {
         amstream_port_release(this);
     }
+    if ((this->type & (PORT_TYPE_AUDIO | PORT_TYPE_VIDEO)) == PORT_TYPE_AUDIO) {
+        s32 i;
+        stream_port_t *s;
+        for (s = &ports[0], i = 0; i < MAX_AMSTREAM_PORT_NUM; i++, s++) {
+            if ((s->flag & PORT_FLAG_IN_USE) && (s->type & PORT_TYPE_VIDEO)) {
+                break;
+            }
+        }
+        if (i == MAX_AMSTREAM_PORT_NUM) {
+            timestamp_firstvpts_set(0);
+        }
+    }    
     this->flag = 0;
 
     ///timestamp_pcrscr_set(0);
@@ -1147,7 +1172,7 @@ static int amstream_release(struct inode *inode, struct file *file)
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
     if (this->type & PORT_TYPE_VIDEO) {
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         vdec_poweroff(VDEC_HEVC);
 #endif
         vdec_poweroff(VDEC_1);
@@ -1186,7 +1211,7 @@ static long amstream_ioctl(struct file *file,
     case AMSTREAM_IOC_VB_START:
         if ((this->type & PORT_TYPE_VIDEO) &&
             ((bufs[BUF_TYPE_VIDEO].flag & BUF_FLAG_IN_USE) == 0)) {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
             bufs[BUF_TYPE_HEVC].buf_start = arg;
 #endif
             bufs[BUF_TYPE_VIDEO].buf_start = arg;
@@ -1199,7 +1224,7 @@ static long amstream_ioctl(struct file *file,
         if ((this->type & PORT_TYPE_VIDEO) &&
             ((bufs[BUF_TYPE_VIDEO].flag & BUF_FLAG_IN_USE) == 0)) {
             if (bufs[BUF_TYPE_VIDEO].flag & BUF_FLAG_ALLOC) {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
                 r = stbuf_change_size(&bufs[BUF_TYPE_HEVC], arg);
 #endif
                 r = stbuf_change_size(&bufs[BUF_TYPE_VIDEO], arg);
@@ -1287,10 +1312,16 @@ static long amstream_ioctl(struct file *file,
         }
 
         break;
+
+    case AMSTREAM_IOC_PCRID:
+	this->pcrid= (u32)arg;
+       printk("set pcrid = 0x%x \n", this->pcrid);
+    	break;
+    	
     case AMSTREAM_IOC_VB_STATUS:
         if (this->type & PORT_TYPE_VIDEO) {
             struct am_io_param *p = (void*)arg;
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
             stream_buf_t *buf = (this->vformat == VFORMAT_HEVC) ? &bufs[BUF_TYPE_HEVC] : &bufs[BUF_TYPE_VIDEO];
 #else
             stream_buf_t *buf = &bufs[BUF_TYPE_VIDEO];
@@ -1367,7 +1398,7 @@ static long amstream_ioctl(struct file *file,
             ((PORT_TYPE_AUDIO | PORT_TYPE_VIDEO))) {
             r = -EINVAL;
         } 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         else if (this->type & PORT_TYPE_HEVC) {
             r = es_vpts_checkin(&bufs[BUF_TYPE_HEVC], arg);
         }
@@ -1387,7 +1418,7 @@ static long amstream_ioctl(struct file *file,
         } else{
             u64 pts;
             memcpy(&pts,(void *)arg,sizeof(u64));
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
             if (this->type & PORT_TYPE_HEVC) {
                 r = es_vpts_checkin_us64(&bufs[BUF_TYPE_HEVC], pts);
             } else
@@ -1599,7 +1630,7 @@ static long amstream_ioctl(struct file *file,
         tsdemux_set_demux((int)arg);
         break;
     case AMSTREAM_IOC_SET_VIDEO_DELAY_LIMIT_MS:
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         bufs[BUF_TYPE_HEVC].max_buffer_delay_ms = (int)arg;
 #endif
         bufs[BUF_TYPE_VIDEO].max_buffer_delay_ms = (int)arg;
@@ -1748,7 +1779,7 @@ static ssize_t bufs_show(struct class *class, struct class_attribute *attr, char
     int i;
     char *pbuf = buf;
     stream_buf_t *p = NULL;
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     char buf_type[][12] = {"Video", "Audio", "Subtitle", "UserData", "HEVC"};
 #else
     char buf_type[][12] = {"Video", "Audio", "Subtitle", "UserData"};
@@ -1828,14 +1859,14 @@ static ssize_t bufs_show(struct class *class, struct class_attribute *attr, char
             int calc_delayms=0;
             u32 bitrate=0,avg_bitrate=0;
 
-            calc_delayms = calculation_stream_delayed_ms(p->type, &bitrate, &avg_bitrate);
+            calc_delayms = calculation_stream_delayed_ms((p->type == BUF_TYPE_AUDIO) ? PTS_TYPE_AUDIO : PTS_TYPE_VIDEO,
+                               &bitrate, &avg_bitrate);
 
             if (calc_delayms>=0) {
                 pbuf += sprintf(pbuf, "\tbuf current delay:%dms\n",calc_delayms);
                 pbuf += sprintf(pbuf, "\tbuf bitrate latest:%dbps,avg:%dbps\n",bitrate,avg_bitrate);
                 pbuf += sprintf(pbuf, "\tbuf time after last pts:%d ms\n",
-
-                calculation_stream_ext_delayed_ms(p->type));
+                                calculation_stream_ext_delayed_ms((p->type == BUF_TYPE_AUDIO) ? PTS_TYPE_AUDIO : PTS_TYPE_VIDEO));
 
                 pbuf += sprintf(pbuf, "\tbuf time after last write data :%d ms\n",
                                 (int)(jiffies_64 - p->last_write_jiffies64)*1000/HZ);
@@ -2067,7 +2098,7 @@ static int  amstream_probe(struct platform_device *pdev)
         bufs[BUF_TYPE_SUBTITLE].flag = BUF_FLAG_IOMEM;
     }
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     bufs[BUF_TYPE_HEVC].buf_start = bufs[BUF_TYPE_VIDEO].buf_start;
     bufs[BUF_TYPE_HEVC].buf_size  = bufs[BUF_TYPE_VIDEO].buf_size;
 

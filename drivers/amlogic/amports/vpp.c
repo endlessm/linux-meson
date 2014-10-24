@@ -314,9 +314,9 @@ vpp_process_speed_check(s32 width_in,
     }
 
     return SPEED_CHECK_DONE;
-
 #else
-    if (video_speed_check_width * video_speed_check_height * height_out > height_screen * width_in * height_in) {
+    /* if (video_speed_check_width * video_speed_check_height * height_out > height_screen * width_in * height_in) { */
+    if (height_out > height_in) {
         return SPEED_CHECK_DONE;
     }
 

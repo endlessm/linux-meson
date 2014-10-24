@@ -922,7 +922,7 @@ struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
 		rmv_page_order(page);
 		area->nr_free--;
 		if(is_migrate_cma(migratetype))
-			area[order].nr_free_cma--;
+			area->nr_free_cma--;
 		expand(zone, page, order, current_order, area, migratetype);
 		return page;
 	}
@@ -1058,7 +1058,7 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 					struct page, lru);
 			area->nr_free--;
 			if(is_migrate_cma(migratetype))
-				area[order].nr_free_cma--;
+				area->nr_free_cma--;
 
 			/*
 			 * If breaking a large block of pages, move all free
@@ -1685,7 +1685,6 @@ static bool __zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 		if (free_pages <= min)
 			return false;
 	}
-
 	return true;
 }
 
@@ -6186,8 +6185,8 @@ __offline_isolated_pages(unsigned long start_pfn, unsigned long end_pfn)
 		list_del(&page->lru);
 		rmv_page_order(page);
 		zone->free_area[order].nr_free--;
-		//if(is_migrate_cma(migratetype))
-		//	zone->free_area[order].nr_free_cma++;
+		if(is_migrate_cma(get_pageblock_migratetype(page)))
+			zone->free_area[order].nr_free_cma--;
 #ifdef CONFIG_HIGHMEM
 		if (PageHighMem(page))
 			totalhigh_pages -= 1 << order;

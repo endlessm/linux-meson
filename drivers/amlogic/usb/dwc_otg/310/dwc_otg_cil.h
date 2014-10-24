@@ -942,6 +942,8 @@ struct dwc_otg_core_if {
 	int vbus_power_pin;
 	int vbus_power_pin_work_mask;
 
+	int swicth_int_reg;
+
 	/* Charger Detect Call back*/
 	int charger_detect;
 	

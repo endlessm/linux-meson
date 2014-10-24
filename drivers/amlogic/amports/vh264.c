@@ -185,6 +185,7 @@ static u32 last_interlaced;
 #endif
 static u8 neg_poc_counter;
 static unsigned char h264_first_pts_ready;
+static unsigned char h264_first_valid_pts_ready;
 static u32 h264pts1, h264pts2;
 static u32 h264_pts_count, duration_from_pts_done,duration_on_correcting;
 static u32 vh264_error_count;
@@ -474,6 +475,7 @@ static void vh264_set_params(void)
     unsigned int crop_infor, crop_bottom;
 
     h264_first_pts_ready = 0;
+    h264_first_valid_pts_ready=0;
     buffer_for_recycle_rd = 0;
     buffer_for_recycle_wr = 0;
 
@@ -1012,8 +1014,13 @@ static void vh264_isr(void)
             }
 
             if (timing_info_present_flag && frame_dur && use_idr_framerate) {
-                pts_valid = pts_valid && idr_flag;  // if fixed frame rate, then use duration
+            	  if(h264_first_valid_pts_ready == 0 && pts_valid)
+            	  	h264_first_valid_pts_ready=1;
+		  else
+            	  	pts_valid = pts_valid && idr_flag;  // if fixed frame rate, then use duration
+		 
             }
+	     
             if ((dec_control & DEC_CONTROL_FLAG_FORCE_2997_1080P_INTERLACE) &&
                 (frame_width == 1920) &&
                 (frame_height >= 1080) &&
@@ -1226,8 +1233,8 @@ static void vh264_put_timer_func(unsigned long arg)
             } else {
                 wait_buffer_counter = 0;
             }
-        } else if (wait_i_pass_frames > 100) {
-            printk("i passed frames > 10\n");
+        } else if (wait_i_pass_frames > 1000) {
+            printk("i passed frames > 1000\n");
             amvdec_stop();
 #ifdef CONFIG_POST_PROCESS_MANAGER
             vh264_ppmgr_reset();
@@ -1457,6 +1464,7 @@ static void vh264_local_init(void)
 #endif
     neg_poc_counter = 0;
     h264_first_pts_ready = 0;
+    h264_first_valid_pts_ready=0;
     h264pts1 = 0;
     h264pts2 = 0;
     h264_pts_count = 0;

@@ -96,7 +96,7 @@ _find_color_format(struct fb_var_screeninfo * var)
 		lower_margin=COLOR_INDEX_24_6666_A;
 		break;		
 		case 3:
-		upper_margin=COLOR_INDEX_32_ARGB;
+		upper_margin=COLOR_INDEX_32_ABGR;
 		lower_margin=COLOR_INDEX_32_BGRA;
 		break;
 		case 4:
@@ -151,14 +151,14 @@ osd_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	fix = &info->fix;
 	
-	color_format_pt=_find_color_format(var);	
+	color_format_pt=_find_color_format(var);
 	if (color_format_pt == NULL || color_format_pt->color_index==0)
 	{
 		return -EFAULT ;
 	}
 	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"select color format :index%d,bpp %d\r\n",color_format_pt->color_index, \
 												color_format_pt->bpp) ;
-	fbdev->color=color_format_pt ;
+	fbdev->color=color_format_pt;
 	var->red.offset = color_format_pt->red_offset;
 	var->red.length = color_format_pt->red_length;
 	var->red.msb_right= color_format_pt->red_msb_right ;
@@ -186,19 +186,18 @@ osd_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"no enough memory for %d*%d*%d\r\n",var->xres,var->yres,var->bits_per_pixel);
 		return  -ENOMEM;
 	}
-    	if (var->xres_virtual < var->xres)
-        var->xres_virtual = var->xres;
+	if (var->xres_virtual < var->xres)
+		var->xres_virtual = var->xres;
 
-    	if (var->yres_virtual < var->yres)
-        var->yres_virtual = var->yres;
+	if (var->yres_virtual < var->yres)
+		var->yres_virtual = var->yres;
 
     	var->left_margin = var->right_margin = var->upper_margin = var->lower_margin = 0;
     
-
 	if (var->xres + var->xoffset > var->xres_virtual)
-	var->xoffset = var->xres_virtual - var->xres;
+		var->xoffset = var->xres_virtual - var->xres;
 	if (var->yres + var->yoffset > var->yres_virtual)
-	var->yoffset = var->yres_virtual - var->yres;
+		var->yoffset = var->yres_virtual - var->yres;
     
     	return 0;
 }
@@ -1314,6 +1313,63 @@ static ssize_t store_antiflicker(struct device *device, struct device_attribute 
 	return count;
 }
 
+static ssize_t show_ver_angle(struct device *device, struct device_attribute *attr,
+                        char *buf)
+{
+	unsigned int osd_angle = 0;
+	struct fb_info *fb_info = dev_get_drvdata(device);
+
+	osddev_get_osd_angle(fb_info->node, &osd_angle);
+	return snprintf(buf, PAGE_SIZE, "osd_angle:[%d]\n", osd_angle);
+}
+
+static ssize_t store_ver_angle(struct device *device, struct device_attribute *attr,
+                         const char *buf, size_t count)
+{
+	unsigned int osd_angle = 0;
+	struct fb_info *fb_info = dev_get_drvdata(device);
+
+	osd_angle = simple_strtoul(buf, NULL, 0);
+
+	memset((char*)fb_info->screen_base, 0x80, fb_info->screen_size);
+	osddev_set_osd_angle(fb_info->node, osd_angle, mydef_var[OSD1].yres, fb_info->var.yres);
+
+	return count;
+}
+
+static ssize_t show_ver_clone(struct device *device, struct device_attribute *attr,
+                        char *buf)
+{
+	unsigned int osd_clone = 0;
+	struct fb_info *fb_info = dev_get_drvdata(device);
+
+	osddev_get_osd_clone(fb_info->node, &osd_clone);
+	return snprintf(buf, PAGE_SIZE, "osd_clone:[%s]\n", osd_clone?"ON":"OFF");
+}
+
+static ssize_t store_ver_clone(struct device *device, struct device_attribute *attr,
+                         const char *buf, size_t count)
+{
+	unsigned int osd_clone = 0;
+	struct fb_info *fb_info = dev_get_drvdata(device);
+
+	osd_clone = simple_strtoul(buf, NULL, 0);
+
+	osddev_set_osd_clone(fb_info->node, osd_clone);
+
+	return count;
+}
+
+static ssize_t store_ver_update_pan(struct device *device, struct device_attribute *attr,
+                         const char *buf, size_t count)
+{
+	struct fb_info *fb_info = dev_get_drvdata(device);
+
+	osddev_set_osd_update_pan(fb_info->node);
+
+	return count;
+}
+
 static inline  int str2lower(char *str)
 {
 	while(*str != '\0')
@@ -1447,6 +1503,9 @@ static struct device_attribute osd_attrs[] = {
 	__ATTR(osd_reverse, S_IRUGO|S_IWUSR, show_osd_reverse, store_osd_reverse),
 	__ATTR(prot_state, S_IRUGO|S_IWUSR, show_prot_state, NULL),
 	__ATTR(osd_antiflicker, S_IRUGO|S_IWUSR, show_antiflicker, store_antiflicker),
+	__ATTR(ver_angle, S_IRUGO|S_IWUSR, show_ver_angle, store_ver_angle),
+	__ATTR(ver_clone, S_IRUGO|S_IWUSR, show_ver_clone, store_ver_clone),
+	__ATTR(ver_update_pan, S_IRUGO|S_IWUSR, NULL, store_ver_update_pan),
 };		
 
 #ifdef  CONFIG_PM
@@ -1549,7 +1608,6 @@ osd_probe(struct platform_device *pdev)
 			if(init_logo_obj->para.output_dev_type==LOGO_DEV_VID)
 			init_logo_obj=NULL; //if logo device on video layer ,
 		}					 //we cant use it .
-		
 	}
 #endif
 
@@ -1566,43 +1624,47 @@ osd_probe(struct platform_device *pdev)
 		}
 		osddev_4k2k_fb_mode(prop_idx);
 	}
-   	if (NULL==init_logo_obj )
-    	{
-    		prop = of_get_property(pdev->dev.of_node, "vmode", NULL);
-			if(prop)
-			prop_idx = of_read_ulong(prop,1);
-			if(prop_idx == 3){
-				if(get_current_mode_state() == VMODE_SETTED){
-					amlog_level(LOG_LEVEL_HIGH,"vmode has setted in aml logo module\r\n");
-				}else{
-					DisableVideoLayer();
-					#ifdef CONFIG_AM_HDMI_ONLY
-						hpd_state = read_hpd_gpio();
 
-						cvbs_mode = get_current_cvbs_vmode();
-						current_mode = get_current_hdmi_vmode();
-						if (hpd_state == 0)
-							set_current_vmode(cvbs_mode);
-						else
-							set_current_vmode(current_mode);
-					#else
-						current_mode = get_resolution_vmode();
+	if (NULL==init_logo_obj )
+	{
+    		prop = of_get_property(pdev->dev.of_node, "vmode", NULL);
+		if(prop){
+			prop_idx = of_read_ulong(prop,1);
+		}
+
+		if(prop_idx == 3){
+			if(get_current_mode_state() == VMODE_SETTED){
+				amlog_level(LOG_LEVEL_HIGH,"vmode has setted in aml logo module\r\n");
+			}else{
+				DisableVideoLayer();
+				#ifdef CONFIG_AM_HDMI_ONLY
+					hpd_state = read_hpd_gpio();
+					cvbs_mode = get_current_cvbs_vmode();
+					current_mode = get_current_hdmi_vmode();
+
+					if (hpd_state == 0)
+						set_current_vmode(cvbs_mode);
+					else
 						set_current_vmode(current_mode);
-					#endif
-				}
+				#else
+					current_mode = get_resolution_vmode();
+					set_current_vmode(current_mode);
+				#endif
 			}
-			else if(prop_idx == 1){
-				current_mode = VMODE_LCD;
-				set_current_vmode(VMODE_LCD);
-			}
-			else if(prop_idx == 2){
-				current_mode = VMODE_LVDS_1080P;
-				set_current_vmode(VMODE_LVDS_1080P);
-			}
-			osddev_init();
+		}
+		else if(prop_idx == 1){
+			current_mode = VMODE_LCD;
+			set_current_vmode(VMODE_LCD);
+		}
+		else if(prop_idx == 2){
+			current_mode = VMODE_LVDS_1080P;
+			set_current_vmode(VMODE_LVDS_1080P);
+		}
+		osddev_init();
     	}
 	vinfo = get_current_vinfo();
-    printk("%s, vinfo:%p\n", __func__, vinfo);
+	printk("%s, vinfo:%p\n", __func__, vinfo);
+
     	for (index=0;index<OSD_COUNT;index++)
     	{
 #if 0
@@ -1633,12 +1695,11 @@ osd_probe(struct platform_device *pdev)
 		mem->end = mem->start+ (phys_addr_t)get_reserve_block_size(ret)-1;
 #endif
 		fbi = framebuffer_alloc(sizeof(struct myfb_dev), &pdev->dev);
-    		if(!fbi)
-    		{
-        		r = -ENOMEM;
-        		goto failed1;
-    		}
-	
+		if(!fbi){
+			r = -ENOMEM;
+			goto failed1;
+		}
+
 		fbdev = (struct myfb_dev *)fbi->par;
 		fbdev->fb_info = fbi;
 		fbdev->dev = pdev;
@@ -1656,18 +1717,20 @@ osd_probe(struct platform_device *pdev)
 		if (!fbdev->fb_mem_vaddr)
 		{
 			amlog_level(LOG_LEVEL_HIGH,"failed to ioremap framebuffer\n");
-        		r = -ENOMEM;
-        		goto failed1;
+			r = -ENOMEM;
+			goto failed1;
 		}
 	
 		//clear framebuffer memory
 		amlog_level(LOG_LEVEL_HIGH,"Frame buffer memory assigned at phy:0x%08x, vir:0x%p, size=%dK\n",
 	    	fbdev->fb_mem_paddr, fbdev->fb_mem_vaddr, fbdev->fb_len >> 10);
-        printk("%s, mydef_var:%p, vinfo:%p\n", __func__, mydef_var, vinfo);
-                mydef_var[index].width=vinfo->screen_real_width;
-                mydef_var[index].height=vinfo->screen_real_height;
-		if(init_logo_obj && index==logo_osd_index ) //adjust default var info
+		printk("%s, mydef_var:%p, vinfo:%p\n", __func__, mydef_var, vinfo);
+
+		mydef_var[index].width=vinfo->screen_real_width;
+		mydef_var[index].height=vinfo->screen_real_height;
+		if( init_logo_obj && index==logo_osd_index ) //adjust default var info
 		{
+			printk("don't find to display_size_default from mesonfb-dts\n");
 			int  bpp=init_logo_obj->dev->output_dev.osd.color_depth;//bytes per pixel
 			mydef_var[index].xres=init_logo_obj->dev->vinfo->width;
 			mydef_var[index].yres=init_logo_obj->dev->vinfo->height;	
@@ -1676,8 +1739,7 @@ osd_probe(struct platform_device *pdev)
 			mydef_var[index].bits_per_pixel=bpp;
 			
 			amlog_level(LOG_LEVEL_HIGH,"init fbdev bpp is :%d\r\n",mydef_var[index].bits_per_pixel);
-			if(mydef_var[index].bits_per_pixel>32)
-			{
+			if(mydef_var[index].bits_per_pixel>32){
 				mydef_var[index].bits_per_pixel=32;
 			}
 		} else {
@@ -1711,13 +1773,12 @@ osd_probe(struct platform_device *pdev)
 				prop_idx = of_read_ulong(prop,1);
 
 			rotation = prop_idx;
-
 		}
 		_fbdev_set_default(fbdev,index);
 		if(NULL==fbdev->color)
 		{
 			r = -ENOENT;
-        		goto failed1;
+			goto failed1;
 		}
 
 		Bpp=(fbdev->color->color_index >8?(fbdev->color->color_index>16?(fbdev->color->color_index>24?4:3):2):1);
@@ -1726,14 +1787,14 @@ osd_probe(struct platform_device *pdev)
 		fix->smem_len = fbdev->fb_len;
 		if (fb_alloc_cmap(&fbi->cmap, 16, 0) != 0) {
 			amlog_level(LOG_LEVEL_HIGH,"unable to allocate color map memory\n");
-      		r = -ENOMEM;
-        	goto failed2;
+			r = -ENOMEM;
+			goto failed2;
     		}
 
 		if (!(fbi->pseudo_palette = kmalloc(sizeof(u32) * 16, GFP_KERNEL))) {
 			amlog_level(LOG_LEVEL_HIGH,"unable to allocate pseudo palette memory\n");
-        	r = -ENOMEM;
-        	goto failed2;
+			r = -ENOMEM;
+			goto failed2;
 		}
 		memset(fbi->pseudo_palette, 0, sizeof(u32) * 16);
 
@@ -1747,6 +1808,7 @@ osd_probe(struct platform_device *pdev)
 		{
 			osddev_set(fbdev);
 		}
+
 		if(index == OSD0 && (rotation == 90 || rotation == 270)){
 			osddev_set(fbdev);
 		}
@@ -1756,21 +1818,23 @@ osd_probe(struct platform_device *pdev)
    	}	
 
 	index=0;
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
-    early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
-    early_suspend.suspend = osd_early_suspend;
-    early_suspend.resume = osd_late_resume;
-    register_early_suspend(&early_suspend);
+	early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+	early_suspend.suspend = osd_early_suspend;
+	early_suspend.resume = osd_late_resume;
+	register_early_suspend(&early_suspend);
 #endif
 	if (rotation == 90 || rotation == 270){
 		osddev_set_prot_canvas(0, 0,0,var_screeninfo[0]-1,var_screeninfo[1]-1);
-		if(rotation == 90)
-		osddev_set_osd_rotate_angle(0, 1);
-		else
-		osddev_set_osd_rotate_angle(0, 2);
-		osddev_set_osd_rotate_on(0, 1);
+		if(rotation == 90){
+			osddev_set_osd_rotate_angle(0, 1);
+		}
+		else{
+			osddev_set_osd_rotate_angle(0, 2);
+			osddev_set_osd_rotate_on(0, 1);
+		}
 	}
+
 	if (osd_info.index == DEV_ALL){
 		osddev_set_osd_reverse(0, osd_info.osd_reverse);
 		osddev_set_osd_reverse(1, osd_info.osd_reverse);

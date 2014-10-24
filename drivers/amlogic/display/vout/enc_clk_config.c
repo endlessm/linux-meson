@@ -39,7 +39,6 @@ static void set_hpll_clk_out(unsigned clk)
     aml_write_reg32(P_HHI_VID_PLL_CNTL4, 0x40238100);
     aml_write_reg32(P_HHI_VID_PLL_CNTL5, 0x00012286);
     aml_write_reg32(P_HHI_VID2_PLL_CNTL2, 0x430a800);       // internal LDO share with HPLL & VIID PLL
-    aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, 0x08c31e8b);
 #endif
     switch(clk){
 #ifdef CONFIG_ARCH_MESON8
@@ -55,7 +54,6 @@ static void set_hpll_clk_out(unsigned clk)
             while(!(aml_read_reg32(P_HHI_VID_PLL_CNTL) & (1 << 31))) {
                 ;
             }
-            aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, 0x08c34d0b);
             h_delay();
             aml_write_reg32(P_HHI_VID_PLL_CNTL5, 0x00016385);   // optimise HPLL VCO 2.97GHz performance
             break;
@@ -76,18 +74,14 @@ static void set_hpll_clk_out(unsigned clk)
         case 1488:
 #ifdef CONFIG_ARCH_MESON8B
             aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c8ce00);
-            aml_write_reg32(P_HHI_VID_PLL_CNTL4, 0x40238100);
-            aml_write_reg32(P_HHI_VID_PLL_CNTL5, 0x12385);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL4, 0x4023d100);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL3, 0x8a7ad023);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL5, 0x12286);
             aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x6000043d);
             aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x4000043d);
             while(!(aml_read_reg32(P_HHI_VID_PLL_CNTL) & (1 << 31))) {
                 ;
             }
-            msleep(1);
-            aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c80e00);
-            aml_write_reg32(P_HHI_VID_PLL_CNTL3, 0x0e79c822);
-            aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x400121ef);
-            break;
 #endif
 #ifdef CONFIG_ARCH_MESON8
             aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x6000043d);
@@ -97,7 +91,6 @@ static void set_hpll_clk_out(unsigned clk)
                 ;
             }
             aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c8ce00);
-            aml_write_reg32(P_HHI_HDMI_PHY_CNTL0, 0x08c31e8b);
 #endif
 #ifdef CONFIG_ARCH_MESON6
             WRITE_CBUS_REG(HHI_VID_PLL_CNTL, 0x43e);
@@ -136,16 +129,7 @@ static void set_hpll_clk_out(unsigned clk)
             break;
     }
 #if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
-    // P_HHI_HDMI_PHY_CNTL1     bit[1]: enable clock    bit[0]: soft reset
-#define RESET_HDMI_PHY()                        \
-    aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 3);   \
-    h_delay();                                  \
-    aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 2);   \
-    h_delay()
 
-    RESET_HDMI_PHY();
-    RESET_HDMI_PHY();
-    RESET_HDMI_PHY();
 #endif
     printk("config HPLL done\n");
 }

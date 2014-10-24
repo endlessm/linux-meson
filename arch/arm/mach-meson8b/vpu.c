@@ -19,7 +19,7 @@
 #endif
 #include <linux/amlogic/vout/vinfo.h>
 
-#define VPU_VERION	"v03"
+#define VPU_VERION	"v02"
 
 //#define LIMIT_VPU_CLK_LOW
 static spinlock_t vpu_lock;
@@ -62,8 +62,12 @@ typedef struct {
 	unsigned int clk_level;
 }VPU_Conf_t;
 
-#define CLK_LEVEL_DFT		4
-#define CLK_LEVEL_MAX		8	//limit max clk to 364M
+//************************************************
+// VPU is not supposed to run at 364MHz.  It was designed to max out around 225MHz in BABY.
+// Please lower it to 364/2 = 182MHz.  This is super urgent.
+//************************************************
+#define CLK_LEVEL_DFT		3
+#define CLK_LEVEL_MAX		5	//limit max clk to 212M
 static unsigned int vpu_clk_setting[][3] = {
 	//frequency		clk_mux		div
 	{106250000,		1,			7},	//0

@@ -172,6 +172,7 @@ static const char *venc_mux_help = {
 	"venc_mux:\n"
 	"    0. single display, viu1->panel, viu2->null\n"
 	"    2. dual display, viu1->hdmi, viu2->panel\n"
+	"    4. single display, viu1->null, viu2->hdmi\n"
 	"    8. dual display, viu1->panel, viu2->hdmi\n"
 };
 
@@ -193,6 +194,10 @@ static ssize_t venc_mux_store(struct class *class, struct class_attribute *attr,
 		break;
 	case 0x2:
 		mux_type = mux |(s_venc_mux<<2);
+		aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, mux_type, 0, 4);
+		break;
+	case 0x4:
+		mux_type = (0x2<<2);
 		aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, mux_type, 0, 4);
 		break;
 	case 0x8:

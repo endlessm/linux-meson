@@ -6,8 +6,8 @@
 
 #define  NOT_WRITE_EFUSE 0x0
 #define EFUSE_MIGHT_WRONG 0x8
-#define EFUEE_MUST_RIGHT 0x4
-#define EFUSE_FIXED 0xa
+#define EFUEE_PRIVATE 0x4
+#define EFUSE_OPS 0xa
 struct temp_sensor{
 	int flag;
 	int trimming;
@@ -37,6 +37,13 @@ int thermal_firmware_init()
 		temps->adc_efuse=temp;
 		temps->efuse_flag=buf[3]>>4;
 		printk("efuse_flag=%x\n",temps->efuse_flag);
+		if((temps->efuse_flag == EFUEE_PRIVATE) ||(temps->efuse_flag == EFUSE_OPS)){
+			if(temps->flag){
+				temps->flag=1;
+			}
+		}else{
+			temps->flag=0;
+		}
 	}
 	else{
 		temps->flag=flag;

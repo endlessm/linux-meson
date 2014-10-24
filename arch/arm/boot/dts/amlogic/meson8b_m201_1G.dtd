@@ -80,6 +80,14 @@ void root_func(){
 		aml_reserved_end = <0x05000000>;/**reserved memory end : dtb start for uboot*/
 		phys_offset = <0x00000000>;
 		linux,total-memory = <0x40000000>;
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        cma_0:region@0 {
+           region_name = "cma_0";
+           reg = <0 0x02700000>;
+           linux,contiguous-region;
+        };
 	};
 /// ***************************************************************************************
 ///	-	GIC
@@ -104,10 +112,9 @@ void root_func(){
 		compatible = "amlogic,vpu";
 		dev_name = "vpu";	
 		status = "ok";
-		clk_level = <7>;
+		clk_level = <3>;
 		/**    	0: 106.25M		1: 127.5M		2: 159.375M
-				3: 182.15M		4: 212.5M		5: 255M
-		    	6: 318.75M		7: 364.3M					 */
+				3: 182.15M		4: 212.5M	 */
 	};
 	
 /// **************************************************************************************	
@@ -124,7 +131,9 @@ void root_func(){
 		status = "okay";
 	   	reserve-memory = <0x01800000  0x00100000>;
 	   	reserve-iomap = "true";
-		vmode = <3>; /**0:VMODE_720P 1:VMODE_LCD  2:VMODE_LVDS_1080P 3:VMODE_1080P*/
+                vmode = <3>; /**0:VMODE_720P 1:VMODE_LCD  2:VMODE_LVDS_1080P 3:VMODE_1080P*/
+		scale_mode = <1>; /*0:default 1:new*/
+		4k2k_fb = <0>;
  		display_size_default = <1920 1080 1920 3240 32>; //1920*1080*4*3 = 0x17BB000
 	};
 
@@ -189,7 +198,7 @@ void root_func(){
 		compatible = "amlogic,amvenc_avc";
 		dev_name = "amvenc_avc.0";
 		status = "okay";
-		reserve-memory = <0x00f00000>;
+		linux,contiguous-region = <&cma_0>;
 		reserve-iomap = "true";
 	};
 
@@ -701,22 +710,21 @@ void root_func(){
         vcck_dvfs {
             dvfs_id     = <1>;                                  /** must be value of (1 << n)            */
             table_count = <12>;                                 /** must be correct count for dvfs_table */
-            change-frequent-only;
             dvfs_table  = <
             /* NOTE: frequent in this table must be ascending order */
             /* frequent(Khz)    min_uV      max_uV                  */
-                  96000         875000      875000
-                 192000         875000      875000
-                 312000         875000      875000
-                 408000         875000      875000
-                 504000         875000      875000
-                 600000         900000      900000
-                 720000         900000      900000
-                 816000         925000      925000
-                1008000         975000      975000
-                1200000        1025000     1025000
-                1416000        1075000     1075000
-                1608000        1140000     1140000
+                  96000         860000      860000
+                 192000         860000      860000
+                 312000         860000      860000
+                 408000         860000      860000
+                 504000         860000      860000
+                 600000         860000      860000
+                 720000         860000      860000
+                 816000         900000      900000
+                1008000         920000      920000
+                1200000         970000      970000
+                1320000        1050000     1050000
+                1488000        1100000     1100000
             >;
         };
     };
@@ -1244,13 +1252,30 @@ void root_func(){
 		compatible = "amlogic-thermal";
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
-		trip_point=<60 1608001 1608001 511 511 2 3
-			    70 1200001 1200001 435 435 2 3
+		trip_point=<60 1488001 1488001 511 511 2 2
+			    70 1200001 1200001 435 435 2 2
 			    80  800001 800001  328 328 1 1
 			    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
-
+        use_virtual_thermal;
+        freq_sample_period=<30>;
+        report_time=<1 10 30 60>;         /* based on freq_sample_period */
+        cpu_virtual=<
+             500000  40  40  40  40
+             600000  45  55  60  65
+             800000  50  60  65  70
+            1000000  55  65  70  75
+            1200000  60  70  75  80
+            1350000  65  75  80  85
+        >;
+        gpu_virtual=<
+            183      40  40  40  40
+            251      40  45  50  55
+            319      50  60  65  70
+            426      55  65  70  75
+            511      60  70  75  80
+        >;
 	};
 	
 /// ***************************************************************************************
@@ -1276,11 +1301,14 @@ void root_func(){
 		compatible = "amlogic,unifykey";
 		status = "ok";
 
-		/*efuse-version = <0>;*/ /*m6 efuse version 2,m3 efuse version 1, not config efuse version in default*/
-		unifykey-num = <3>;
+		/*efuse-version = <20>;*/ /*m6 efuse version 2,m3 efuse version 1, not config efuse version in default*/
+		unifykey-num = <6>;
 		unifykey-index-0 = <&keysn_0>;
 		unifykey-index-1 = <&keysn_1>;
 		unifykey-index-2 = <&keysn_2>;
+		unifykey-index-3 = <&keysn_3>;
+		unifykey-index-4 = <&keysn_4>;
+		unifykey-index-5 = <&keysn_5>;
 
 
 //$$ MATCH "Unifykey_0_match" = <&keysn_0>
@@ -1289,9 +1317,9 @@ void root_func(){
 //$$ L2 PROP_STR = "key-dataformat"
 //$$ L2 PROP_STR 3 = "key-permit"
 		keysn_0: key_0{
-			key-name = "key0";
+			key-name = "usid";
 			key-device = "nandkey";
-			key-dataformat = "hexdata";
+			key-dataformat = "allascii";
 			key-permit = "read","write","del";
 		};
 		
@@ -1301,7 +1329,7 @@ void root_func(){
 //$$ L2 PROP_STR = "key-dataformat"
 //$$ L2 PROP_STR 3 = "key-permit"
 		keysn_1:key_1{
-			key-name = "key1";
+			key-name = "mac";
 			key-device = "nandkey";
 			key-dataformat = "hexdata";
 			key-permit = "read","write","del";
@@ -1313,7 +1341,43 @@ void root_func(){
 //$$ L2 PROP_STR = "key-dataformat"
 //$$ L2 PROP_STR 3 = "key-permit"
 		keysn_2:key_2{
-			key-name = "key2";
+			key-name = "hdcp";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+
+//$$ MATCH "Unifykey_3_match" = <&keysn_3>
+//$$ L2 PROP_STR = "key-name"
+//$$ L2 PROP_STR = "key-device"
+//$$ L2 PROP_STR = "key-dataformat"
+//$$ L2 PROP_STR 3 = "key-permit"
+		keysn_3:key_3{
+			key-name = "secure_boot_set";
+			key-device = "efusekey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write";
+		};
+		
+//$$ MATCH "Unifykey_4_match" = <&keysn_4>
+//$$ L2 PROP_STR = "key-name"
+//$$ L2 PROP_STR = "key-device"
+//$$ L2 PROP_STR = "key-dataformat"
+//$$ L2 PROP_STR 3 = "key-permit"
+		keysn_4:key_4{
+			key-name = "mac_bt";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+		
+//$$ MATCH "Unifykey_5_match" = <&keysn_5>
+//$$ L2 PROP_STR = "key-name"
+//$$ L2 PROP_STR = "key-device"
+//$$ L2 PROP_STR = "key-dataformat"
+//$$ L2 PROP_STR 3 = "key-permit"
+		keysn_5:key_5{
+			key-name = "mac_wifi";
 			key-device = "nandkey";
 			key-dataformat = "hexdata";
 			key-permit = "read","write","del";

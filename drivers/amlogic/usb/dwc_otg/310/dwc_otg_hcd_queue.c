@@ -453,7 +453,11 @@ static int schedule_periodic(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh)
 			qh->sched_frame = dwc_frame_num_inc(frame_number, SCHEDULE_SLOP);
 		//}//fix it in future
 	}
-	
+
+	 if((qh->ep_type == UE_INTERRUPT) && !qh->do_split &&
+    		!dwc_frame_num_le(qh->sched_frame,dwc_frame_num_inc(frame_number,qh->interval)))    
+            qh->sched_frame = dwc_frame_num_inc(frame_number, qh->interval);
+
 	if (hcd->core_if->dma_desc_enable) {
 		/* Don't rely on SOF and start in ready schedule */
 		DWC_LIST_INSERT_TAIL(&hcd->periodic_sched_ready, &qh->qh_list_entry);

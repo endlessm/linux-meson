@@ -11,9 +11,6 @@
 
 #include "aml_audio_hw.h"
 
-#define MPLL_I2S_CNTL		HHI_MPLL_CNTL7
-#define MPLL_958_CNTL		HHI_MPLL_CNTL8
-
 #ifndef MREG_AIU_958_chstat0
 #define AIU_958_chstat0	AIU_958_CHSTAT_L0
 #endif
@@ -200,10 +197,13 @@ void audio_set_aiubuf(u32 addr, u32 size, unsigned int channel)
 {
     WRITE_MPEG_REG(AIU_MEM_I2S_START_PTR, addr & 0xffffffc0);
     WRITE_MPEG_REG(AIU_MEM_I2S_RD_PTR, addr & 0xffffffc0);
-    if(channel == 8)
-		WRITE_MPEG_REG(AIU_MEM_I2S_END_PTR, (addr & 0xffffffc0) + (size & 0xffffffc0) - 256); 
-	else
-    WRITE_MPEG_REG(AIU_MEM_I2S_END_PTR, (addr & 0xffffffc0) + (size & 0xffffffc0) - 64);   //this is for 16bit 2 channel
+    if(channel == 8){
+        WRITE_MPEG_REG_BITS(AIU_CLK_CTRL_MORE, 1, 6, 1);
+        WRITE_MPEG_REG(AIU_MEM_I2S_END_PTR, (addr & 0xffffffc0) + (size & 0xffffffc0) - 256); 
+    }else{
+        WRITE_MPEG_REG_BITS(AIU_CLK_CTRL_MORE, 0, 6, 1);
+        WRITE_MPEG_REG(AIU_MEM_I2S_END_PTR, (addr & 0xffffffc0) + (size & 0xffffffc0) - 64);   //this is for 16bit 2 channel
+    }
 
     WRITE_MPEG_REG(AIU_I2S_MISC,		0x0004);	// Hold I2S
 	WRITE_MPEG_REG(AIU_I2S_MUTE_SWAP,	0x0000);	// No mute, no swap
@@ -758,7 +758,7 @@ void audio_set_clk(unsigned freq, unsigned fs_config)
 	WRITE_MPEG_REG_BITS(AIU_CODEC_DAC_LRCLK_CTRL, 64-1, 0, 12);//set codec dac ratio---lrclk
 
 	// Select Multi-Phase PLL2 as clock source
-	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL, 3, 9, 3);
+	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL, I2S_PLL_SRC, 9, 3);
 
 	// Configure Multi-Phase PLL2
 	WRITE_MPEG_REG(MPLL_I2S_CNTL, audio_clock_config[index][0]);
@@ -778,7 +778,7 @@ void audio_set_clk(unsigned freq, unsigned fs_config)
     WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL2, 0, 8, 1);
 
     // Select clk source, 0=ddr_pll; 1=Multi-Phase PLL0; 2=Multi-Phase PLL1; 3=Multi-Phase PLL2.
-    WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL2, 3, 9, 2);
+    WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL2, I2S_PLL_SRC, 9, 2);
 
     // Set pll over mclk ratio
     //we want 256fs ADC MLCK,so for over clock mode,divide more 2 than I2S  DAC CLOCK
@@ -879,7 +879,7 @@ void audio_set_i2s_clk(unsigned freq, unsigned fs_config)
 	// Disable mclk
     WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL, 0, 8, 1);
 	// Select clk source, 0=ddr_pll; 1=Multi-Phase PLL0; 2=Multi-Phase PLL1; 3=Multi-Phase PLL2.
-	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL, 3, 9, 2);
+	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL, I2S_PLL_SRC, 9, 2);
 
 	// Configure Multi-Phase PLL2
 	WRITE_MPEG_REG(MPLL_I2S_CNTL, audio_clock_config[index][0]);
@@ -902,7 +902,7 @@ void audio_set_i2s_clk(unsigned freq, unsigned fs_config)
 	WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL, 0, 8, 1);
 
     // Select clk source, 0=ddr_pll; 1=Multi-Phase PLL0; 2=Multi-Phase PLL1; 3=Multi-Phase PLL2.
-	WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL, 3, 9, 2);
+	WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL, I2S_PLL_SRC, 9, 2);
 
     // Set pll over mclk ratio
     //we want 256fs ADC MLCK,so for over clock mode,divide more 2 than I2S  DAC CLOCK
@@ -1000,7 +1000,7 @@ void audio_set_958_clk(unsigned freq, unsigned fs_config)
 	//IEC958_USE_CNTL
 	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL2, 1, 27, 1);
 	// Select clk source, 0=ddr_pll; 1=Multi-Phase PLL0; 2=Multi-Phase PLL1; 3=Multi-Phase PLL2.
-	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL2, 2, 25, 2);
+	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL2, I958_PLL_SRC, 25, 2);
 
 	// Configure Multi-Phase PLL1
 	WRITE_MPEG_REG(MPLL_958_CNTL, audio_clock_config[index][0]);

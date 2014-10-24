@@ -395,8 +395,8 @@ int get_amlvideo2_canvas_index(struct amlvideo2_output* output, int start_canvas
 	int width = output->width;
 	int height = output->height;
         int canvas_height = height;
-        if (1080 == canvas_height)
-                canvas_height = 1088;
+	if(canvas_height%16 != 0)
+                canvas_height = ((canvas_height+15)>>4)<<4;
 
 	switch(v4l2_format){
 	case V4L2_PIX_FMT_RGB565X:
@@ -457,7 +457,7 @@ int get_amlvideo2_canvas_index(struct amlvideo2_output* output, int start_canvas
 	}
 	return canvas;
 }
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 int convert_canvas_index(struct amlvideo2_output* output, int start_canvas)
 {
 	int canvas = start_canvas;
@@ -2042,7 +2042,7 @@ static int amlvideo2_fillbuff(struct amlvideo2_fh *fh, struct amlvideo2_node_buf
 	magic = MAGIC_RE_MEM;
 	switch(magic){
 		case  MAGIC_RE_MEM:
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 			if(output.canvas_id == 0){
 				output.canvas_id =  get_amlvideo2_canvas_index(&output, VM_RES0_CANVAS_INDEX+buf->vb.i*3);
 				buf->canvas_id = output.canvas_id;
@@ -2431,8 +2431,8 @@ buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 	struct amlvideo2_node  *node  = fh->node;
 	int height = fh->height;
 
-        if (1080 == height)
-                height = 1088;
+	if(height%16 != 0)
+                height = ((height+15)>>4)<<4;
 
 	*size = (fh->width * height * fh->fmt->depth)>>3;
 	if (0 == *count)
@@ -2710,7 +2710,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct amlvideo2_fh  *fh  = priv;
 	int ret = videobuf_querybuf(&fh->vb_vidq, p);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	if(ret == 0){
 	    struct amlvideo2_output output;
 	    memset(&output,0,sizeof(struct amlvideo2_output));
@@ -2847,6 +2847,9 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
         }
         para.dest_hactive = dst_w;
         para.dest_vactive = dst_h;
+        if(TVIN_SCAN_MODE_INTERLACED == para.scan_mode){
+                para.dest_vactive = para.dest_vactive/2;
+        }
         printk("amlvideo2--vidioc_streamon: para.h_active: %d, para.v_active: %d"
                         "para.dest_hactive: %d, para.dest_vactive: %d, fh->width: %d, fh->height: %d \n",
                         para.h_active,para.v_active, para.dest_hactive, para.dest_vactive,fh->width,fh->height);

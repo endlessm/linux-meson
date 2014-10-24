@@ -96,7 +96,7 @@ static irqreturn_t parser_isr(int irq, void *dev_id)
 static inline u32 buf_wp(u32 type)
 {
     u32 wp = 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B    
+#if HAS_HEVC_VDEC    
     (type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_WR_PTR) :
 #endif
     (type == BUF_TYPE_VIDEO) ? READ_VREG(VLD_MEM_VIFIFO_WP) :
@@ -119,7 +119,7 @@ static ssize_t _esparser_write(const char __user *buf,
     int ret;
     u32 wp;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (type == BUF_TYPE_HEVC) {
         parser_type = PARSER_VIDEO;
     } else
@@ -185,7 +185,7 @@ static ssize_t _esparser_write(const char __user *buf,
         }
     }
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if ((type == BUF_TYPE_VIDEO) || (type == BUF_TYPE_HEVC)) {
 #else
     if (type == BUF_TYPE_VIDEO) {
@@ -250,7 +250,7 @@ s32 esparser_init(struct stream_buf_s *buf)
     u32 parser_sub_rp;
     bool first_use = false;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (buf->type == BUF_TYPE_HEVC) {
         pts_type = PTS_TYPE_HEVC;
     } else
@@ -338,7 +338,7 @@ s32 esparser_init(struct stream_buf_s *buf)
     }
 
     /* hook stream buffer with PARSER */
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (pts_type == PTS_TYPE_HEVC) {
         CLEAR_VREG_MASK(HEVC_STREAM_CONTROL, 1);
 
@@ -368,7 +368,7 @@ s32 esparser_init(struct stream_buf_s *buf)
         WRITE_VREG(VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_INIT);
         CLEAR_VREG_MASK(VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_INIT);
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
         WRITE_VREG(DOS_GEN_CTRL0, 0);    // set vififo_vbuf_rp_sel=>vdec
 #endif
 
@@ -490,7 +490,7 @@ void esparser_release(struct stream_buf_s *buf)
         }
     }
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if HAS_HEVC_VDEC
     if (buf->type == BUF_TYPE_HEVC) {
         pts_type = PTS_TYPE_VIDEO;
     } else

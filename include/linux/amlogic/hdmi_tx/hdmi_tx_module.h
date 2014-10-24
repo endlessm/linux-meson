@@ -94,6 +94,7 @@ typedef struct hdmi_tx_dev_s {
     unsigned char EDID_buf1[EDID_MAX_BLOCK*128];    // for second read
     unsigned char EDID_hash[20];
     rx_cap_t RXCap;
+    Hdmi_tx_video_para_t *cur_video_param;
     int vic_count;
     /*audio*/
     Hdmi_tx_audio_para_t cur_audio_param;
