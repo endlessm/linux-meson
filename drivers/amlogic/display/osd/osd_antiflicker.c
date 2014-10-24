@@ -201,6 +201,7 @@ static int osd_antiflicker_process(void)
 	u32 y1 = 0;
 	u32 yres = 0;
 
+	mutex_lock(&osd_antiflicker_mutex);
 	config_para_ex_t *ge2d_config = &ge2d_osd_antiflicker.ge2d_config;
 	ge2d_context_t *context = ge2d_osd_antiflicker.ge2d_context;
 
@@ -253,7 +254,6 @@ static int osd_antiflicker_process(void)
 	ge2d_config->dst_para.y_rev = 0;
 	ge2d_config->dst_xy_swap = 0;
 
-	mutex_lock(&osd_antiflicker_mutex);
 	ret = ge2d_context_config_ex(context, ge2d_config);
 	mutex_unlock(&osd_antiflicker_mutex);
 	if ( ret < 0) {
@@ -280,6 +280,10 @@ void osd_antiflicker_update_pan(u32 yoffset, u32 yres)
 	osd_antiflicker_process_2();
 #endif
 	ret = osd_antiflicker_process();
+
+	if(ret < 0){
+		osd_antiflicker_task_stop();
+	}
 }
 
 int osd_antiflicker_task_start(void)

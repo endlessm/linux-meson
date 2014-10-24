@@ -26,6 +26,7 @@
 #include <linux/printk.h>
 #include <linux/string.h>
 #include <asm/hardware/cache-l2x0.h>
+#include <mach/am_regs.h>
 
 extern void meson6_l2x0_init(void __iomem *);
 
@@ -45,15 +46,6 @@ static inline void __init write_actlr(u32 actlr)
 }
 #endif
 
-
-unsigned (*get_cpu_temperature_celius)(void) = NULL;
-EXPORT_SYMBOL_GPL(get_cpu_temperature_celius);
-
-int get_cpu_temperature(void)
-{
-	return get_cpu_temperature_celius ? get_cpu_temperature_celius() : -1;
-}
-
 int mali_revb_flag = -1;
 EXPORT_SYMBOL_GPL(mali_revb_flag);
 
@@ -69,4 +61,47 @@ static int __init maliversion(char *str)
 	return 1;
 }
 __setup("mali_version=", maliversion);
+
+static int meson_cpu_version[MESON_CPU_VERSION_LVL_MAX+1];
+
+int __init meson_cpu_version_init(void)
+{
+	unsigned int version,ver;
+	unsigned int  *version_map;
+
+	meson_cpu_version[MESON_CPU_VERSION_LVL_MAJOR] =
+		aml_read_reg32(P_ASSIST_HW_REV);
+
+	version_map = (unsigned int *)IO_BOOTROM_BASE;
+	meson_cpu_version[MESON_CPU_VERSION_LVL_MISC] = version_map[1];
+
+	version = aml_read_reg32(P_METAL_REVISION);
+	switch (version) {
+		case 0x11111111:
+			ver = 0xA;
+			break;
+		default:/*changed?*/
+			ver = 0xB;
+			break;
+	}
+	meson_cpu_version[MESON_CPU_VERSION_LVL_MINOR] = ver;
+
+	printk(KERN_INFO "Meson chip version = Rev%X (%X:%X - %X:%X)\n", ver,
+		meson_cpu_version[MESON_CPU_VERSION_LVL_MAJOR],
+		meson_cpu_version[MESON_CPU_VERSION_LVL_MINOR],
+		meson_cpu_version[MESON_CPU_VERSION_LVL_PACK],
+		meson_cpu_version[MESON_CPU_VERSION_LVL_MISC]
+		);
+
+	return 0;
+}
+EXPORT_SYMBOL(meson_cpu_version_init);
+
+int get_meson_cpu_version(int level)
+{
+	if(level >= 0 && level <= MESON_CPU_VERSION_LVL_MAX)
+		return meson_cpu_version[level];
+	return 0;
+}
+EXPORT_SYMBOL(get_meson_cpu_version);
 

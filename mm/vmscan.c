@@ -168,7 +168,6 @@ static int debug_shrinker_show(struct seq_file *s, void *unused)
 
 	down_read(&shrinker_rwsem);
 	list_for_each_entry(shrinker, &shrinker_list, list) {
-		char name[64];
 		int num_objs;
 
 		num_objs = shrinker->shrink(shrinker, &sc);
@@ -1053,20 +1052,22 @@ int __isolate_lru_page(struct page *page, isolate_mode_t mode, gfp_t gfp_mask)
 	int ret = -EINVAL;
 	unsigned long free_cma, total_free;
 
+	if(!(mode & ISOLATE_UNEVICTABLE)){
 #if 1
-	free_cma = global_page_state(NR_FREE_CMA_PAGES);
-	free_cma += free_cma << 1;
-	total_free = global_page_state(NR_FREE_PAGES);
-	if(page){
-		if((free_cma > total_free) && is_migrate_cma(get_pageblock_migratetype(page))){
-			return -EBUSY;
+		free_cma = global_page_state(NR_FREE_CMA_PAGES);
+		free_cma += free_cma << 1;
+		total_free = global_page_state(NR_FREE_PAGES);
+		if(page){
+			if((free_cma > total_free) && is_migrate_cma(get_pageblock_migratetype(page))){
+				return -EBUSY;
+			}
 		}
-	}
 #endif
 
-	if((allocflags_to_migratetype(gfp_mask) & MIGRATE_MOVABLE == 0) \
-		&& is_migrate_cma(get_pageblock_migratetype(page))){
-		return -EBUSY;
+		if((allocflags_to_migratetype(gfp_mask) & MIGRATE_MOVABLE == 0) \
+			&& is_migrate_cma(get_pageblock_migratetype(page))){
+			return -EBUSY;
+		}
 	}
 
 	/* Only take pages on the LRU. */

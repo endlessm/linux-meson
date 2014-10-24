@@ -189,7 +189,7 @@ static int lcd_extern_driver_update(void)
 
 static int aml_LD070WS2_probe(struct platform_device *pdev)
 {
-    int i = 0;
+    //int i = 0;
 
     if (lcd_extern_driver_check()) {
         return -1;

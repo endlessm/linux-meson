@@ -18,8 +18,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __PLAT_SRAM_H
-#define __PLAT_SRAM_H
+#ifndef __PLAT_MESON_SRAM_H
+#define __PLAT_MESON_SRAM_H
 
 #define SRAM_SIZE			(127 * 1024 + 512)
 #define SRAM_GRANULARITY		(512)
@@ -32,4 +32,4 @@
 extern void *sram_alloc(size_t len);
 extern void sram_free(void *addr, size_t len);
 
-#endif /* __PLAT_SRAM_H */
+#endif /* __PLAT_MESON_SRAM_H */

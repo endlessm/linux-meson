@@ -31,6 +31,9 @@
 #include <mach/am_regs.h>
 
 #include <mach/hdmi_tx_reg.h>
+
+#include "linux/amlogic/hdmi_tx/hdmi_tx_module.h"
+
 static DEFINE_SPINLOCK(reg_lock);
 static DEFINE_SPINLOCK(reg_lock2);
 // if the following bits are 0, then access HDMI IP Port will cause system hungup
@@ -87,7 +90,19 @@ void hdmi_wr_reg(unsigned int addr, unsigned int data)
 }
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-#define waiting_aocec_free()    while(aml_read_reg32(P_AO_CEC_RW_REG) & (1<<23))
+#define waiting_aocec_free() \
+        do{\
+            unsigned long cnt = 0;\
+            while(aml_read_reg32(P_AO_CEC_RW_REG) & (1<<23))\
+            {\
+                if(5000 == cnt++)\
+                {\
+                    hdmi_print(INF, CEC "waiting aocec free time out.\n");\
+                    break;\
+                }\
+            }\
+        }while(0)
+        
 unsigned long aocec_rd_reg (unsigned long addr)
 {
     unsigned long data32;

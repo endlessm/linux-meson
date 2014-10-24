@@ -1,11 +1,9 @@
 /*
- * arch/arm/plat-meson/include/mach/plat-cpuidle.h
+ * arch/arm/plat-meson/include/plat/plat-cpuidle.h
  *
  * MESON cpuidle declaration
  *
- * Copyright (C) 2012 Amlogic
- *
- *
+ * Copyright (C) 2010-2014 Amlogic, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,8 +21,9 @@
  *
  */
 
-#ifndef _PLAT_CPU_IDLE_H
-#define _PLAT_CPU_IDLE_H
+#ifndef __PLAT_MESON_CPU_IDLE_H
+#define __PLAT_MESON_CPU_IDLE_H
+
 extern int meson_enter_idle_simple(struct cpuidle_device *dev,
 			struct cpuidle_driver *drv,
 			int index);

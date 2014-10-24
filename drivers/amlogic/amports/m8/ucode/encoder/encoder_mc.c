@@ -21,10 +21,33 @@
 
 #include <linux/types.h>
 
-#define MicroCode full_encoder_mc
-#include "full_encoder_linux.h"
+#define MicroCode mix_dump_mc
+#include "h264_enc_mix_dump.h"
 
 #undef MicroCode
 #define MicroCode half_encoder_mc
 #include "half_encoder_linux.h"
 
+#undef MicroCode
+#define MicroCode mix_sw_mc
+#include "h264_enc_mix_sw.h"
+
+#undef MicroCode
+#define MicroCode mix_sw_mc_vdec2_dblk
+#include "h264_enc_mix_sw_vdec2_dblk.h"
+
+#undef MicroCode
+#define MicroCode mix_sw_mc_hdec_dblk
+#include "h264_enc_mix_sw_hdec_dblk.h"
+
+#undef MicroCode
+#define MicroCode mix_sw_mc_hdec_m2_dblk
+#include "h264_enc_mix_sw_hdec_m2_dblk.h"
+
+#undef MicroCode
+#define MicroCode mix_dump_mc_dblk
+#include "h264_enc_mix_dump_dblk.h"
+
+#undef MicroCode
+#define MicroCode vdec2_encoder_mc
+#include "vdec2_encoder.h"

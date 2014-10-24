@@ -134,7 +134,7 @@ static int suspend_test(int level)
  * freeze processes.
  */
  
-int deep_suspend_flag;
+int deep_suspend_flag=0;
 
 static int suspend_prepare(suspend_state_t state)
 {
@@ -150,6 +150,11 @@ static int suspend_prepare(suspend_state_t state)
 		goto Finish;
 
 	deep_suspend_flag=1;
+	#ifdef CONFIG_AML_GPIO_KEY
+	extern void clr_pwr_key(void);
+	clr_pwr_key();
+	#endif
+    
 	error = suspend_freeze_processes();
 	if (!error)
 		return 0;

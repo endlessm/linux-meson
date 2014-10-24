@@ -43,6 +43,34 @@ int SDIO_IRQ_SUPPORT = 0;
 static int aml_sdio_timeout_cmd(struct amlsd_host *host);
 void aml_sdio_send_stop(struct amlsd_host* host);
 
+static unsigned int sdio_error_flag = 0;
+static unsigned int sdio_debug_flag = 0;
+static unsigned int sdio_err_bak;
+
+void sdio_debug_irqstatus(struct sdio_status_irq* irqs, struct cmd_send* send)
+{    
+    switch (sdio_debug_flag)
+    {
+        case 1:
+            irqs->sdio_response_crc7_ok = 0;
+            send->response_do_not_have_crc7 = 0;
+            
+            sdhc_err("Force sdio cmd response crc error here\n");
+            break;
+        case 2:
+            irqs->sdio_data_read_crc16_ok = 0;
+            irqs->sdio_data_write_crc16_ok = 0;
+            sdhc_err("Force sdio data crc here\n");
+            break;  
+                                    
+        default:            
+            break;
+    }
+    
+    //only enable once for debug
+    sdio_debug_flag = 0;
+}
+
 static void aml_sdio_soft_reset(struct amlsd_host* host)
 {
     struct sdio_irq_config irqc={0};
@@ -187,8 +215,6 @@ static void aml_sdio_enable_irq(struct mmc_host *mmc, int enable)
     struct sdio_mult_config* mult; 		
     unsigned long flags;
 	
-
-
     spin_lock_irqsave(&host->mrq_lock, flags);
     virqc = readl(host->base + SDIO_IRQC);
     irqc = (void*)&virqc;
@@ -221,6 +247,7 @@ static void aml_sdio_enable_irq(struct mmc_host *mmc, int enable)
 	
 
 }
+
 /*set to register, start xfer*/
 void aml_sdio_start_cmd(struct mmc_host* mmc, struct mmc_request* mrq)
 {
@@ -360,9 +387,9 @@ void aml_sdio_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
     if (pdata->xfer_post)
         pdata->xfer_post(pdata);
 		
-	if((SDIO_IRQ_SUPPORT)
-		&&(mmc->sdio_irq_pending != true))
-		mmc->ops->enable_sdio_irq(mmc, 1);
+	//if((SDIO_IRQ_SUPPORT)
+	//	&&(mmc->sdio_irq_pending != true))
+	//	mmc->ops->enable_sdio_irq(mmc, 1);
 	
     mmc_request_done(host->mmc, mrq);
 }
@@ -413,14 +440,20 @@ static void aml_sdio_timeout(struct work_struct *work)
     u32 virqc;
     struct sdio_irq_config* irqc;
     unsigned long flags;
-#ifdef      CONFIG_MMC_AML_DEBUG
+//#ifdef      CONFIG_MMC_AML_DEBUG
     struct amlsd_platform * pdata = mmc_priv(host->mmc);
-#endif
+//#endif
 	static int timeout_cmd_cnt = 0;
+	int is_mmc_stop = 0;
 
+//	struct timeval ts_current;
+	unsigned long time_start_cnt = READ_CBUS_REG(ISA_TIMERE);
+	
+    
+    time_start_cnt = (time_start_cnt - host->time_req_sta) / 1000;
 
 //	if(host->mmc->caps & MMC_CAP_SDIO_IRQ){
-	if(SDIO_IRQ_SUPPORT)
+	if(SDIO_IRQ_SUPPORT && !is_mmc_stop)
 	{
 		if(aml_sdio_timeout_cmd(host))
 			return;
@@ -447,13 +480,15 @@ static void aml_sdio_timeout(struct work_struct *work)
             || (host->xfer_step == XFER_IRQ_OCCUR)){    // isr have been run
         spin_unlock_irqrestore(&host->mrq_lock, flags);
         //mod_timer(&host->timeout_tlist, jiffies + 10);
-        schedule_delayed_work(&host->timeout, 10);
+        schedule_delayed_work(&host->timeout, 50);
+        host->time_req_sta = READ_CBUS_REG(ISA_TIMERE);    
         
         if(irqs->sdio_cmd_int) {
             timeout_cnt++;
-            if (timeout_cnt > 10)
+            if (timeout_cnt > 30)
                 goto timeout_handle;
-            sdio_err("%s: irq have been occured\n", mmc_hostname(host->mmc));
+            sdio_err("%s: cmd%d, ISR have been run, xfer_step=%d, time_start_cnt=%ldmS, timeout_cnt=%d\n",
+                mmc_hostname(host->mmc), host->mrq->cmd->opcode, host->xfer_step, time_start_cnt, timeout_cnt);        
         }
         else
             sdio_err("%s: isr have been run\n",  mmc_hostname(host->mmc));
@@ -476,10 +511,27 @@ timeout_handle:
     writel(virqc, host->base + SDIO_IRQC);
 
     spin_lock_irqsave(&host->mrq_lock, flags);
+    
+    //do not retry for sdcard
+    if(!aml_card_type_mmc(pdata)){
+        sdio_error_flag |= (1<<30);
+        host->mrq->cmd->retries = 0;
+    }else if(((sdio_error_flag & (1<<3))== 0) && (host->mrq->data != NULL) 
+            && pdata->is_in ){  //set cmd retry cnt when first error.
+        sdio_error_flag |= (1<<3);
+        host->mrq->cmd->retries = AML_TIMEOUT_RETRY_COUNTER; 
+    }   
+    
+    //here clear error flags after error retried
+    if(sdio_error_flag && (host->mrq->cmd->retries == 0)){
+        sdio_error_flag |= (1<<30);
+    } 
+    
     host->xfer_step = XFER_TIMEDOUT;
     host->mrq->cmd->error = -ETIMEDOUT;
     spin_unlock_irqrestore(&host->mrq_lock, flags);
     
+    sdio_err("time_start_cnt:%ld\n", time_start_cnt);
     aml_sdio_print_err(host, "Timeout error");
     // if (pdata->port == MESON_SDIO_PORT_A) {
         // sdio_err("power_on_pin=%d\n",
@@ -499,8 +551,24 @@ timeout_handle:
     // aml_dbg_print_pinmux();
 #endif
 
-    /*request done*/
-    aml_sdio_request_done(host->mmc, host->mrq);
+    if(host->mrq->stop && aml_card_type_mmc(pdata) && !host->cmd_is_stop){
+        // sdio_err("Send stop cmd before timeout retry..\n");
+        spin_lock_irqsave(&host->mrq_lock, flags);
+        aml_sdio_send_stop(host);                
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
+		is_mmc_stop = 1;
+        schedule_delayed_work(&host->timeout, 1);
+    }
+    else{
+            /*request done*/
+        // sdio_err("Just stop without retry..\n");
+
+        if (host->cmd_is_stop)
+            host->cmd_is_stop = 0;
+
+        aml_sdio_request_done(host->mmc, host->mrq);
+    }
+            
 
     // spin_lock_irqsave(&host->mrq_lock, flags);
     // WARN_ON(!host->mrq->cmd);
@@ -528,20 +596,45 @@ static int aml_sdio_timeout_cmd(struct amlsd_host *host)
     unsigned long flags;
     struct mmc_request* mrq;
     enum aml_mmc_waitfor    xfer_step;
+    struct amlsd_platform * pdata = mmc_priv(host->mmc);
 
-    spin_lock_irqsave(&host->mrq_lock, flags);
+    //spin_lock_irqsave(&host->mrq_lock, flags);
 
 	
     if((virqs >> sdio_cmd_busy_bit) & 0x1) 
     {      
-    	spin_unlock_irqrestore(&host->mrq_lock, flags);
+    	//spin_unlock_irqrestore(&host->mrq_lock, flags);
 		return 0;
     }	else{
-   if (delayed_work_pending(&host->timeout)) 
-   	 cancel_delayed_work(&host->timeout);
+ //  if (delayed_work_pending(&host->timeout)) 
+ //   	 cancel_delayed_work(&host->timeout);
+
+    spin_lock_irqsave(&host->mrq_lock, flags);
+ 
+    if(host->xfer_step == XFER_FINISHED ||
+        host->xfer_step == XFER_TIMEDOUT){
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
+        return 0;
+    }		
+	
+    if(((host->xfer_step != XFER_AFTER_START   )
+		&&( host->xfer_step != XFER_START))
+		||(! host->mrq)){
+	spin_unlock_irqrestore(&host->mrq_lock, flags);
+	return 0;	
+    }      
 
     mrq = host->mrq;
     xfer_step = host->xfer_step;
+
+    if(host->cmd_is_stop){
+        host->cmd_is_stop = 0;
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
+        aml_sdio_request_done(host->mmc, mrq);
+        return 1;
+    }
+
+    host->xfer_step = XFER_TASKLET_DATA;
 	
     if(!mrq->data){
         if(irqs->sdio_response_crc7_ok || send->response_do_not_have_crc7)
@@ -557,6 +650,10 @@ static int aml_sdio_timeout_cmd(struct amlsd_host *host)
             mrq->cmd->error = 0;
         else {
             mrq->cmd->error = -EILSEQ;
+            if((sdio_error_flag == 0) && aml_card_type_mmc(pdata)){  //set cmd retry cnt when first error.
+                sdio_error_flag |= (1<<0);
+                mrq->cmd->retries = AML_ERROR_RETRY_COUNTER; 
+            }  
             aml_sdio_print_err(host, "data crc16 error");
         }
         mrq->data->bytes_xfered = mrq->data->blksz*mrq->data->blocks;
@@ -570,6 +667,12 @@ static int aml_sdio_timeout_cmd(struct amlsd_host *host)
                 host->bn_buf[2], host->bn_buf[3]);
         }
         spin_lock_irqsave(&host->mrq_lock, flags);
+
+        if((mrq->cmd->error == 0) 
+            || (sdio_error_flag && (mrq->cmd->retries == 0))){
+            sdio_error_flag |= (1<<30);
+        }
+                
         if(mrq->stop){
             aml_sdio_send_stop(host);
             spin_unlock_irqrestore(&host->mrq_lock, flags);
@@ -607,8 +710,16 @@ void aml_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
     if (aml_check_unsupport_cmd(mmc, mrq))
         return;
 
-    if(!pdata->is_in){
+    //only for SDCARD hotplag
+    if(!pdata->is_in || (!host->init_flag && aml_card_type_sd(pdata))){
+        spin_lock_irqsave(&host->mrq_lock, flags);
         mrq->cmd->error = -ENOMEDIUM;
+        mrq->cmd->retries = 0;
+        host->mrq = NULL;
+        host->xfer_step = XFER_FINISHED;        
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
+        
+        //aml_sdio_request_done(mmc, mrq);
         mmc_request_done(mmc, mrq);
         return;
     }
@@ -619,6 +730,10 @@ void aml_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
     }
     host->req_cnt++;
 #endif
+
+    if (mrq->cmd->opcode == 0) {
+        host->init_flag = 1;
+    }
 
     sdio_dbg(AMLSD_DBG_REQ ,"%s: starting CMD%u arg %08x flags %08x\n",
         mmc_hostname(mmc), mrq->cmd->opcode,
@@ -641,7 +756,9 @@ void aml_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
     if(pdata->xfer_pre)
         pdata->xfer_pre(pdata);
 		
-	if(SDIO_IRQ_SUPPORT)
+//	if(SDIO_IRQ_SUPPORT)
+	if((mmc->caps & MMC_CAP_SDIO_IRQ)
+		&&(mmc->ops->enable_sdio_irq))
 		mmc->ops->enable_sdio_irq(mmc, 0);
 #ifdef      CONFIG_MMC_AML_DEBUG
     aml_dbg_verify_pull_up(pdata);
@@ -666,11 +783,17 @@ void aml_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
     if(host->xfer_step != XFER_FINISHED && host->xfer_step != XFER_INIT)
         sdio_err("host->xfer_step %d\n", host->xfer_step);
 
+    //clear error flag if last command retried failed here    
+    if(sdio_error_flag & (1<<30)){
+        sdio_error_flag = 0;
+    }
+    
     host->mrq = mrq;
     host->mmc = mmc;
     host->xfer_step = XFER_START;
     host->opcode = mrq->cmd->opcode;
     host->arg = mrq->cmd->arg;
+    host->time_req_sta = READ_CBUS_REG(ISA_TIMERE);    
 
     // if(mrq->data){
         // sdio_dbg(AMLSD_DBG_REQ ,"%s: blksz %d blocks %d flags %08x "
@@ -699,6 +822,8 @@ void aml_sdio_send_stop(struct amlsd_host* host)
 {
     /*Already in mrq_lock*/
     host->cmd_is_stop = 1;
+    sdio_err_bak = host->mrq->cmd->error;
+    host->mrq->cmd->error = 0;
     aml_sdio_start_cmd(host->mmc, &aml_sdio_stop);
 }
 
@@ -713,6 +838,7 @@ static irqreturn_t aml_sdio_irq(int irq, void *dev_id)
     // int is_stop;
     struct mmc_request* mrq;
     unsigned long flags;
+    int sdio_cmd_int = 0;
 
     spin_lock_irqsave(&host->mrq_lock, flags);
     mrq = host->mrq;
@@ -732,11 +858,8 @@ static irqreturn_t aml_sdio_irq(int irq, void *dev_id)
         return IRQ_HANDLED;
     }
 
-    if(irqs->sdio_cmd_int){
-	
-		if((SDIO_IRQ_SUPPORT)
-			&&(delayed_work_pending(&host->timeout)))
-         	cancel_delayed_work(&host->timeout);
+    if(irqs->sdio_cmd_int  && mrq){
+
         // writel(virqs, host->base + SDIO_IRQS); // clear irq
         if(host->cmd_is_stop)
             host->xfer_step = XFER_IRQ_TASKLET_BUSY;
@@ -744,16 +867,23 @@ static irqreturn_t aml_sdio_irq(int irq, void *dev_id)
             host->xfer_step = XFER_IRQ_OCCUR;
         // host->time_req_sta = READ_CBUS_REG(ISA_TIMERE);
         spin_unlock_irqrestore(&host->mrq_lock, flags);
-        return IRQ_WAKE_THREAD;
+	 if(irqs->sdio_if_int && SDIO_IRQ_SUPPORT)
+        	sdio_cmd_int = 1;
+	 else
+	 	return IRQ_WAKE_THREAD;
     }else
         spin_unlock_irqrestore(&host->mrq_lock, flags);
-
+	
     if(irqs->sdio_if_int){
-        if((host->mmc->sdio_irq_thread)
-		&&(!atomic_read(& host->mmc->sdio_irq_thread_abort)))
-            mmc_signal_sdio_irq(host->mmc);
+	 	if(host->mmc->ops->enable_sdio_irq)
+			host->mmc->ops->enable_sdio_irq(host->mmc, 0);     
+		if((host->mmc->sdio_irq_thread)
+			&&(!atomic_read(& host->mmc->sdio_irq_thread_abort)))
+	            mmc_signal_sdio_irq(host->mmc);
     }
-
+	
+    if(SDIO_IRQ_SUPPORT && sdio_cmd_int)
+   		return IRQ_WAKE_THREAD;
     //sdio_err("irq ignore!\n");
     // writel(virqs, host->base + SDIO_IRQS);
     //if cmd has stop, call aml_sdio_send_stop
@@ -770,6 +900,7 @@ irqreturn_t aml_sdio_irq_thread(int irq, void *data)
     unsigned long flags;
     struct mmc_request* mrq;
     enum aml_mmc_waitfor    xfer_step;
+    struct amlsd_platform * pdata = mmc_priv(host->mmc);
     // u32 time = READ_CBUS_REG(ISA_TIMERE);
 
     // time = time - host->time_req_sta;
@@ -780,6 +911,13 @@ irqreturn_t aml_sdio_irq_thread(int irq, void *data)
     spin_lock_irqsave(&host->mrq_lock, flags);
     mrq = host->mrq;
     xfer_step = host->xfer_step;
+
+    if ((xfer_step == XFER_FINISHED) || (xfer_step == XFER_TIMER_TIMEOUT)) {
+        sdhc_err("Warning: xfer_step=%d\n", xfer_step);
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
+        return IRQ_HANDLED;
+    }
+
     if(!mrq){
         sdio_err("CMD%u, arg %08x, mrq NULL xfer_step %d\n", host->opcode, host->arg, xfer_step);
         if(xfer_step == XFER_FINISHED ||
@@ -792,8 +930,16 @@ irqreturn_t aml_sdio_irq_thread(int irq, void *data)
 		spin_unlock_irqrestore(&host->mrq_lock, flags);
         return IRQ_HANDLED;
     }
+
+    if((SDIO_IRQ_SUPPORT )
+		&& (host->xfer_step == XFER_TASKLET_DATA)){
+	  spin_unlock_irqrestore(&host->mrq_lock, flags);
+        return IRQ_HANDLED;
+    }	
+	
     if(host->cmd_is_stop){
         host->cmd_is_stop = 0;
+        mrq->cmd->error = sdio_err_bak;
         spin_unlock_irqrestore(&host->mrq_lock, flags);
         aml_sdio_request_done(host->mmc, mrq);
         return IRQ_HANDLED;
@@ -816,10 +962,21 @@ irqreturn_t aml_sdio_irq_thread(int irq, void *data)
             spin_unlock_irqrestore(&host->mrq_lock, flags);
         } else {
             mrq->cmd->error = -EILSEQ;
+            if((sdio_error_flag == 0) && aml_card_type_mmc(pdata)){  //set cmd retry cnt when first error.
+                sdio_error_flag |= (1<<0);
+                mrq->cmd->retries = AML_ERROR_RETRY_COUNTER; 
+            }
             spin_unlock_irqrestore(&host->mrq_lock, flags);
             aml_sdio_print_err(host, "data crc16 error");
         }
+		spin_lock_irqsave(&host->mrq_lock, flags);
         mrq->data->bytes_xfered = mrq->data->blksz*mrq->data->blocks;
+       
+        if((mrq->cmd->error == 0) || (sdio_error_flag && (mrq->cmd->retries == 0))){
+            sdio_error_flag |= (1<<30);
+        } 
+               
+        spin_unlock_irqrestore(&host->mrq_lock, flags);
         if(mrq->data->flags & MMC_DATA_READ){
             aml_sg_copy_buffer(mrq->data->sg, mrq->data->sg_len,
                 host->bn_buf, mrq->data->blksz*mrq->data->blocks, 0);
@@ -1064,6 +1221,35 @@ static const struct mmc_host_ops aml_sdio_ops = {
     .enable_sdio_irq = aml_sdio_enable_irq,
     .get_cd = aml_sdio_get_cd,
     .get_ro = aml_sdio_get_ro,
+	.hw_reset = aml_emmc_hw_reset,
+};
+
+static ssize_t sdio_debug_func(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+//    struct amlsd_host *host = container_of(class, struct amlsd_host, debug);
+    
+    sscanf(buf, "%x", &sdio_debug_flag);    
+    printk("sdio_debug_flag: %d\n", sdio_debug_flag);
+
+    return count;
+}
+
+static ssize_t show_sdio_debug(struct class *class,
+                    struct class_attribute *attr,	char *buf)
+{
+//    struct amlsd_host *host = container_of(class, struct amlsd_host, debug);
+    
+    printk("sdio_debug_flag: %d\n", sdio_debug_flag);
+    printk("1 : Force sdio cmd crc error \n");
+    printk("2 : Force sdio data crc error \n");
+    printk("9 : Force sdio irq timeout error \n");
+
+    return 0;
+}
+
+static struct class_attribute sdio_class_attrs[] = {
+    __ATTR(debug,  S_IRUGO | S_IWUSR , show_sdio_debug, sdio_debug_func),
+    __ATTR_NULL
 };
 
 static struct amlsd_host* aml_sdio_init_host(void)
@@ -1098,11 +1284,20 @@ static struct amlsd_host* aml_sdio_init_host(void)
     host->version = AML_MMC_VERSION;
     host->storage_flag = storage_flag;
     host->pinctrl = NULL;
+    
+    host->init_flag = 1;
 
 #ifdef      CONFIG_MMC_AML_DEBUG
     host->req_cnt = 0;
     sdio_err("CONFIG_MMC_AML_DEBUG is on!\n");
 #endif
+
+	host->debug.name = kzalloc(strlen((const char*)AML_SDIO_MAGIC)+1, GFP_KERNEL);
+	strcpy((char *)(host->debug.name), (const char*)AML_SDIO_MAGIC);
+	host->debug.class_attrs = sdio_class_attrs;
+	if(class_register(&host->debug))
+		printk(" class register nand_class fail!\n");
+		
     return host;
 }
 
@@ -1193,6 +1388,14 @@ static int aml_sdio_probe(struct platform_device *pdev)
         mmc->f_min = pdata->f_min;
         mmc->f_max = pdata->f_max;
 
+        if (aml_card_type_sdio(pdata)) { // if sdio_wifi
+            mmc->host_rescan_disable = true;
+			mmc->rescan_entered = 1; // do NOT run mmc_rescan for the first time
+        } else {
+            mmc->host_rescan_disable = false;
+			mmc->rescan_entered = 0; 
+        }
+         
         if(pdata->port_init)
             pdata->port_init(pdata);
 
@@ -1205,7 +1408,7 @@ static int aml_sdio_probe(struct platform_device *pdev)
         } else { // ok
             if (aml_card_type_sdio(pdata)) { // if sdio_wifi
                 sdio_host = mmc;
-                mmc->rescan_entered = 1; // do NOT run mmc_rescan for the first time
+                //mmc->rescan_entered = 1; // do NOT run mmc_rescan for the first time
             }
         }
 

@@ -140,7 +140,7 @@ static unsigned int gpio_to_pin[][5]={
 	[GPIOH_6]={P_PIN_MUX_REG(9,10),NONE,NONE,NONE,NONE,},
 	[GPIOH_7]={P_PIN_MUX_REG(4,3),NONE,NONE,NONE,NONE,},
 	[GPIOH_8]={P_PIN_MUX_REG(4,2),NONE,NONE,NONE,NONE,},
-	[GPIOH_9]={P_PIN_MUX_REG(4,1),P_PIN_MUX_REG(4,1),NONE,NONE,NONE,},
+	[GPIOH_9]={P_PIN_MUX_REG(4,1),NONE,NONE,NONE,NONE,},
 	[BOOT_0]={P_PIN_MUX_REG(4,30),P_PIN_MUX_REG(2,26),P_PIN_MUX_REG(6,29),NONE,NONE,},
 	[BOOT_1]={P_PIN_MUX_REG(4,29),P_PIN_MUX_REG(2,26),P_PIN_MUX_REG(6,28),NONE,NONE,},
 	[BOOT_2]={P_PIN_MUX_REG(2,26),P_PIN_MUX_REG(6,27),P_PIN_MUX_REG(4,29),NONE,NONE,},
@@ -237,7 +237,19 @@ static unsigned int gpio_to_pin[][5]={
 	[GPIOX_20]={NONE,NONE,NONE,NONE,NONE,},
 	[GPIOX_21]={NONE,NONE,NONE,NONE,NONE,},
 	[GPIO_BSD_EN]={NONE,NONE,NONE,NONE,NONE,},
-	[GPIO_TEST_N]={P_PIN_MUX_REG(9,19),NONE,NONE,NONE,NONE,},
+	[GPIO_TEST_N]={P_PIN_MUX_REG(10,19),NONE,NONE,NONE,NONE,},
+};
+static unsigned int gpio_to_pin_m8m2[][5]={
+	[GPIOZ_0]={P_PIN_MUX_REG(5,31),P_PIN_MUX_REG(9,18),P_PIN_MUX_REG(7,25),P_PIN_MUX_REG(9,16),P_PIN_MUX_REG(6,0)},
+	[GPIOZ_1]={P_PIN_MUX_REG(9,15),P_PIN_MUX_REG(5,30),P_PIN_MUX_REG(7,24),P_PIN_MUX_REG(6,1),NONE},
+	[GPIOZ_2]={P_PIN_MUX_REG(5,27),P_PIN_MUX_REG(6,2),NONE,NONE,NONE},
+	[GPIOZ_3]={P_PIN_MUX_REG(5,26),P_PIN_MUX_REG(6,3),NONE,NONE,NONE},
+	[GPIOH_9]={P_PIN_MUX_REG(4,1),P_PIN_MUX_REG(3,19),NONE,NONE,NONE},	
+	[CARD_4]={P_PIN_MUX_REG(2,6),P_PIN_MUX_REG(2,12),P_PIN_MUX_REG(8,10),P_PIN_MUX_REG(8,8),NONE},
+	[CARD_5]={P_PIN_MUX_REG(2,13),P_PIN_MUX_REG(8,9),P_PIN_MUX_REG(2,6),P_PIN_MUX_REG(8,7),NONE},
+	[GPIODV_24]={P_PIN_MUX_REG(0,9),P_PIN_MUX_REG(0,19),P_PIN_MUX_REG(6,23),P_PIN_MUX_REG(8,24),NONE},
+	[GPIODV_25]={P_PIN_MUX_REG(6,22),P_PIN_MUX_REG(0,8),P_PIN_MUX_REG(8,23),P_PIN_MUX_REG(0,18),NONE},
+	[GPIOY_3]={P_PIN_MUX_REG(1,16),P_PIN_MUX_REG(1,7),P_PIN_MUX_REG(3,11),NONE,NONE},
 };
 struct amlogic_gpio_desc amlogic_pins[]=
 {
@@ -399,6 +411,23 @@ int gpio_amlogic_requst(struct gpio_chip *chip,unsigned offset)
 	return ret;
 }
 /* amlogic request gpio interface*/
+#ifdef CONFIG_GPIO_TEST
+int gpio_amlogic_requst_force(struct gpio_chip *chip,unsigned offset)
+{
+	unsigned int i,reg,bit;
+	unsigned int *gpio_reg=&gpio_to_pin[offset][0];
+	for(i=0;i<sizeof(gpio_to_pin[offset])/sizeof(gpio_to_pin[offset][0]);i++){
+		if(gpio_reg[i]!=NONE)
+		{
+			reg=GPIO_REG(gpio_reg[i]);
+			bit=GPIO_BIT(gpio_reg[i]);
+			aml_clr_reg32_mask(p_pin_mux_reg_addr[reg],1<<bit);
+			gpio_print("clr reg=%d,bit =%d\n",reg,bit);
+		}
+	}
+	return 0;
+}
+#endif /* CONFIG_GPIO_TEST */
 
 void	 gpio_amlogic_free(struct gpio_chip *chip,unsigned offset)
 {	
@@ -624,7 +653,27 @@ static int amlogic_gpio_probe(struct platform_device *pdev)
 	amlogic_gpio_chip.ngpio=ARRAY_SIZE(amlogic_pins);
 	gpiochip_add(&amlogic_gpio_chip);
 	pullup_ops.meson_set_pullup=m8_set_pullup;
+	if(IS_MESON_M8M2_CPU){
+		memcpy(gpio_to_pin[GPIOZ_0],gpio_to_pin_m8m2[GPIOZ_0],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIOZ_1],gpio_to_pin_m8m2[GPIOZ_1],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIOZ_2],gpio_to_pin_m8m2[GPIOZ_2],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIOZ_3],gpio_to_pin_m8m2[GPIOZ_3],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIOH_9],gpio_to_pin_m8m2[GPIOH_9],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[CARD_4],gpio_to_pin_m8m2[CARD_4],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[CARD_5],gpio_to_pin_m8m2[CARD_5],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIODV_24],gpio_to_pin_m8m2[GPIODV_24],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIODV_25],gpio_to_pin_m8m2[GPIODV_25],5*sizeof(unsigned int));
+		memcpy(gpio_to_pin[GPIOY_3],gpio_to_pin_m8m2[GPIOY_3],5*sizeof(unsigned int));
+	}
 	dev_info(&pdev->dev, "Probed amlogic GPIO driver\n");
+#if 0
+	int i,j;
+	for(i=0;i<=GPIO_TEST_N;i++){
+		for (j=0;j<5;j++)
+		printk( "%d,%d\t",GPIO_REG(gpio_to_pin[i][j]),GPIO_BIT(gpio_to_pin[i][j]));
+	printk("\n");
+	}
+#endif
 #ifdef gpio_dump
 	int i;
 	for(i=0;i<GPIO_TEST_N;i++)

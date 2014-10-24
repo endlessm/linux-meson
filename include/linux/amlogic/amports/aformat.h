@@ -46,8 +46,9 @@ typedef enum {
     AFORMAT_APE   = 20,
     AFORMAT_EAC3   = 21,
     AFORMAT_PCM_WIFIDISPLAY = 22,
-    AFORMAT_UNSUPPORT = 23,
-    AFORMAT_MAX    = 24
+    AFORMAT_TRUEHD = 25,
+    AFORMAT_UNSUPPORT = 26,
+    AFORMAT_MAX    = 27
 } aformat_t;
 
 #endif /* AFORMAT_H */

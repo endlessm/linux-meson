@@ -10,6 +10,7 @@ obj-$(CONFIG_SENSOR_DEVICES) += common.o
 
 obj-$(CONFIG_GRAVITY_MMA8452)   += mma8452.o
 obj-$(CONFIG_GRAVITY_MMA7660)   += mma7660.o
+obj-$(CONFIG_GRAVITY_MIR3DA)   += mir3da_core.o mir3da_cust.o
 obj-$(CONFIG_GRAVITY_LIS3DH)   += lis3dh_acc.o
 obj-$(CONFIG_GRAVITY_BMA250)		+=bma250.o
 obj-$(CONFIG_GRAVITY_BMA222)      += bma222.o
@@ -24,6 +25,7 @@ obj-$(CONFIG_GRAVITY_STK8313)	+= stk8313.o
 obj-$(CONFIG_GRAVITY_STK8312)	+= stk831x.o
 
 obj-$(CONFIG_GRAVITY_MXC622X)     += mxc622x.o
+obj-$(CONFIG_GRAVITY_MXC6255XC)     += mxc6255xc.o
 
 #GYROSCOPE
 obj-$(CONFIG_GYROSCOPE_L3GD20)    += l3gd20_gyr.o

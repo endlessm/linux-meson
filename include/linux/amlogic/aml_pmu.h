@@ -12,7 +12,11 @@
  * debug message control
  */
 #define AML_PMU_DBG(format,args...)                 \
-    if (1) printk(KERN_ERR "[AML_PMU]"format,##args) 
+    if (1) printk(KERN_DEBUG "[AML_PMU]"format,##args)
+#define AML_PMU_INFO(format,args...)                 \
+    if (1) printk(KERN_WARNING "[AML_PMU]"format,##args)
+#define AML_PMU_ERR(format,args...)                 \
+    if (1) printk(KERN_ERR "[AML_PMU]"format,##args)
 
 #define AML_PMU_CHG_ATTR(_name)                     \
 {                                                   \
@@ -220,7 +224,11 @@ extern int aml1212_otg_change(struct notifier_block *nb, unsigned long value, vo
 #define AML1216_CHARGER_NONE                3 
 
 #define AML1216_DBG(format,args...)                 \
-    if (1) printk(KERN_ERR "[AML1216]"format,##args)  
+    if (1) printk(KERN_DEBUG "[AML1216]"format,##args)
+#define AML1216_INFO(format,args...)                 \
+    if (1) printk(KERN_WARNING "[AML1216]"format,##args)
+#define AML1216_ERR(format,args...)                 \
+    if (1) printk(KERN_ERR "[AML1216]"format,##args)
 #define ABS(x)                  ((x) >0 ? (x) : -(x))
 
 #define AML_ATTR(_name)                           \
@@ -352,7 +360,11 @@ extern int aml1216_usb_charger(struct notifier_block *nb, unsigned long value, v
 #define AML1218_CHARGER_NONE                3 
 
 #define AML1218_DBG(format,args...)                 \
-    if (1) printk(KERN_ERR "[AML1218]"format,##args)  
+    if (1) printk(KERN_DEBUG "[AML1218]"format,##args)
+#define AML1218_INFO(format,args...)                 \
+    if (1) printk(KERN_WARNING "[AML1218]"format,##args)
+#define AML1218_ERR(format,args...)                 \
+    if (1) printk(KERN_ERR "[AML1218]"format,##args)
 #define ABS(x)                  ((x) >0 ? (x) : -(x))
 
 #define AML_ATTR(_name)                           \

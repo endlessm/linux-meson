@@ -72,9 +72,9 @@ SET_TV_CLASS_ATTR(vdac_setting,parse_vdac_setting)
 
 static const tvmode_t vmode_tvmode_tab[] =
 {
-	TVMODE_480I, TVMODE_480CVBS,TVMODE_480P, TVMODE_576I,TVMODE_576CVBS, TVMODE_576P, TVMODE_720P, TVMODE_1080I, TVMODE_1080P,
+	TVMODE_480I, TVMODE_480I_RPT, TVMODE_480CVBS, TVMODE_480P, TVMODE_480P_RPT, TVMODE_576I, TVMODE_576I_RPT, TVMODE_576CVBS, TVMODE_576P, TVMODE_576P_RPT, TVMODE_720P, TVMODE_1080I, TVMODE_1080P,
     TVMODE_720P_50HZ, TVMODE_1080I_50HZ, TVMODE_1080P_50HZ,TVMODE_1080P_24HZ, TVMODE_4K2K_30HZ, TVMODE_4K2K_25HZ, TVMODE_4K2K_24HZ, TVMODE_4K2K_SMPTE, 
-    TVMODE_VGA,TVMODE_SVGA,TVMODE_XGA,TVMODE_SXGA
+    TVMODE_VGA, TVMODE_SVGA, TVMODE_XGA, TVMODE_SXGA
 };
 
 
@@ -83,6 +83,18 @@ static const vinfo_t tv_info[] =
     { /* VMODE_480I */
 		.name              = "480i",
 		.mode              = VMODE_480I,
+        .width             = 720,
+        .height            = 480,
+        .field_height      = 240,
+        .aspect_ratio_num  = 4,
+        .aspect_ratio_den  = 3,
+        .sync_duration_num = 60,
+        .sync_duration_den = 1,
+        .video_clk         = 27000000,
+    },
+    { /* VMODE_480I_RPT */
+        .name              = "480i_rpt",
+        .mode              = VMODE_480I_RPT,
         .width             = 720,
         .height            = 480,
         .field_height      = 240,
@@ -116,9 +128,33 @@ static const vinfo_t tv_info[] =
         .sync_duration_den = 1,
         .video_clk         = 27000000,
     },
+    { /* VMODE_480P_RPT */
+        .name              = "480p_rpt",
+        .mode              = VMODE_480P_RPT,
+        .width             = 720,
+        .height            = 480,
+        .field_height      = 480,
+        .aspect_ratio_num  = 4,
+        .aspect_ratio_den  = 3,
+        .sync_duration_num = 60,
+        .sync_duration_den = 1,
+        .video_clk         = 27000000,
+    },
     { /* VMODE_576I */
 		.name              = "576i",
 		.mode              = VMODE_576I,
+        .width             = 720,
+        .height            = 576,
+        .field_height      = 288,
+        .aspect_ratio_num  = 4,
+        .aspect_ratio_den  = 3,
+        .sync_duration_num = 50,
+        .sync_duration_den = 1,
+        .video_clk         = 27000000,
+    },
+    { /* VMODE_576I_RPT */
+        .name              = "576i_rpt",
+        .mode              = VMODE_576I_RPT,
         .width             = 720,
         .height            = 576,
         .field_height      = 288,
@@ -143,6 +179,18 @@ static const vinfo_t tv_info[] =
     { /* VMODE_576P */
 		.name              = "576p",
 		.mode              = VMODE_576P,
+        .width             = 720,
+        .height            = 576,
+        .field_height      = 576,
+        .aspect_ratio_num  = 4,
+        .aspect_ratio_den  = 3,
+        .sync_duration_num = 50,
+        .sync_duration_den = 1,
+        .video_clk         = 27000000,
+    },
+    { /* VMODE_576P_RPT */
+        .name              = "576p_rpt",
+        .mode              = VMODE_576P_RPT,
         .width             = 720,
         .height            = 576,
         .field_height      = 576,
@@ -376,7 +424,6 @@ static int tv_set_current_vmode(vmode_t mod)
 {
 	if ((mod&VMODE_MODE_BIT_MASK)> VMODE_SXGA)
 		return -EINVAL;
-
 	info->vinfo = &tv_info[mod & VMODE_MODE_BIT_MASK];
 	if(mod&VMODE_LOGO_BIT_MASK)  return 0;
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
@@ -421,9 +468,16 @@ static int tv_module_disable(vmode_t cur_vmod)
 	return 0;
 }
 #ifdef  CONFIG_PM
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+extern void cvbs_cntl_output(unsigned int open);
+#endif
 static int tv_suspend(void)
 {
 	video_dac_disable();
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	cvbs_cntl_output(0);
+#endif
+
 	return 0;
 }
 static int tv_resume(void)
@@ -575,7 +629,7 @@ static __exit void tv_exit_module(void)
 	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"exit tv module\r\n");
 }
 
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8))
 extern void cvbs_config_vdac(unsigned int flag, unsigned int cfg);
 
 static int __init vdac_config_bootargs_setup(char* line)

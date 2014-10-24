@@ -225,12 +225,8 @@ static  int  set_disp_mode(const char *mode)
 {
     int ret=-1;
     HDMI_Video_Codes_t vic;
-    if(hdmitx_device.tv_no_edid){
-        vic = hdmitx_get_VIC(&hdmitx_device, mode);
-    }
-    else{
-        vic = hdmitx_edid_get_VIC(&hdmitx_device, mode, 1);
-    }
+
+    vic = hdmitx_edid_get_VIC(&hdmitx_device, mode, 1);
     if(strncmp(mode, "4k2k30hz", strlen("4k2k30hz")) == 0) {
         vic = HDMI_4k2k_30;
     }
@@ -346,13 +342,7 @@ static int set_disp_mode_auto(void)
     }
 
     //msleep(500);
-    if(hdmitx_device.tv_no_edid){
-        vic = hdmitx_get_VIC(&hdmitx_device, mode);
-    }
-    else{
-        vic = hdmitx_edid_get_VIC(&hdmitx_device, mode, (hdmitx_device.disp_switch_config==DISP_SWITCH_FORCE)?1:0);
-    }
-    vic = hdmitx_edid_get_VIC(&hdmitx_device, mode, (hdmitx_device.disp_switch_config==DISP_SWITCH_FORCE)?1:0);
+    vic = hdmitx_edid_get_VIC(&hdmitx_device, mode, 1);
     if(strncmp(info->name, "4k2k30hz", strlen("4k2k30hz")) == 0) {
         vic = HDMI_4k2k_30;
     }
@@ -406,6 +396,7 @@ static int set_disp_mode_auto(void)
             hdmitx_device.HWOp.Cntl(&hdmitx_device, HDMITX_HWCMD_TURNOFF_HDMIHW, (hpdmode==2)?1:0);
         }
     }
+    hdmitx_set_audio(&hdmitx_device, &(hdmitx_device.cur_audio_param), hdmi_ch);
     hdmitx_device.output_blank_flag = 1;
     return ret;
 }
@@ -436,12 +427,9 @@ static unsigned char is_dispmode_valid_for_hdmi(void)
 {
     HDMI_Video_Codes_t vic;
     const vinfo_t *info = hdmi_get_current_vinfo();
-    if(hdmitx_device.tv_no_edid){
-        vic = hdmitx_get_VIC(&hdmitx_device, info->name);
-    }
-    else{
-        vic = hdmitx_edid_get_VIC(&hdmitx_device, info->name, (hdmitx_device.disp_switch_config==DISP_SWITCH_FORCE)?1:0);
-    }
+
+    vic = hdmitx_edid_get_VIC(&hdmitx_device, info->name, 1);
+
     return (vic != HDMI_Unkown);
 }
 
@@ -675,12 +663,35 @@ static ssize_t store_debug(struct device * dev, struct device_attribute *attr, c
     return 16;
 }
 
+// support format lists
+const char* disp_mode_t[]={
+    "480i",
+    "480i_rpt",
+    "480p",
+    "480p_rpt",
+    "576i",
+    "576i_rpt",
+    "576p",
+    "576p_rpt",
+    "720p",
+    "1080i",
+    "1080p",
+    "720p50hz",
+    "1080i50hz",
+    "1080p50hz",
+    "1080p24hz",
+    "4k2k30hz",
+    "4k2k25hz",
+    "4k2k24hz",
+    "4k2ksmpte",
+    NULL
+};
+
 /**/
 static ssize_t show_disp_cap(struct device * dev, struct device_attribute *attr, char * buf)
 {
     int i,pos=0;
-    char* disp_mode_t[]={"480i","480p","576i","576p","720p","1080i","1080p","720p50hz","1080i50hz","1080p50hz","1080p24hz","4k2k30hz","4k2k25hz","4k2k24hz","4k2ksmpte",NULL};
-    char* native_disp_mode = hdmitx_edid_get_native_VIC(&hdmitx_device);
+    const char* native_disp_mode = hdmitx_edid_get_native_VIC(&hdmitx_device);
     HDMI_Video_Codes_t vic;
     if(hdmitx_device.tv_no_edid){
         pos += snprintf(buf+pos, PAGE_SIZE,"null edid\n");
@@ -708,7 +719,6 @@ static ssize_t show_disp_cap_3d(struct device * dev, struct device_attribute *at
 {
     int i,pos=0;
     int j=0;
-    char* disp_mode_t[]={"480i","480p","576i","576p","720p","1080i","1080p","720p50hz","1080i50hz","1080p50hz","1080p24hz","4k2k30hz","4k2k25hz","4k2k24hz","4k2ksmpte",NULL};
     HDMI_Video_Codes_t vic;
 
     for(i=0; disp_mode_t[i]; i++){
@@ -1141,6 +1151,12 @@ wait:
             if((st == 1) && (hdmitx_device->hpd_state == 0)) {
                 hdmitx_device->hpd_event = 1;
             }
+// Check audio status
+#ifndef CONFIG_AML_HDMI_TX_HDCP
+            if((hdmitx_device->cur_VIC != HDMI_Unkown) && (!(hdmitx_device->HWOp.GetState(hdmitx_device, STAT_AUDIO_PACK, 0)))) {
+                hdmitx_device->HWOp.CntlConfig(hdmitx_device, CONF_AUDIO_MUTE_OP, AUDIO_UNMUTE);
+            }
+#endif
         }
 
         if (hdmitx_device->hpd_event == 1)
@@ -1225,7 +1241,6 @@ edid_op:
             switch_set_state(&sdev, 0);
             hdmitx_device->vic_count = 0;
         }
-next:
         msleep_interruptible(100);
     }
     return 0;

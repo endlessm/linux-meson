@@ -262,6 +262,19 @@ int gc2035_v4l2_probe(struct i2c_adapter *adapter)
 }
 #endif
 
+#ifdef CONFIG_VIDEO_AMLOGIC_CAPTURE_GC2155
+int gc2155_v4l2_probe(struct i2c_adapter *adapter)
+{
+	int ret = 0;
+	unsigned char reg[2];  
+	reg[0] = aml_i2c_get_byte_add8(adapter, 0x3c, 0xf0);
+	reg[1] = aml_i2c_get_byte_add8(adapter, 0x3c, 0xf1);
+	if (reg[0] == 0x21 && reg[1] == 0x55)
+		ret = 1;
+	return ret;
+}
+#endif
+
 #ifdef CONFIG_VIDEO_AMLOGIC_CAPTURE_GT2005
 int gt2005_v4l2_probe(struct i2c_adapter *adapter)
 {
@@ -467,7 +480,7 @@ int ar0833_v4l2_probe(struct i2c_adapter *adapter)
 #endif
 
 #ifdef CONFIG_VIDEO_AMLOGIC_CAPTURE_SP1628
-int __init sp1628_v4l2_probe(struct i2c_adapter *adapter)
+int sp1628_v4l2_probe(struct i2c_adapter *adapter)
 {
     int ret = 0;
 	unsigned char reg[2];   
@@ -480,7 +493,7 @@ int __init sp1628_v4l2_probe(struct i2c_adapter *adapter)
 #endif
 
 #ifdef CONFIG_VIDEO_AMLOGIC_CAPTURE_BF3720
-int __init bf3720_v4l2_probe(struct i2c_adapter *adapter)
+int bf3720_v4l2_probe(struct i2c_adapter *adapter)
 {
     int ret = 0;
 	unsigned char reg[2];   
@@ -566,6 +579,17 @@ static aml_cam_dev_info_t cam_devs[] = {
 		.probe_func = gc2035_v4l2_probe,
 	},
 #endif
+
+#ifdef CONFIG_VIDEO_AMLOGIC_CAPTURE_GC2155
+	{
+		.addr = 0x3c,
+		.name = "gc2155",
+		.pwdn = 1,
+		.max_cap_size = SIZE_1600X1200,
+		.probe_func = gc2155_v4l2_probe,
+	},
+#endif
+
 #ifdef CONFIG_VIDEO_AMLOGIC_CAPTURE_GT2005
 	{
 		.addr = 0x3c,
@@ -820,46 +844,83 @@ static resolution_size_t get_res_size(const char* res_str)
 }
 
 #ifdef CONFIG_ARCH_MESON8B
-static inline void cam_enable_clk(int clk)
+static inline void cam_spread_spectrum(int spread_spectrum)
 {
-	if (clk == 12000)
-		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 3, 16, 2);
-	else
-		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 16, 2);
+	printk("spread_spectrum = %d\n", spread_spectrum);
+	if (spread_spectrum == 1)
+		aml_set_reg32_bits(P_HHI_DPLL_TOP_0, 0x1c1, 0, 9);
+	else if (spread_spectrum == 2)
+		aml_set_reg32_bits(P_HHI_DPLL_TOP_0, 0x1a1, 0, 9);
+	else if (spread_spectrum == 3)
+		aml_set_reg32_bits(P_HHI_DPLL_TOP_0, 0x181, 0, 9);
+	else if (spread_spectrum == 4)
+		aml_set_reg32_bits(P_HHI_DPLL_TOP_0, 0x141, 0, 9);
+	else if (spread_spectrum == 5)
+		aml_set_reg32_bits(P_HHI_DPLL_TOP_0, 0x121, 0, 9);
 }
 
-static inline void cam_disable_clk(void)
+static inline void cam_enable_clk(int clk, int spread_spectrum)
 {
-	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 16, 2); //close clock
+	if (spread_spectrum) {
+		cam_spread_spectrum(spread_spectrum);
+		aml_set_reg32_bits(P_HHI_MPLL_CNTL7, 0x15d063, 0, 25);
+		if (clk == 12000)
+			aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0x6809, 0, 16);
+		else
+			aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0x6804, 0, 16);
+	} else {
+		if (clk == 12000)
+			aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 3, 16, 2);
+		else
+			aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 16, 2);
+	}
+}
+
+static inline void cam_disable_clk(int spread_spectrum)
+{
+	if (spread_spectrum) {
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 0, 16); //close clock
+	} else {
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 16, 2); //close clock
+	}
 }
 #elif defined CONFIG_ARCH_MESON8
-static inline void cam_enable_clk(int clk)
+static inline void cam_enable_clk(int clk, int spread_spectrum)
 {
-	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 11, 5);
-	if (clk == 12000)
+	if (clk == 12000) {
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 12, 4);
 		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 0, 7);
+	} else if (clk == 18000) {
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0xd, 12, 4);
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0x13, 0, 7);
+	} else { //default
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 12, 4);
+		aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 0, 7);
+	}
+	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 11, 1);
 }
 
-static inline void cam_disable_clk(void)
+static inline void cam_disable_clk(int spread_spectrum)
 {
 	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 11, 5); //close clock
+	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 0, 7);
 }
 #elif defined CONFIG_ARCH_MESON6
-static inline void cam_enable_clk(int clk)
+static inline void cam_enable_clk(int clk, int spread_spectrum)
 {
 	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 1, 8, 5); 
 }
 
-static inline void cam_disable_clk(void)
+static inline void cam_disable_clk(int spread_spectrum)
 {
 	aml_set_reg32_bits(P_HHI_GEN_CLK_CNTL, 0, 8, 5);  //close clock
 }
 #else
-static inline void cam_enable_clk(int clk)
+static inline void cam_enable_clk(int clk, int spread_spectrum)
 {
 }
 
-static inline void cam_disable_clk(void)
+static inline void cam_disable_clk(int spread_spectrum)
 {	
 }
 #endif
@@ -878,7 +939,7 @@ void aml_cam_init(aml_cam_info_t* cam_dev)
 		pin_ctrl = pinctrl_get_select((struct device*)(&cam_pdev->dev), "gpio");
 
 	//select XTAL as camera clock
-	cam_enable_clk(cam_dev->mclk);
+	cam_enable_clk(cam_dev->mclk, cam_dev->spread_spectrum);
 	
 	msleep(20);
 	// set camera power enable
@@ -910,7 +971,7 @@ void aml_cam_uninit(aml_cam_info_t* cam_dev)
 					cam_dev->pwdn_act,"camera");
 	msleep(5);
 	
-	cam_disable_clk();
+	cam_disable_clk(cam_dev->spread_spectrum);
 	
 	p = pinctrl_get(&cam_pdev->dev);
 	if (IS_ERR(p))
@@ -926,6 +987,16 @@ void aml_cam_flash(aml_cam_info_t* cam_dev, int is_on)
 		amlogic_gpio_direction_output(cam_dev->flash_ctrl_pin, 
 			cam_dev->flash_ctrl_level ? is_on : !is_on, "camera");
 	}
+}
+
+void aml_cam_torch(aml_cam_info_t* cam_dev, int is_on)
+{
+	if (cam_dev->torch_support) {
+		printk( "aml_cams: %s torch %s.\n", 
+				cam_dev->name, is_on ? "on" : "off");
+		amlogic_gpio_direction_output(cam_dev->torch_ctrl_pin, 
+			cam_dev->torch_ctrl_level ? is_on : !is_on, "camera");
+	} 
 }
 
 static struct list_head cam_head = LIST_HEAD_INIT(cam_head);
@@ -1023,6 +1094,8 @@ static int fill_cam_dev(struct device_node* p_node, aml_cam_info_t* cam_dev)
 		goto err_out;
 	} 
 	
+	of_property_read_u32(p_node, "spread_spectrum", &cam_dev->spread_spectrum);
+	
 	cam_dev->pwdn_act = cam_info->pwdn;
 	cam_dev->i2c_addr = cam_info->addr;
 	printk("camer addr: 0x%x\n", cam_dev->i2c_addr);
@@ -1086,32 +1159,43 @@ static int fill_cam_dev(struct device_node* p_node, aml_cam_info_t* cam_dev)
 	}
 	printk("vcm mode is %d\n", cam_dev->vcm_mode);
 	
-	ret = of_property_read_string(p_node, "flash_support", &str);
-	if (ret) {
-		printk("failed to read camera flash_support\n");
-		cam_dev->flash_support = 0;
-	} else {
-		printk("camera interface:%s\n", str);
-		if (strncmp("flash_support", str, 1) == 0){
-                        cam_dev->flash_support = 1;
-                        of_property_read_u32(p_node, "flash_ctrl_level", &cam_dev->flash_ctrl_level);
-                        ret = of_property_read_string(p_node, "flash_ctrl_pin", &str);
-			if (ret) {
-				printk("%s: faild to get flash_ctrl_pin!\n", cam_dev->name);
+	ret = of_property_read_u32(p_node, "flash_support", &cam_dev->flash_support);
+	if (cam_dev->flash_support){
+                of_property_read_u32(p_node, "flash_ctrl_level", &cam_dev->flash_ctrl_level);
+                ret = of_property_read_string(p_node, "flash_ctrl_pin", &str);
+		if (ret) {
+			printk("%s: faild to get flash_ctrl_pin!\n", cam_dev->name);
+			cam_dev->flash_support = 0;
+		} else {
+			ret = amlogic_gpio_name_map_num(str);
+			if (ret < 0) {
+				printk("%s: faild to map flash_ctrl_pin !\n", cam_dev->name);
 				cam_dev->flash_support = 0;
-			} else {
-				ret = amlogic_gpio_name_map_num(str);
-				if (ret < 0) {
-					printk("%s: faild to map flash_ctrl_pin !\n", cam_dev->name);
-					cam_dev->flash_support = 0;
-					cam_dev->flash_ctrl_level = 0;
-				}
-				cam_dev->flash_ctrl_pin = ret;  
+				cam_dev->flash_ctrl_level = 0;
 			}
-                }else{
-                        cam_dev->flash_support = 0;
-                }
-	}
+			cam_dev->flash_ctrl_pin = ret;  
+			amlogic_gpio_request(cam_dev->flash_ctrl_pin,"camera");
+		}
+        }
+        
+        ret = of_property_read_u32(p_node, "torch_support", &cam_dev->torch_support);
+	if (cam_dev->torch_support){
+                of_property_read_u32(p_node, "torch_ctrl_level", &cam_dev->torch_ctrl_level);
+                ret = of_property_read_string(p_node, "torch_ctrl_pin", &str);
+		if (ret) {
+			printk("%s: faild to get torch_ctrl_pin!\n", cam_dev->name);
+			cam_dev->torch_support = 0;
+		} else {
+			ret = amlogic_gpio_name_map_num(str);
+			if (ret < 0) {
+				printk("%s: faild to map flash_ctrl_pin !\n", cam_dev->name);
+				cam_dev->torch_support = 0;
+				cam_dev->torch_ctrl_level = 0;
+			}
+			cam_dev->torch_ctrl_pin = ret;  
+			amlogic_gpio_request(cam_dev->torch_ctrl_pin,"camera");
+		}
+        }
 
 	ret = of_property_read_string(p_node, "interface", &str);
 	if (ret) {
@@ -1377,12 +1461,65 @@ end:
 	return -EINVAL;	
 }
 
+static LIST_HEAD(info_head);
+
+static ssize_t cam_info_show(struct class* class, 
+			struct class_attribute* attr, char* buf)
+{
+	struct list_head* p;
+	aml_cam_info_t* cam_info = NULL;
+	int count = 0;
+	if (!list_empty(&info_head)) {
+		count += sprintf(&buf[count], "name\t\tversion\t\t\t\tface_dir\t"
+					"i2c_addr\n");
+		list_for_each(p, &info_head) {
+			cam_info = list_entry(p, aml_cam_info_t, info_entry);
+			if (cam_info) {
+				count += sprintf(&buf[count], "%s\t\t%s\t\t%s"
+					"\t\t0x%x\n", 
+					cam_info->name, cam_info->version, 
+					cam_info->front_back?"front":"back",
+					cam_info->i2c_addr);
+			}
+		}
+	}
+	return count;
+}
 
 static struct class_attribute aml_cam_attrs[]={
 	__ATTR(i2c_debug,  S_IRUGO | S_IWUSR, show_help, store_i2c_debug),
+	__ATTR_RO(cam_info),
 	__ATTR(help,  S_IRUGO | S_IWUSR, show_help, NULL),
 	__ATTR_NULL,
 };
+
+int aml_cam_info_reg(aml_cam_info_t* cam_info)
+{
+	int ret = -1;
+	if (cam_info) {
+		//printk("reg camera %s\n", cam_info->name);
+		list_add(&cam_info->info_entry, &info_head);
+		ret = 0;
+	}
+	return ret;
+}
+
+int aml_cam_info_unreg(aml_cam_info_t* cam_info)
+{
+	int ret = -1;
+	struct list_head* p, *n;
+	aml_cam_info_t* tmp_info = NULL;
+	if (cam_info) {
+		list_for_each_safe(p, n, &info_head) {
+			tmp_info = list_entry(p, aml_cam_info_t, info_entry);
+			if (tmp_info == cam_info) {
+				list_del(cam_info);
+				return 0;
+			}
+		}
+	}
+	return ret;
+}
 
 static int aml_cams_probe(struct platform_device *pdev)
 {

@@ -199,7 +199,7 @@
 		compatible = "amlogic,amvenc_avc";
 		dev_name = "amvenc_avc.0";
 		status = "okay";
-		reserve-memory = <0x00f00000>;
+		reserve-memory = <0x01200000>;
 		reserve-iomap = "true";
 	};
 

@@ -204,7 +204,7 @@ static int aml_tc101_probe(struct platform_device *pdev)
     struct i2c_board_info i2c_info;
     struct i2c_adapter *adapter;
     struct i2c_client *i2c_client;
-    int i = 0;
+    //int i = 0;
     int ret = 0;
 
     if (lcd_extern_driver_check()) {

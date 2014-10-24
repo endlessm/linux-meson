@@ -2587,7 +2587,7 @@ static struct attribute_group attr_group_acc = {
 static struct attribute_group attr_group_mag = {
 	.attrs = attributes_mag,
 };
-
+#if 0
 static struct attribute_group attr_group_int1_acc = {
 	.attrs = attributes_acc_interrupt1,
 	.name = "interrupt_generator1",
@@ -2602,7 +2602,7 @@ static struct attribute_group attr_group_int_mag = {
 	.attrs = attributes_mag_interrupt,
 	.name = "interrupt_generator",
 };
-
+#endif
 static struct device_attribute attributes_com[] = {
 	__ATTR(enable_temperature, 0664, attr_get_temp_enable, 
 							attr_set_temp_enable),
@@ -2619,7 +2619,7 @@ static struct device_attribute attributes_interrupt_com[] = {
 static int create_sysfs_interfaces(struct lsm303d_status *stat)
 {
 	int err;
-	int i,n;
+	int i=0;
 //	struct lsm303d_status *stat = dev_get_drvdata(dev);
 
 	struct kobject *acc_kobj = &stat->input_dev_acc->dev.kobj ;

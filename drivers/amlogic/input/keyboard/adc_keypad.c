@@ -72,7 +72,7 @@ struct kp {
 
 static struct kp *gp_kp=NULL;
 
-static int timer_count = 0;
+//static int timer_count = 0;
 
 static int kp_search_key(struct kp *kp)
 {

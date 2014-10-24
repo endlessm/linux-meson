@@ -29,11 +29,8 @@
 static aml_dai_info_t dai_info[3] = {{0}};
 static int i2s_pos_sync = 0;
 //#define AML_DAI_DEBUG
-//#define AML_DAI_PCM_SUPPORT 
-
-
 #define ALSA_PRINT(fmt,args...)	printk(KERN_INFO "[aml-i2s-dai]" fmt,##args)
-#ifdef DEBUG_ALSA_SOC_DAI_SPDIF
+#ifdef AML_DAI_DEBUG
 #define ALSA_DEBUG(fmt,args...) 	printk(KERN_INFO "[aml-i2s-dai]" fmt,##args)
 #define ALSA_TRACE()     			printk("[aml-i2s-dai] enter func %s,line %d\n",__FUNCTION__,__LINE__)
 #else
@@ -47,30 +44,28 @@ for the case that only use our ALSA driver for PCM s/pdif output.
 */
 static void  aml_hw_i2s_init(struct snd_pcm_runtime *runtime)
 {
-
-		unsigned i2s_mode = AIU_I2S_MODE_PCM16;
-		switch(runtime->format){
-		case SNDRV_PCM_FORMAT_S32_LE:
-			i2s_mode = AIU_I2S_MODE_PCM32;
-			break;
-		case SNDRV_PCM_FORMAT_S24_LE:
-			i2s_mode = AIU_I2S_MODE_PCM24;
-			break;
-		case SNDRV_PCM_FORMAT_S16_LE:
-			i2s_mode = AIU_I2S_MODE_PCM16;
-			break;
-		}
-		audio_set_i2s_mode(i2s_mode);
-		audio_set_aiubuf(runtime->dma_addr, runtime->dma_bytes,runtime->channels);
-		ALSA_PRINT("i2s dma %x,phy addr %x,mode %d,ch %d \n",(unsigned)runtime->dma_area,(unsigned)runtime->dma_addr,i2s_mode,runtime->channels);
-
+	unsigned i2s_mode = AIU_I2S_MODE_PCM16;
+	switch(runtime->format){
+	case SNDRV_PCM_FORMAT_S32_LE:
+		i2s_mode = AIU_I2S_MODE_PCM32;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		i2s_mode = AIU_I2S_MODE_PCM24;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+		i2s_mode = AIU_I2S_MODE_PCM16;
+		break;
+	}
+	audio_set_i2s_mode(i2s_mode);
+	audio_set_aiubuf(runtime->dma_addr, runtime->dma_bytes,runtime->channels);
+	ALSA_PRINT("i2s dma %x,phy addr %x,mode %d,ch %d \n",(unsigned)runtime->dma_area,(unsigned)runtime->dma_addr,i2s_mode,runtime->channels);
 }
 static int aml_dai_i2s_startup(struct snd_pcm_substream *substream,
 					struct snd_soc_dai *dai)
 {	  	
 	int ret = 0;
-    	struct snd_pcm_runtime *runtime = substream->runtime;
-    	struct aml_runtime_data *prtd = (struct aml_runtime_data *)runtime->private_data;
+    struct snd_pcm_runtime *runtime = substream->runtime;
+    struct aml_runtime_data *prtd = (struct aml_runtime_data *)runtime->private_data;
 	audio_stream_t *s;	
     ALSA_TRACE();
 	if(prtd == NULL){
@@ -94,17 +89,15 @@ static int aml_dai_i2s_startup(struct snd_pcm_substream *substream,
 out:
 	return ret;
 }
-extern void  aml_spdif_play();
+extern void  aml_spdif_play(void);
 static void aml_dai_i2s_shutdown(struct snd_pcm_substream *substream,
 					struct snd_soc_dai *dai)
 {
-	ALSA_TRACE();
     struct snd_pcm_runtime *runtime = substream->runtime;
     if(runtime->channels == 8){
         aml_spdif_play();
     }
 }
-static int  set_clock = -1;
 #define AOUT_EVENT_IEC_60958_PCM 0x1
 extern int aout_notifier_call_chain(unsigned long val,void * v);
 
@@ -113,58 +106,59 @@ static int aml_dai_i2s_prepare(struct snd_pcm_substream *substream,
 {	
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct aml_runtime_data *prtd = runtime->private_data;
-	int  sample_rate = AUDIO_CLK_FREQ_48;
+	struct aml_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+	int  audio_clk_config = AUDIO_CLK_FREQ_48;
 	audio_stream_t *s = &prtd->s;	
     ALSA_TRACE();
 	switch(runtime->rate){
 		case 192000:
-			sample_rate	=	AUDIO_CLK_FREQ_192;
+			audio_clk_config	=	AUDIO_CLK_FREQ_192;
 			break;
 		case 176400:
-			sample_rate	=	AUDIO_CLK_FREQ_1764;
+			audio_clk_config	=	AUDIO_CLK_FREQ_1764;
 			break;
 		case 96000:
-			sample_rate	=	AUDIO_CLK_FREQ_96;
+			audio_clk_config	=	AUDIO_CLK_FREQ_96;
 			break;
 		case 88200:
-			sample_rate	=	AUDIO_CLK_FREQ_882;
+			audio_clk_config	=	AUDIO_CLK_FREQ_882;
 			break;
 		case 48000:
-			sample_rate	=	AUDIO_CLK_FREQ_48;
+			audio_clk_config	=	AUDIO_CLK_FREQ_48;
 			break;
 		case 44100:
-			sample_rate	=	AUDIO_CLK_FREQ_441;
+			audio_clk_config	=	AUDIO_CLK_FREQ_441;
 			break;
 		case 32000:
-			sample_rate	=	AUDIO_CLK_FREQ_32;
+			audio_clk_config	=	AUDIO_CLK_FREQ_32;
 			break;
 		case 8000:
-			sample_rate	=	AUDIO_CLK_FREQ_8;
+			audio_clk_config	=	AUDIO_CLK_FREQ_8;
 			break;
 		case 11025:
-			sample_rate	=	AUDIO_CLK_FREQ_11;
+			audio_clk_config	=	AUDIO_CLK_FREQ_11;
 			break;
 		case 16000:
-			sample_rate	=	AUDIO_CLK_FREQ_16;
+			audio_clk_config	=	AUDIO_CLK_FREQ_16;
 			break;
 		case 22050:
-			sample_rate	=	AUDIO_CLK_FREQ_22;
+			audio_clk_config	=	AUDIO_CLK_FREQ_22;
 			break;
 		case 12000:
-			sample_rate	=	AUDIO_CLK_FREQ_12;
+			audio_clk_config	=	AUDIO_CLK_FREQ_12;
 			break;
 		case 24000:
-			sample_rate	=	AUDIO_CLK_FREQ_22;
+			audio_clk_config	=	AUDIO_CLK_FREQ_22;
 			break;
 		default:
-			sample_rate	=	AUDIO_CLK_FREQ_441;
+			audio_clk_config	=	AUDIO_CLK_FREQ_441;
 			break;
 	};
 
-    if(set_clock != sample_rate ){
-		ALSA_PRINT("enterd %s,set_clock:%d,sample_rate=%d\n",__func__,set_clock,sample_rate);
-        set_clock = sample_rate;
-        audio_set_i2s_clk(sample_rate, AUDIO_CLK_256FS);
+    if( i2s->old_samplerate != runtime->rate ){
+		ALSA_PRINT("enterd %s,old_samplerate:%d,sample_rate=%d\n",__func__,i2s->old_samplerate,runtime->rate);
+        i2s->old_samplerate = runtime->rate;
+        audio_set_i2s_clk(audio_clk_config, AUDIO_CLK_256FS, i2s->mpll);
     }
     audio_util_set_dac_i2s_format(AUDIO_ALGOUT_DAC_FORMAT_DSP); 
     
@@ -283,7 +277,7 @@ static int aml_dai_i2s_resume(struct snd_soc_dai *dai)
 
 
 
-#define AML_DAI_I2S_RATES		(SNDRV_PCM_RATE_8000_96000)
+#define AML_DAI_I2S_RATES		(SNDRV_PCM_RATE_8000_192000)
 #define AML_DAI_I2S_FORMATS		(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 
@@ -326,21 +320,40 @@ static const struct snd_soc_component_driver aml_component= {
 };
 static int aml_i2s_dai_probe(struct platform_device *pdev)
 {
+	struct aml_i2s *i2s = NULL;
+	int ret = 0;
 	printk(KERN_DEBUG "enter %s\n", __func__);
-#if 0
-	BUG_ON(pdev->id < 0);
-	BUG_ON(pdev->id >= ARRAY_SIZE(aml_dai));
-	return snd_soc_register_dai(&pdev->dev, &aml_dai[pdev->id]);
-#else
+
+	i2s = kzalloc(sizeof(struct aml_i2s), GFP_KERNEL);
+	if (!i2s) {
+		dev_err(&pdev->dev, "Can't allocate aml_i2s\n");
+		ret = -ENOMEM;
+		goto exit;
+	}
+	dev_set_drvdata(&pdev->dev, i2s);
+	
+	if(of_property_read_u32(pdev->dev.of_node, "clk_src_mpll", &i2s->mpll)){
+		printk(KERN_INFO "i2s get no clk src setting in dts, use the default mpll 0\n");
+		i2s->mpll = 0;
+	}
+	/* enable the mclk because m8 codec need it to setup */
+	audio_set_i2s_clk(AUDIO_CLK_FREQ_48, AUDIO_CLK_256FS, i2s->mpll);
+
 	return snd_soc_register_component(&pdev->dev, &aml_component,
 					 aml_i2s_dai, ARRAY_SIZE(aml_i2s_dai));
 
-#endif
+exit:
+	return ret;
 }
 
 static int aml_i2s_dai_remove(struct platform_device *pdev)
 {
+	struct aml_i2s *i2s = dev_get_drvdata(&pdev->dev);
+
 	snd_soc_unregister_component(&pdev->dev);
+	kfree(i2s);
+	i2s = NULL;
+	
 	return 0;
 }
 

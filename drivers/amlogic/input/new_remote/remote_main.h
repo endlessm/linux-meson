@@ -314,6 +314,7 @@ static const remotereg_t *remoteregsTab[] = {
 	NULL,
 	RDECODEMODE_SW_DUOKAN
 };
+
 extern unsigned int g_remote_base;
 #define am_remote_write_reg(x,val) aml_write_reg32(g_remote_base +x ,val)
 
@@ -490,6 +491,7 @@ extern void remote_sw_reprot_release_key(struct remote *remote_data);
 extern int register_fiq_bridge_handle(bridge_item_t * c_item);
 extern int unregister_fiq_bridge_handle(bridge_item_t * c_item);
 extern int fiq_bridge_pulse_trigger(bridge_item_t * c_item);
+
 static  irqreturn_t (*remote_bridge_sw_isr[])(int irq, void *dev_id)={
 	NULL,
 	NULL,

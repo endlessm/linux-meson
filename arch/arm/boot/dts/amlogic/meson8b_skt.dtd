@@ -51,6 +51,7 @@ void root_func(){
           reg = <0xc4200000 0x1000>;
           arm,data-latency = <3 3 3>;
           arm,tag-latency = <2 2 2>;
+          arm,filter-ranges = <0x100000 0xc0000000>;
           cache-unified;
           cache-level = <2>;
           aux-instruction_prefetch;
@@ -78,14 +79,14 @@ void root_func(){
 		device_type = "memory";
 		aml_reserved_start = <0x06000000>; /**reserved memory start */
 		aml_reserved_end = <0x05000000>;/**reserved memory end : dtb start for uboot*/
-		phys_offset = <0x00000000>;
-		linux,total-memory = <0x40000000>;
+		phys_offset = <0x00200000>;
+		linux,total-memory = <0x3fe00000>;
         #address-cells = <1>;
         #size-cells = <1>;
 
         cma_0:region@0 {
            region_name = "cma_0";
-           reg = <0 0x02700000>;
+           reg = <0 0x02a00000>;
            linux,contiguous-region;
         };
 	};
@@ -442,7 +443,7 @@ void root_func(){
 //            port = <2>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
 //            pinname = "emmc";
 //            ocr_avail = <0x200000>;          /**VDD voltage 3.3 ~ 3.4 */
-//            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+//            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE","MMC_CAP_ERASE", "MMC_CAP_HW_RESET"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
 //            f_min = <300000>;
 //            f_max = <50000000>;
 //            f_max_w = <50000000>;
@@ -532,7 +533,7 @@ void root_func(){
             port = <5>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
             pinname = "emmc";
             ocr_avail = <0x200000>;          /**VDD voltage 3.3 ~ 3.4 */
-            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE","MMC_CAP_ERASE", "MMC_CAP_HW_RESET"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
             f_min = <300000>;
             f_max = <40000000>;
             max_req_size = <0x20000>;          /**128KB*/

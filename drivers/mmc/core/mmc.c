@@ -353,7 +353,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 				part_size = ext_csd[EXT_CSD_BOOT_MULT] << 17;
 				mmc_part_add(card, part_size,
 					EXT_CSD_PART_CONFIG_ACC_BOOT0 + idx,
-					"boot%d", idx, true,
+					"boot%d", idx, false,
 					MMC_BLK_DATA_AREA_BOOT);
 			}
 		}
@@ -492,6 +492,26 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 		card->ext_csd.rel_param = ext_csd[EXT_CSD_WR_REL_PARAM];
 		card->ext_csd.rst_n_function = ext_csd[EXT_CSD_RST_N_FUNCTION];
+        
+        if ((card->ext_csd.rst_n_function & EXT_CSD_RST_N_EN_MASK) != EXT_CSD_RST_N_ENABLED){
+
+            pr_err("Enable hw reset function here, only once, rst_n_function:%d\n", card->ext_csd.rst_n_function);
+            //add enable hw reset function here, only run once for eMMC            
+            err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_RST_N_FUNCTION,
+                    EXT_CSD_RST_N_ENABLED,
+                    10);
+            if (err){
+                pr_err("Enable hw reset function ERROR here, ret:%d\n", err);
+                //return 0;
+            }
+            else{
+                card->ext_csd.rst_n_function |= EXT_CSD_RST_N_ENABLED;
+            }
+        }
+        else{
+            pr_err("###check hw reset function is already enabled here\n");          
+
+        }
 
 		/*
 		 * RPMB regions are defined in multiples of 128K.

@@ -2,8 +2,7 @@
 #include <linux/amlogic/saradc.h>
 #include <mach/thermal.h>
 #include <linux/slab.h>
-
-
+#include <mach/am_regs.h>
 #define  NOT_WRITE_EFUSE 0x0
 #define EFUSE_MIGHT_WRONG 0x8
 #define EFUEE_MUST_RIGHT 0x4
@@ -27,11 +26,17 @@ int thermal_firmware_init()
 		temp=0;TS_C=0;
 		temp=buf[1];
 		temp=(temp<<8)|buf[0];
-		TS_C=temp&0xf;
-		flag=0;
 		flag=(temp&0x8000)>>15;
-		temp=(temp&0x7fff)>>4;
-		printk("adc=%d,TS_C=%d,flag=%d\n",temp,TS_C,flag);
+		if(IS_MESON_M8_CPU){
+			TS_C=temp&0xf;
+			temp=(temp&0x7fff)>>4;
+			printk("M8:adc=%d,TS_C=%d,flag=%d\n",temp,TS_C,flag);
+		}
+		if(IS_MESON_M8M2_CPU){
+			TS_C=temp&0x1f;
+			temp=(temp&0x7fff)>>5;
+			printk("M8M2:adc=%d,TS_C=%d,flag=%d\n",temp,TS_C,flag); 
+		}
 		temps->flag=flag;
 		temps->trimming=TS_C;
 		temps->adc_efuse=temp;
@@ -61,14 +66,16 @@ int thermal_firmware_init()
 }
 int get_cpu_temp(void)
 {
-	int ret=-1,tempa;
+	int ret=-1,tempa=0;
 	if(temps->flag){
 		ret=get_adc_sample(6);
 		if(ret>=0){
-			tempa=(18*(ret-temps->adc_efuse)*10000)/1024/10/85+27;
+			if(IS_MESON_M8_CPU)
+				tempa=(18*(ret-temps->adc_efuse)*10000)/1024/10/85+27;
+			if(IS_MESON_M8M2_CPU)
+				tempa=(10*(ret-temps->adc_efuse))/32+27;
 			ret=tempa;
 		}
 	}
 	return ret;
 }
-

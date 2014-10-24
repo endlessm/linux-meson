@@ -147,6 +147,8 @@
 #define AMSTREAM_IOC_GET_FREERUN_MODE  _IOR(AMSTREAM_IOC_MAGIC, 0x87, unsigned long)
 #define AMSTREAM_IOC_SET_FREERUN_MODE  _IOW(AMSTREAM_IOC_MAGIC, 0x88, unsigned long)
 #define AMSTREAM_IOC_SET_VSYNC_UPINT   _IOW(AMSTREAM_IOC_MAGIC, 0x89, unsigned long)
+#define AMSTREAM_IOC_GET_VSYNC_SLOW_FACTOR   _IOW(AMSTREAM_IOC_MAGIC, 0x8a, unsigned long)
+#define AMSTREAM_IOC_SET_VSYNC_SLOW_FACTOR   _IOW(AMSTREAM_IOC_MAGIC, 0x8b, unsigned long)
 #define AMSTREAM_IOC_SET_DEMUX  _IOW(AMSTREAM_IOC_MAGIC, 0x90, unsigned long)
 #define AMSTREAM_IOC_SET_DRMMODE _IOW(AMSTREAM_IOC_MAGIC, 0x91, unsigned long)
 #define AMSTREAM_IOC_TSTAMP_uS64 _IOW(AMSTREAM_IOC_MAGIC, 0x95, unsigned long)
@@ -167,6 +169,7 @@
 //subtitle.c get/set subtitle info
 #define AMSTREAM_IOC_GET_SUBTITLE_INFO       _IOR(AMSTREAM_IOC_MAGIC, 0xad, unsigned long)
 #define AMSTREAM_IOC_SET_SUBTITLE_INFO       _IOW(AMSTREAM_IOC_MAGIC, 0xae, unsigned long)
+#define AMSTREAM_IOC_SET_OMX_VPTS            _IOW(AMSTREAM_IOC_MAGIC, 0xaf, unsigned long)
 #define TRICKMODE_NONE       0x00
 #define TRICKMODE_I          0x01
 #define TRICKMODE_FFFB       0x02

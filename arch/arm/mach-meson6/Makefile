@@ -42,6 +42,8 @@ obj-$(CONFIG_CPU_IDLE) += cpuidle.o
 
 obj-$(CONFIG_AML_HDMI_TX) +=  hdmi_tx_hw/
 
+obj-$(CONFIG_AM_LCD_OUTPUT) +=  lcd/
+
 # ARM Trustzone
 obj-$(CONFIG_MESON_TRUSTZONE) += meson-smc.o meson-secure.o
 ifeq ($(CONFIG_MESON_TRUSTZONE),y)

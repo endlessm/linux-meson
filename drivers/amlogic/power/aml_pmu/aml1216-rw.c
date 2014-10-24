@@ -311,7 +311,7 @@ int aml1216_get_dcdc_voltage(int dcdc, uint32_t *uV)
     int addr;
     uint8_t val;
     int ret;
-    int start;
+//    int start;
 
     if (dcdc > 3 || dcdc < 0) {
         return -EINVAL;    

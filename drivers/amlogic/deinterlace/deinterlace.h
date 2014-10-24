@@ -35,6 +35,9 @@
 #elif (MESON_CPU_TYPE==MESON_CPU_TYPE_MESON8 || MESON_CPU_TYPE==MESON_CPU_TYPE_MESON8B)
 #define NEW_DI_V1 //from m6tvc
 #define NEW_DI_V2 //from m6tvd(noise meter bug fix,improvement for 2:2 pull down)
+#elif (MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8B)
+#define NEW_DI_V1 //from m6tvc
+#define NEW_DI_V2 //from m6tvd(noise meter bug fix,improvement for 2:2 pull down)
 #endif
 
 #ifndef CONFIG_VSYNC_RDMA
@@ -412,6 +415,7 @@ void reset_pd_his(void);
 void insert_pd_his(pulldown_detect_info_t* pd_info);
 void reset_pd32_status(void);
 int detect_pd32(void);
+
 extern unsigned int pd32_match_num;
 extern unsigned int pd32_debug_th;
 extern unsigned int pd32_diff_num_0_th;
@@ -419,6 +423,8 @@ extern unsigned int pd22_th;
 extern unsigned int pd22_num_th;
 extern int nr_hfilt_en;
 
+/* init for nr */
+void di_load_nr_setting(void);
 
 #undef DI_DEBUG
 

@@ -22,6 +22,7 @@ obj-$(CONFIG_DEINTERLACE) += deinterlace/
 
 ##### Basic drivers#####
 
+obj-y += watchdog/
 obj-y += secure/
 obj-y += securitykeys/
 obj-y += keymanage/
@@ -54,6 +55,9 @@ obj-$(CONFIG_I2C) += i2c/
 obj-$(CONFIG_EFUSE)+=efuse/
 obj-$(CONFIG_AM_INPUT)		+= input/
 
+ifneq ($(wildcard $(srctree)/../hardware/amlogic/touch),)
+obj-$(CONFIG_AML_TOUCH_ALGORITHM_SUPPORT) += ../../../hardware/amlogic/touch/
+endif
 obj-$(CONFIG_AMLOGIC_SPI_NOR) += spi_nor/
 
 #obj-$(CONFIG_CARDREADER) += cardreader/
@@ -80,9 +84,7 @@ obj-$(CONFIG_AML_EXT_HDMIIN) += ext_hdmiin/
 
 obj-y += thermal/
 
-obj-$(CONFIG_BOOT_MONITOR) += boot_monitor/
 
-#obj-$(CONFIG_AML_WATCHDOG) += aml_watchdog/
 #####Sound system is later init in kernel default..######################
 obj-$(CONFIG_AMAUDIO) += amaudio/
 obj-$(CONFIG_AMAUDIO2) += amaudio2/
@@ -103,6 +105,8 @@ ifneq ($(wildcard $(srctree)/../hardware/wifi),)
 	obj-$(CONFIG_RTL8192EU) += ../../../hardware/wifi/realtek/drivers/8192eu/rtl8192EU/
 	obj-$(CONFIG_RTL8189ES) += ../../../hardware/wifi/realtek/drivers/8189es/rtl8189ES/	
 	obj-$(CONFIG_RTL8723BS) += ../../../hardware/wifi/realtek/drivers/8723bs/rtl8723BS/	
+	obj-$(CONFIG_RTL8723AU) += ../../../hardware/wifi/realtek/drivers/8723au/rtl8723AU/
+	obj-$(CONFIG_RTL8821AU) += ../../../hardware/wifi/realtek/drivers/8811au/rtl8811AU/
 endif
 obj-y += bluetooth/
 obj-$(CONFIG_MESON_NFC) += nfc/
@@ -128,3 +132,4 @@ obj-y += crypto/
 
 #obj-$(CONFIG_MESON_TRUSTZONE) += trustzone/
 obj-$(CONFIG_MESON_TRUSTZONE) += secure_monitor/
+obj-y += spi/

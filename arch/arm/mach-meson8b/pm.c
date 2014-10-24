@@ -270,11 +270,14 @@ static void meson_pm_suspend(void)
 	aml_clr_reg32_mask(P_HHI_SYS_CPU_CLK_CNTL, 1 << 7);
 	aml_clr_reg32_mask(P_HHI_SYS_PLL_CNTL, 1 << 30);//disable sys pll
 
+#ifdef CONFIG_AML_GPIO_KEY
 	if(det_pwr_key())//get pwr key and wakeup im
 	{
 		clr_pwr_key();
 		WRITE_AOBUS_REG(AO_RTI_STATUS_REG2, FLAG_WAKEUP_PWRKEY);
-	}else{
+	}else
+#endif
+        {
 #ifdef CONFIG_MESON_SUSPEND
 #ifdef CONFIG_MESON_TRUSTZONE
 		meson_suspend_firmware();

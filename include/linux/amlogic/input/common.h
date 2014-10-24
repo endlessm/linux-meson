@@ -92,6 +92,8 @@ typedef enum
     ERR_GPIO_REQ
 }GET_DT_ERR_TYPE;
 
+typedef int (*fill_buf_t)(void *priv, int idx, int data);
+
 int touch_open_fw(char *fw);
 int touch_read_fw(int offset, int length, char *buf);
 int touch_close_fw(void);
@@ -103,5 +105,6 @@ GET_DT_ERR_TYPE request_touch_gpio(struct touch_pdata *pdata);
 void free_touch_gpio(struct touch_pdata *pdata);
 void destroy_remove(struct device dev, struct touch_pdata *pdata);
 int get_gpio_fw(struct touch_pdata *pdata);
+int get_data_from_text_file(char *text_file, fill_buf_t fill_buf, void *priv);
 
 #endif

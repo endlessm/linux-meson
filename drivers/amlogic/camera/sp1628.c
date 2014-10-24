@@ -73,6 +73,8 @@ MODULE_DESCRIPTION("sp1628 On Board");
 MODULE_AUTHOR("amlogic-sh");
 MODULE_LICENSE("GPL v2");
 
+#define SP1628_DRIVER_VERSION "SP1628-COMMON-01-140717"
+
 static unsigned video_nr = -1;  /* videoX start number, -1 is autodetect. */
 
 static unsigned debug;
@@ -984,8 +986,8 @@ static int set_flip(struct sp1628_device *dev)
 
 static void sp1628_set_resolution(struct sp1628_device *dev,int height,int width)
 {
-	int i=0;
-	unsigned char buf[2];
+	//int i=0;
+	//unsigned char buf[2];
 	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
 	if (width*height >= 640*480) {
 		printk("set resolution 1280X960\n");
@@ -1549,8 +1551,8 @@ void SP1628_night_mode(struct sp1628_device *dev,enum  camera_night_mode_flip_e 
 
 void SP1628_set_param_banding(struct sp1628_device *dev,enum  camera_banding_flip_e banding)
 	{
-		struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-		unsigned char buf[4];
+		//struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+		//unsigned char buf[4];
 		
 		  switch(banding)
 		
@@ -2843,6 +2845,11 @@ static int sp1628_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
+	
+	t->cam_info.version = SP1628_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
 		video_device_release(t->vdev);
@@ -2861,6 +2868,7 @@ static int sp1628_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

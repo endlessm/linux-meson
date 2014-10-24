@@ -51,6 +51,7 @@ void root_func(){
           reg = <0xc4200000 0x1000>;
           arm,data-latency = <3 3 3>;
           arm,tag-latency = <2 2 2>;
+          arm,filter-ranges = <0x100000 0xc0000000>;
           cache-unified;
           cache-level = <2>;
           aux-instruction_prefetch;
@@ -78,15 +79,15 @@ void root_func(){
 		device_type = "memory";
 		aml_reserved_start = <0x06000000>; /**reserved memory start */
 		aml_reserved_end = <0x05000000>;/**reserved memory end */
-		phys_offset = <0x00000000>;
-		linux,total-memory = <0x20000000>;
+		phys_offset = <0x00200000>;
+		linux,total-memory = <0x1fe00000>;
 
         #address-cells = <1>;
         #size-cells = <1>;
 
         cma_0:region@0 {
            region_name = "cma_0";
-           reg = <0 0x02700000>;
+           reg = <0 0x02a00000>;
            linux,contiguous-region;
         };
 	};
@@ -483,7 +484,7 @@ void root_func(){
             port = <2>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
             pinname = "emmc";
             ocr_avail = <0x200000>;          /**VDD voltage 3.3 ~ 3.4 */
-            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE","MMC_CAP_ERASE", "MMC_CAP_HW_RESET"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
             f_min = <300000>;
             f_max = <50000000>;
             f_max_w = <50000000>;
@@ -580,7 +581,7 @@ void root_func(){
 //            port = <5>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
 //            pinname = "emmc";
 //            ocr_avail = <0x00200080>; // 3.3:0x200000, 1.8+3.3:0x00200080
-//            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+//            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE","MMC_CAP_ERASE", "MMC_CAP_HW_RESET"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
 //            caps2 = "MMC_CAP2_HS200_1_8V_SDR";
 //            f_min = <300000>;
 //            f_max = <100000000>;
@@ -1006,96 +1007,6 @@ void root_func(){
         status = "okay";
         
     };
-
-/// ***************************************************************************************
-///	-	Camera
-//$$ MODULE="Camera"
-///	-	aml_cams
-//$$ DEVICE = "aml_cams"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_STR 2 = "pinctrl-names"
-//$$ L2 PROP_CHOICE "Camera_pin_0_match" = "pinctrl-0"
-//$$ L2 PROP_CHOICE "Camera_pin_1_match" = "pinctrl-1"
-	aml_cams{
-		compatible = "amlogic,cams_prober";
-		status = "okay";
-		pinctrl-names = "gpio","csi";
-		pinctrl-0 = <&aml_cam_gpio_pins> ;
-		pinctrl-1 = <&aml_cam_csi_pins> ;
-
-///	-	ar0543
-//$$ DEVICE="ar0543"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "front_back"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_STR = "gpio_pwdn"
-//$$ L2 PROP_STR = "gpio_rst"
-//$$ L2 PROP_U32 = "mirror_flip"
-//$$ L2 PROP_U32 = "vertical_flip"
-//$$ L2 PROP_STR = "config_path"
-//$$ L2 PROP_U32 = "mclk"
-//$$ L2 PROP_STR = "bt_path"
-//$$ L2 PROP_STR = "interface"
-//$$ L2 PROP_STR = "clk_channel"
-		cam_0{
-			cam_name = "ar0543";
-			front_back = <0>;
-			i2c_bus = "i2c_bus_d";
-			gpio_pwdn = "GPIOH_6";
-			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <0>;
-			config_path = "/system/etc/camera_isp_cfg/ar0543_skt";
-			mclk = <12000>;
-			bt_path = "csi";
-			interface = "mipi";
-			clk_channel = "a";
-			status = "okay";
-		};
-
-///	-	ov5647
-//$$ DEVICE="ov5647"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "front_back"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_STR = "gpio_pwdn"
-//$$ L2 PROP_STR = "gpio_rst"
-//$$ L2 PROP_U32 = "mirror_flip"
-//$$ L2 PROP_U32 = "vertical_flip"
-//$$ L2 PROP_STR = "bt_path"
-//$$ L2 PROP_STR = "interface"
-//$$ L2 PROP_STR = "clk_channel"
-		cam_1{
-			cam_name = "ov5647";
-			front_back = <0>;
-			i2c_bus = "i2c_bus_d";
-			gpio_pwdn = "GPIOH_5";
-			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <0>;	
-			config_path = "/system/etc/camera_isp_cfg/ov5647_cw0767";
-			bt_path = "csi";
-			interface = "mipi";
-			clk_channel = "b";
-			status = "okay";
-		};
-		
-		cam_2{
-			cam_name = "ar0833";
-			front_back = <0>;
-			i2c_bus = "i2c_bus_d";
-			gpio_pwdn = "GPIOH_6";
-			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <0>;
-			config_path = "/system/etc/camera_isp_cfg/ar0833_skt";
-			mclk = <12000>;
-			bt_path = "csi";
-			interface = "mipi";
-			clk_channel = "a";
-			status = "okay";
-		};
-	};	
 
 /// ***************************************************************************************
 ///	-	Input
@@ -1770,23 +1681,6 @@ sdhc_sd_clk_cmd_pins:sdhc_sd_clk_cmd_pins{
             amlogic,pullup=<1>;
             amlogic,pullupen=<1>;
         };
-
-//$$ MATCH "Camera_pin_0_match" = "&aml_cam_gpio_pins"
-//$$ L2 PROP_U32 4 = "amlogic,setmask"
-//$$ L2 PROP_STR 10 = "amlogic,pins"	
-        aml_cam_gpio_pins: aml_cam_gpio_pins{
-			amlogic,setmask=<3 0x80000
-					         9 0x37c>;
-			amlogic,pins = "GPIOH_9","GPIOY_6","GPIOY_7","GPIOY_8","GPIOY_9","GPIOY_10","GPIOY_11","GPIOY_12","GPIOY_13","GPIOY_14";
-		};
-		
-//$$ MATCH "Camera_pin_1_match" = "&aml_cam_csi_pins"
-//$$ L2 PROP_U32 2 = "amlogic,setmask"
-//$$ L2 PROP_STR = "amlogic,pins"	
-		aml_cam_csi_pins: aml_cam_csi_pins{
-			amlogic,setmask=<3 0x80000>;
-			amlogic,pins = "GPIOH_9";
-		};
 
 //$$ MATCH "I2C_AO_pin_match" = "&ao_i2c_master"
 //$$ L2 PROP_U32 2 = "amlogic,setmask"

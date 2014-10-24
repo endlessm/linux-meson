@@ -243,16 +243,15 @@ static int audiodsp_pcmenc_mmap(struct file *filp, struct vm_area_struct *vma)
 static long audiodsp_pcmenc_ioctl( struct file *file, unsigned int cmd, unsigned long args)
 {
 	int ret = 0;
-	unsigned long *val = (unsigned long *)args;
 	switch(cmd){
 		case AUDIODSP_PCMENC_GET_RING_BUF_SIZE:
-			*val = priv_data.stream_buffer_size;
+			put_user(priv_data.stream_buffer_size,(__u64 __user *)args);
 			break;
 		case AUDIODSP_PCMENC_GET_RING_BUF_CONTENT:
-			*val = pcmenc_stream_content();
+			put_user(pcmenc_stream_content(),(__s32 __user *)args);
 			break;
 		case AUDIODSP_PCMENC_GET_RING_BUF_SPACE:
-			*val = pcmenc_stream_space();
+			put_user(pcmenc_stream_space(),(__s32 __user *)args);
 			break;
 		case AUDIODSP_PCMENC_SET_RING_BUF_RPTR:
 			priv_data.user_read_offset = (unsigned long)args;

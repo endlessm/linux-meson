@@ -692,10 +692,31 @@ static struct class aml_rtc_class = {
 };
 
 
+#ifdef CONFIG_SECURITYKEY
+extern int get_aml_key_kernel(const char* key_name, unsigned char* data, int ascii_flag);
+extern int extenal_api_key_set_version(char *devvesion);
+#endif
+
 static int aml_rtc_probe(struct platform_device *pdev)
 {
 	struct aml_rtc_priv *priv;
 	int ret;
+
+#ifdef CONFIG_SECURITYKEY
+	static char keyexamples[4096];
+#endif
+#ifdef CONFIG_SECURITYKEY
+	ret = extenal_api_key_set_version("auto3");
+	if(ret >=0){
+		ret = get_aml_key_kernel("keyexample", keyexamples, 1);
+		if(ret >= 0){
+			printk("key name:keyexample, key data:%s\n",keyexamples);
+		}
+		else{
+			printk("get keyexample fail, %s:%d\n",__func__,__LINE__);
+		}
+	}
+#endif
 
 	priv = (struct aml_rtc_priv *)kzalloc(sizeof(*priv), GFP_KERNEL);
 
@@ -884,7 +905,6 @@ static int  __init aml_rtc_init(void)
 	static_register_write(0x3c0a);
 #endif
 	RTC_DBG(RTC_DBG_VAL, "aml_rtc --aml_rtc_init\n");
-	printk(KERN_ERR"%s...\n",__func__);
 	return platform_driver_register(&aml_rtc_driver);
 }
 

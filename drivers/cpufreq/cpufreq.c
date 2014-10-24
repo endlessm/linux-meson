@@ -1144,7 +1144,7 @@ static void handle_update(struct work_struct *work)
 	pr_debug("handle_update for cpu %u called\n", cpu);
 	cpufreq_update_policy(cpu);
 }
-static void handle_up_cpu(struct work_struct *work)
+static void __ref handle_up_cpu(struct work_struct *work)
 {
 	int i;
 

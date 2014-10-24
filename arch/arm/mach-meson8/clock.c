@@ -914,6 +914,18 @@ void meson_set_cpu_ctrl_addr(uint32_t cpu, const uint32_t addr)
 	spin_unlock(&clockfw_lock);	
 }
 
+int meson_get_cpu_ctrl_addr(int cpu)
+{
+
+#ifdef CONFIG_MESON_TRUSTZONE
+//	meson_auxcoreboot_addr(cpu, addr);
+#else
+//printk("sram=0x%x addr=0x%x\n",(MESON_CPU1_CONTROL_ADDR_REG + ((cpu-1) << 2)),addr);
+	return aml_read_reg32(MESON_CPU1_CONTROL_ADDR_REG + ((cpu-1) << 2));
+#endif
+
+}
+
 static inline unsigned long meson_smp_wait_others(unsigned status)
 {
 	unsigned long count = 0;

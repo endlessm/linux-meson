@@ -29,7 +29,7 @@
 #include <linux/kthread.h>
 #include <linux/highmem.h>
 #include <linux/freezer.h>
-#include <media/videobuf-vmalloc.h>
+#include <media/videobuf-res.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <linux/wakelock.h>
@@ -38,6 +38,7 @@
 #include <media/v4l2-chip-ident.h>
 #include <linux/amlogic/camera/aml_cam_info.h>
 #include <linux/amlogic/vmapi.h>
+#include "common/vm.h"
 
 #include <mach/am_regs.h>
 #include <mach/pinmux.h>
@@ -60,6 +61,8 @@
 #define GC0308_CAMERA_RELEASE 0
 #define GC0308_CAMERA_VERSION \
 	KERNEL_VERSION(GC0308_CAMERA_MAJOR_VERSION, GC0308_CAMERA_MINOR_VERSION, GC0308_CAMERA_RELEASE)
+	
+#define GC0308_DRIVER_VERSION "GC0308-COMMON-01-140717"
 
 MODULE_DESCRIPTION("gc0308 On Board");
 MODULE_AUTHOR("amlogic-sh");
@@ -372,6 +375,8 @@ struct gc0308_buffer {
 	struct videobuf_buffer vb;
 
 	struct gc0308_fmt        *fmt;
+	
+	unsigned int canvas_id;
 };
 
 struct gc0308_dmaqueue {
@@ -431,6 +436,7 @@ struct gc0308_fh {
 	unsigned int               width, height;
 	struct videobuf_queue      vb_vidq;
 
+	struct videobuf_res_privdata res;
 	enum v4l2_buf_type         type;
 	int			   input; 	/* Input Number on bars */
 	int  stream_on;
@@ -1695,6 +1701,38 @@ unsigned char v4l_2_gc0308(int val)
 	else return 0;
 }
 
+static int convert_canvas_index(unsigned int v4l2_format, unsigned int start_canvas)
+{
+	int canvas = start_canvas;
+
+	switch(v4l2_format){
+	case V4L2_PIX_FMT_RGB565X:
+	case V4L2_PIX_FMT_VYUY:
+		canvas = start_canvas;
+		break;
+	case V4L2_PIX_FMT_YUV444:
+	case V4L2_PIX_FMT_BGR24:
+	case V4L2_PIX_FMT_RGB24:
+		canvas = start_canvas;
+		break; 
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_NV21: 
+		canvas = start_canvas | ((start_canvas+1)<<8);
+		break;
+	case V4L2_PIX_FMT_YVU420:
+	case V4L2_PIX_FMT_YUV420:
+		if(V4L2_PIX_FMT_YUV420 == v4l2_format){
+			canvas = start_canvas|((start_canvas+1)<<8)|((start_canvas+2)<<16);
+		}else{
+			canvas = start_canvas|((start_canvas+2)<<8)|((start_canvas+1)<<16);
+		}
+		break;
+	default:
+		break;
+	}
+	return canvas;
+}
+
 static int gc0308_setting(struct gc0308_device *dev,int PROP_ID,int value )
 {
 	int ret=0;
@@ -1829,18 +1867,23 @@ static int gc0308_setting(struct gc0308_device *dev,int PROP_ID,int value )
 static void gc0308_fillbuff(struct gc0308_fh *fh, struct gc0308_buffer *buf)
 {
 	struct gc0308_device *dev = fh->dev;
-	void *vbuf = videobuf_to_vmalloc(&buf->vb);
+	void *vbuf = (void *)videobuf_to_res(&buf->vb);
 	vm_output_para_t para = {0};
 	dprintk(dev,1,"%s\n", __func__);
 	if (!vbuf)
 		return;
  /*  0x18221223 indicate the memory type is MAGIC_VMAL_MEM*/
+	if(buf->canvas_id == 0)
+		buf->canvas_id = convert_canvas_index(fh->fmt->fourcc, CAMERA_USER_CANVAS_INDEX+buf->vb.i*3);
 	para.mirror = gc0308_qctrl[5].default_value&3;// not set
 	para.v4l2_format = fh->fmt->fourcc;
-	para.v4l2_memory = 0x18221223;
+	para.v4l2_memory = MAGIC_RE_MEM;
 	para.zoom = gc0308_qctrl[7].default_value;
 	para.vaddr = (unsigned)vbuf;
 	para.angle = gc0308_qctrl[8].default_value;
+	para.ext_canvas = buf->canvas_id;
+	para.width = buf->vb.width;
+	para.height = buf->vb.height;
 	vm_fill_buffer(&buf->vb,&para);
 	buf->vb.state = VIDEOBUF_DONE;
 }
@@ -1983,10 +2026,15 @@ static void gc0308_stop_thread(struct gc0308_dmaqueue  *dma_q)
 static int
 buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 {
-	struct gc0308_fh  *fh = vq->priv_data;
+	struct videobuf_res_privdata *res = vq->priv_data;
+	struct gc0308_fh *fh = container_of(res, struct gc0308_fh, res);
 	struct gc0308_device *dev  = fh->dev;
     //int bytes = fh->fmt->depth >> 3 ;
 	*size = fh->width*fh->height*fh->fmt->depth >> 3;
+	int height = fh->height;
+	if(height==1080)
+		height = 1088;
+	*size = (fh->width*height*fh->fmt->depth)>>3;
 	if (0 == *count)
 		*count = 32;
 
@@ -2001,7 +2049,8 @@ buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 
 static void free_buffer(struct videobuf_queue *vq, struct gc0308_buffer *buf)
 {
-	struct gc0308_fh  *fh = vq->priv_data;
+	struct videobuf_res_privdata *res = vq->priv_data;
+	struct gc0308_fh *fh = container_of(res, struct gc0308_fh, res);
 	struct gc0308_device *dev  = fh->dev;
 
 	dprintk(dev, 1, "%s, state: %i\n", __func__, buf->vb.state);
@@ -2010,7 +2059,7 @@ static void free_buffer(struct videobuf_queue *vq, struct gc0308_buffer *buf)
 	if (in_interrupt())
 		BUG();
 
-	videobuf_vmalloc_free(&buf->vb);
+	videobuf_res_free(vq, &buf->vb);
 	dprintk(dev, 1, "free_buffer: freed\n");
 	buf->vb.state = VIDEOBUF_NEEDS_INIT;
 }
@@ -2021,7 +2070,8 @@ static int
 buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 						enum v4l2_field field)
 {
-	struct gc0308_fh     *fh  = vq->priv_data;
+	struct videobuf_res_privdata *res = vq->priv_data;
+	struct gc0308_fh *fh = container_of(res, struct gc0308_fh, res);
 	struct gc0308_device    *dev = fh->dev;
 	struct gc0308_buffer *buf = container_of(vb, struct gc0308_buffer, vb);
 	int rc;
@@ -2065,7 +2115,8 @@ static void
 buffer_queue(struct videobuf_queue *vq, struct videobuf_buffer *vb)
 {
 	struct gc0308_buffer    *buf  = container_of(vb, struct gc0308_buffer, vb);
-	struct gc0308_fh        *fh   = vq->priv_data;
+	struct videobuf_res_privdata *res = vq->priv_data;
+	struct gc0308_fh *fh = container_of(res, struct gc0308_fh, res);
 	struct gc0308_device       *dev  = fh->dev;
 	struct gc0308_dmaqueue *vidq = &dev->vidq;
 
@@ -2078,7 +2129,8 @@ static void buffer_release(struct videobuf_queue *vq,
 			   struct videobuf_buffer *vb)
 {
 	struct gc0308_buffer   *buf  = container_of(vb, struct gc0308_buffer, vb);
-	struct gc0308_fh       *fh   = vq->priv_data;
+	struct videobuf_res_privdata *res = vq->priv_data;
+	struct gc0308_fh *fh = container_of(res, struct gc0308_fh, res);
 	struct gc0308_device      *dev  = (struct gc0308_device *)fh->dev;
 
 	dprintk(dev, 1, "%s\n", __func__);
@@ -2103,7 +2155,7 @@ static int vidioc_querycap(struct file *file, void  *priv,
 	struct gc0308_device *dev = fh->dev;
 
 	strcpy(cap->driver, "gc0308");
-	strcpy(cap->card, "gc0308");
+	strcpy(cap->card, "gc0308.canvas");
 	strlcpy(cap->bus_info, dev->v4l2_dev.name, sizeof(cap->bus_info));
 	cap->version = GC0308_CAMERA_VERSION;
 	cap->capabilities =	V4L2_CAP_VIDEO_CAPTURE |
@@ -2211,8 +2263,14 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct gc0308_fh *fh = priv;
 	struct videobuf_queue *q = &fh->vb_vidq;
+	int ret;
 
-	int ret = vidioc_try_fmt_vid_cap(file, fh, f);
+        f->fmt.pix.width = (f->fmt.pix.width + (CANVAS_WIDTH_ALIGN-1) ) & (~(CANVAS_WIDTH_ALIGN-1));
+	if ((f->fmt.pix.pixelformat==V4L2_PIX_FMT_YVU420) ||
+            (f->fmt.pix.pixelformat==V4L2_PIX_FMT_YUV420)){
+                f->fmt.pix.width = (f->fmt.pix.width + (CANVAS_WIDTH_ALIGN*2-1) ) & (~(CANVAS_WIDTH_ALIGN*2-1));
+        }
+	ret = vidioc_try_fmt_vid_cap(file, fh, f);
 	if (ret < 0)
 		return ret;
 
@@ -2275,7 +2333,15 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct gc0308_fh  *fh = priv;
 
-	return (videobuf_querybuf(&fh->vb_vidq, p));
+        int ret = videobuf_querybuf(&fh->vb_vidq, p);
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	if(ret == 0){
+		p->reserved  = convert_canvas_index(fh->fmt->fourcc, CAMERA_USER_CANVAS_INDEX + p->index*3);
+	}else{
+		p->reserved = 0;
+	}
+#endif
+	return ret;
 }
 
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
@@ -2492,6 +2558,8 @@ static int gc0308_open(struct file *file)
 	struct gc0308_device *dev = video_drvdata(file);
 	struct gc0308_fh *fh = NULL;
 	int retval = 0;
+	resource_size_t mem_start = 0;
+        unsigned int mem_size = 0;
 #if CONFIG_CMA
     retval = vm_init_buf(16*SZ_1M);
     if(retval <0)
@@ -2550,9 +2618,14 @@ static int gc0308_open(struct file *file)
 //    TVIN_SIG_FMT_CAMERA_1920X1080P_30Hz,
 //    TVIN_SIG_FMT_CAMERA_1280X720P_30Hz,
 
-	videobuf_queue_vmalloc_init(&fh->vb_vidq, &gc0308_video_qops,
+	get_vm_buf_info(&mem_start, &mem_size, NULL);
+	fh->res.start = mem_start;
+	fh->res.end = mem_start+mem_size-1;
+	fh->res.magic = MAGIC_RE_MEM;
+	fh->res.priv = NULL;
+	videobuf_queue_res_init(&fh->vb_vidq, &gc0308_video_qops,
 			NULL, &dev->slock, fh->type, V4L2_FIELD_INTERLACED,
-			sizeof(struct gc0308_buffer), fh,NULL);
+					sizeof(struct gc0308_buffer), (void*)&fh->res, NULL);
 
 	gc0308_start_thread(fh);
 
@@ -2761,6 +2834,11 @@ static int gc0308_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
+	
+	t->cam_info.version = GC0308_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
 		video_device_release(t->vdev);
@@ -2779,6 +2857,7 @@ static int gc0308_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

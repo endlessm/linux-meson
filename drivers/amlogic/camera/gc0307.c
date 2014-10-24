@@ -59,6 +59,8 @@
 #define GC0307_CAMERA_RELEASE 0
 #define GC0307_CAMERA_VERSION \
 	KERNEL_VERSION(GC0307_CAMERA_MAJOR_VERSION, GC0307_CAMERA_MINOR_VERSION, GC0307_CAMERA_RELEASE)
+	
+#define GC0307_DRIVER_VERSION "GC0307-COMMON-01-140717"
 
 MODULE_DESCRIPTION("gc0307 On Board");
 MODULE_AUTHOR("amlogic-sh");
@@ -2867,6 +2869,11 @@ static int gc0307_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
+	
+	t->cam_info.version = GC0307_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
 		video_device_release(t->vdev);
@@ -2885,6 +2892,7 @@ static int gc0307_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

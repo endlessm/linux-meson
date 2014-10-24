@@ -55,7 +55,6 @@ unsigned int acodec_regbank[252] = {0x00, 0x05, 0x00, 0x01, 0x7d, 0x02, 0x7d, 0x
                                     0x00, 0x00                                                  // Reg 250 - 251
                                    };
 
-extern void audio_set_i2s_clk(unsigned freq, unsigned fs_config);
 extern unsigned audio_aiu_pg_enable(unsigned char enable);
 struct snd_soc_codec *m8_codec = NULL;
 void adac_wr_reg (unsigned long addr, unsigned long data)
@@ -600,7 +599,6 @@ extern void audio_util_set_dac_i2s_format(unsigned format);
 
 void aml_m8_codec_reset(struct snd_soc_codec* codec)
 {
-    audio_set_i2s_clk(4,0);
     aml_write_reg32(P_AUDIN_SOURCE_SEL,    1 << 0);    // Select audio codec output as I2S source
     aml_write_reg32(P_AUDIN_I2SIN_CTRL,    3 << I2SIN_SIZE             | 
                             			1 << I2SIN_CHAN_EN          |

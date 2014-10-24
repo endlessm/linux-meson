@@ -18,6 +18,12 @@ config MESON_SUSPEND_FIRMWARE_BASE
         depends on MESON_SUSPEND
         help
           The base address of 1MB of memory reserved for suspend firmware.
+
+config MESON_TRUSTZONE
+	bool "Enable ARM Trustzone secure extension"
+	default n
+	help
+		Enable ARM Trustzone secure extension
 endif # ARCH_MESON8
 
 

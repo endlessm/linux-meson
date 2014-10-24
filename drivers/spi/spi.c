@@ -1481,10 +1481,10 @@ EXPORT_SYMBOL_GPL(spi_async);
  */
 int spi_async_locked(struct spi_device *spi, struct spi_message *message)
 {
-	struct spi_master *master = spi->master;
 	int ret;
 #if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8)
 	unsigned long flags;
+	struct spi_master *master = spi->master;
 
 	spin_lock_irqsave(&master->bus_lock_spinlock, flags);
 #endif

@@ -109,6 +109,78 @@ static unsigned char use_tvenc_conf_flag=1;
 
 static unsigned char cur_vout_index = 1; //CONFIG_AM_TV_OUTPUT2
 
+static void hdmi_tx_mode_ctrl(HDMI_Video_Codes_t vic)
+{
+    switch(vic) {
+    // Interlaced Mode
+    case HDMI_480i60:
+    case HDMI_480i60_16x9:
+    case HDMI_576i50:
+    case HDMI_576i50_16x9:
+        CLK_GATE_ON(CTS_ENCI);
+        CLK_GATE_ON(VCLK2_VENCI1);
+        CLK_GATE_OFF(CTS_ENCP);
+        CLK_GATE_ON(CTS_HDMI_TX_PIXEL);
+        hdmi_set_reg_bits(OTHER_BASE_ADDR + HDMI_OTHER_CTRL1, 1, 15, 1);
+        break;
+    case HDMI_Unkown:
+        CLK_GATE_OFF(CTS_ENCP);
+        CLK_GATE_OFF(CTS_HDMI_TX_PIXEL);
+        hdmi_set_reg_bits(OTHER_BASE_ADDR + HDMI_OTHER_CTRL1, 0, 15, 1);
+        break;
+    // Progressive Mode
+    default:
+        CLK_GATE_OFF(CTS_ENCI);
+        CLK_GATE_ON(CTS_ENCP);
+        CLK_GATE_ON(CTS_HDMI_TX_PIXEL);
+        hdmi_set_reg_bits(OTHER_BASE_ADDR + HDMI_OTHER_CTRL1, 1, 15, 1);
+        break;
+    }
+}
+
+static void hdmi_tx_gate_pwr_ctrl(enum hd_ctrl cmd, void * data)
+{
+    hdmi_print(IMP, SYS "gate/pwr cmd: %d\n", cmd);
+    switch(cmd) {
+    case VID_EN:
+        {
+            hdmitx_dev_t* hdmitx_device = (hdmitx_dev_t *)data;
+            hdmi_tx_mode_ctrl(hdmitx_device->cur_VIC);
+        }
+        break;
+    case VID_DIS:
+        hdmi_tx_mode_ctrl(HDMI_Unkown);
+        break;
+    case AUD_EN:
+        if(i2s_to_spdif_flag == 1) {
+            hdmi_set_reg_bits(OTHER_BASE_ADDR + HDMI_OTHER_CTRL1, 0, 13, 1);
+        }
+        else {
+            hdmi_set_reg_bits(OTHER_BASE_ADDR + HDMI_OTHER_CTRL1, 1, 13, 1);
+        }
+        aml_set_reg32_bits(P_AIU_HDMI_CLK_DATA_CTRL, 2, 0, 2);
+        aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 0, 10, 2);
+        break;
+    case AUD_DIS:
+        hdmi_set_reg_bits(OTHER_BASE_ADDR + HDMI_OTHER_CTRL1, 0, 13, 1);
+        aml_set_reg32_bits(P_AIU_HDMI_CLK_DATA_CTRL, 0, 0, 2);
+        aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 3, 10, 2);
+        break;
+    case EDID_EN:
+        aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 0, 8, 2);
+        break;
+    case EDID_DIS:
+        aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 3, 8, 2);
+        break;
+    case HDCP_EN:
+        aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 0, 12, 2);
+        break;
+    case HDCP_DIS:
+        aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 3, 12, 2);
+        break;
+    }
+}
+
 static unsigned long modulo(unsigned long a, unsigned long b)
 {
     if (a >= b) {
@@ -980,12 +1052,18 @@ void hdmi_hw_init(hdmitx_dev_t* hdmitx_device)
     aml_write_reg32(P_HHI_HDMI_AFC_CNTL, aml_read_reg32(P_HHI_HDMI_AFC_CNTL) | 0x3);
 
     hdmi_wr_reg(TX_HDCP_MODE, 0x40);
-
+#ifndef CONFIG_AML_HDMI_TX_HDCP
+    hdmi_tx_gate_pwr_ctrl(HDCP_DIS, NULL);
+#endif
     vic = hdmitx_device->HWOp.GetState(hdmitx_device, STAT_VIDEO_VIC, 0);
     if(vic != HDMI_Unkown) {
         hdmi_print(IMP, SYS "ALREADY init VIC = %d\n", vic);
         hdmitx_device->cur_VIC = vic;
+        hdmi_tx_gate_pwr_ctrl(VID_EN, hdmitx_device);
         return;
+    }
+    else {
+        hdmi_tx_gate_pwr_ctrl(VID_DIS, NULL);
     }
     hdmi_phy_suspend();
     //todo
@@ -1546,10 +1624,10 @@ static void hdmi_audio_init(unsigned char spdif_flag)
 
     // Set N = 4096 (N is not measured, N must be configured so as to be a reference to clock_meter)
     hdmi_wr_reg(TX_SYS1_ACR_N_0, 0x00); // N[7:0]
-    hdmi_wr_reg(TX_SYS1_ACR_N_1, 0x18 /*0x10*/); // N[15:8]
+    hdmi_wr_reg(TX_SYS1_ACR_N_1, 0x30); // N[15:8]
 
     tmp_add_data  = 0;
-    tmp_add_data |= 0xa << 4;    // [7:4] Meas Tolerance
+    tmp_add_data |= 0x3 << 4;    // [7:4] Meas Tolerance
     tmp_add_data |= 0x0 << 0;    // [3:0] N[19:16]
     hdmi_wr_reg(TX_SYS1_ACR_N_2, tmp_add_data); // 0xa0
 
@@ -1685,6 +1763,7 @@ static int hdmitx_set_phy(hdmitx_dev_t* hdmitx_device)
 static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t *param)
 {
     if(param == NULL){ //disable HDMI
+        hdmi_tx_gate_pwr_ctrl(VID_DIS, hdmitx_device);
         return 0;
     }
     else if((param->VIC!=HDMI_480p60)&&(param->VIC!=HDMI_480p60_16x9)
@@ -1702,6 +1781,7 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
     else {
     }
     if((param->VIC==HDMI_4k2k_30)||(param->VIC==HDMI_4k2k_25)||(param->VIC==HDMI_4k2k_24)||(param->VIC==HDMI_4k2k_smpte_24)) {
+        hdmi_tx_gate_pwr_ctrl(VID_DIS, hdmitx_device);
         printk("Not support HDMI format %d\n", param->VIC);
     }
 
@@ -1713,11 +1793,12 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
         param->color_depth = COLOR_36BIT;
     else if(color_depth_f==48)
         param->color_depth = COLOR_48BIT;
-    hdmi_print(INF, SYS "set mode VIC %d (cd%d,cs%d,pm%d,vd%d,%x) \n",param->VIC, color_depth_f, color_space_f,power_mode,power_off_vdac_flag,serial_reg_val);
+    hdmi_print(INF, SYS " %d (cd%d,cs%d,pm%d,vd%d,%x) \n",param->VIC, color_depth_f, color_space_f,power_mode,power_off_vdac_flag,serial_reg_val);
     if(color_space_f != 0){
         param->color = color_space_f;
     }
-
+    hdmitx_device->cur_VIC = param->VIC;
+    hdmi_tx_gate_pwr_ctrl(VID_EN, hdmitx_device);
     hdmi_hw_reset(hdmitx_device, param);    
     hdmitx_set_pll(param);
     hdmitx_set_phy(hdmitx_device);
@@ -2687,6 +2768,7 @@ static int hdmitx_cntl_ddc(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned a
 
     switch(cmd) {
     case DDC_RESET_EDID:
+        hdmi_tx_gate_pwr_ctrl(EDID_EN, NULL);
         hdmi_set_reg_bits(TX_HDCP_EDID_CONFIG, 0, 6, 1);
         hdmi_set_reg_bits(TX_SYS5_TX_SOFT_RESET_2, 1, 1, 1);
         hdmi_set_reg_bits(TX_SYS5_TX_SOFT_RESET_2, 0, 1, 1);
@@ -2699,6 +2781,7 @@ static int hdmitx_cntl_ddc(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned a
         break;
     case DDC_EDID_GET_DATA:
         hdmitx_getediddata(hdmitx_device, argv);
+        hdmi_tx_gate_pwr_ctrl(EDID_DIS, NULL);
         break;
     case DDC_PIN_MUX_OP:
         if(argv == PIN_MUX) {
@@ -2719,9 +2802,11 @@ static int hdmitx_cntl_ddc(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned a
         break;
     case DDC_HDCP_OP:
         if(argv == HDCP_ON) {
+            hdmi_tx_gate_pwr_ctrl(HDCP_EN, NULL);
             hdmi_set_reg_bits(TX_HDCP_MODE, 1, 7, 1);
         }
         if(argv == HDCP_OFF) {
+            hdmi_tx_gate_pwr_ctrl(HDCP_DIS, NULL);
             hdmi_set_reg_bits(TX_HDCP_MODE, 0, 7, 1);
         }
         break;
@@ -2864,6 +2949,7 @@ static int hdmitx_cntl_misc(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned 
 
 static int hdmitx_get_state(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned argv)
 {
+    int st = 0;
     if(!(cmd & CMD_STAT_OFFSET))
         hdmi_print(ERR, "stat: " "hdmitx: w: invalid cmd 0x%x\n", cmd);
     else
@@ -2882,10 +2968,14 @@ static int hdmitx_get_state(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned 
         break;
     case STAT_VIDEO_CLK:
         break;
+    case STAT_AUDIO_PACK:
+        st = (hdmi_rd_reg(STAT_AUDIO_PACK) & 0x1);
+        return st;
+        break;
     default:
         break;
     }
-    return 0;
+    return st;
 }
 
 void HDMITX_Meson_Init(hdmitx_dev_t* hdmitx_device)

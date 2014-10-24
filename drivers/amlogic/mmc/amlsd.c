@@ -917,7 +917,8 @@ static int aml_is_card_insert (struct amlsd_platform * pdata)
 		ret = amlogic_get_value(pdata->gpio_cd, MODULE_NAME); // 1: no inserted  0: inserted
     // sdio_err("card %s\n", ret?"OUT":"IN");
 
-    ret = !ret; // reverse, so ---- 0: no inserted  1: inserted
+    if(!pdata->gpio_cd_level)
+        ret = !ret; // reverse, so ---- 0: no inserted  1: inserted
 
 	return ret;
 }
@@ -1152,10 +1153,15 @@ irqreturn_t aml_irq_cd_thread(int irq, void *data)
 {
 	struct amlsd_platform *pdata = (struct amlsd_platform*)data;
 
-    mdelay(500);
+    mdelay(20);
     aml_sd_uart_detect(pdata);
-
-    mmc_detect_change(pdata->mmc, msecs_to_jiffies(500));
+    
+    if((pdata->is_in == 0) && aml_card_type_sd(pdata)) {
+        pdata->host->init_flag = 0;
+    }
+        
+    //mdelay(500);
+    mmc_detect_change(pdata->mmc, msecs_to_jiffies(200));
 
 	return IRQ_HANDLED;
 }
@@ -1250,7 +1256,7 @@ int aml_check_unsupport_cmd(struct mmc_host* mmc, struct mmc_request* mrq)
 
 int aml_sd_voltage_switch (struct amlsd_platform* pdata, char signal_voltage)
 {
-#ifdef CONFIG_ARCH_MESON8
+#if ((defined CONFIG_ARCH_MESON8))
 #ifdef CONFIG_AMLOGIC_BOARD_HAS_PMU
     int vol = LDO4DAC_REG_3_3_V;
     int delay_ms = 0;
@@ -1304,6 +1310,43 @@ int aml_sd_voltage_switch (struct amlsd_platform* pdata, char signal_voltage)
 
     return 0;
 }
+
+// boot9 here
+void aml_emmc_hw_reset(struct mmc_host *mmc)
+{
+    struct amlsd_platform * pdata = mmc_priv(mmc);
+
+    if(!aml_card_type_mmc(pdata)){
+        return;
+    }
+
+    printk("%s %d\n", __func__, __LINE__);
+
+#if ((defined CONFIG_ARCH_MESON6) ||(defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+    //boot_9 used as eMMC hw_rst pin here.
+
+    //clr nand ce1 pinmux
+    aml_clr_reg32_mask(P_PERIPHS_PIN_MUX_2, (1<<24));
+
+    //set out    
+    aml_clr_reg32_mask(P_PREG_PAD_GPIO3_EN_N, (1<<9));
+
+    //high
+    aml_set_reg32_mask(P_PREG_PAD_GPIO3_O, (1<<9));
+    mdelay(1);
+
+    //low
+    aml_clr_reg32_mask(P_PREG_PAD_GPIO3_O, (1<<9));
+    mdelay(2);
+
+    //high
+    aml_set_reg32_mask(P_PREG_PAD_GPIO3_O, (1<<9));
+    mdelay(1);
+ #endif
+ 
+    return; 
+}
+
 
 /*-------------------debug---------------------*/
 

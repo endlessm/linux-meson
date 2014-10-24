@@ -43,6 +43,10 @@ obj-$(CONFIG_AMLOGIC_THERMAL) += thermal.o
 
 obj-$(CONFIG_AML_HDMI_TX) +=  hdmi_tx_hw/
 
+obj-$(CONFIG_AM_LCD_OUTPUT) +=  lcd/
+
+obj-$(CONFIG_GPIO_TEST) += gpiotest.o
+
 # ARM Trustzone
 obj-$(CONFIG_MESON_TRUSTZONE) += meson-smc.o meson-secure.o
 ifeq ($(CONFIG_MESON_TRUSTZONE),y)

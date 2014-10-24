@@ -206,6 +206,9 @@ typedef union phy_tune_data {
 #define USB_BC_MODE_DCP		2	/* Charger */
 #define USB_BC_MODE_CDP		3	/* PC + Charger */
 
+#define USB_CORE_RESET_TIME 	200
+#define USB_ID_CHANGE_TIME	100
+
 int clk_enable_usb(struct clk *clk);
 int clk_disable_usb(struct clk *clk);
 #endif

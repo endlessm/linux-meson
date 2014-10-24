@@ -175,7 +175,7 @@ int osd_clone_task_start(void)
 
 	printk("osd_clone_task start.\n");
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-	switch_mod_gate_by_name("ge2d", 1);
+	//switch_mod_gate_by_name("ge2d", 1);
 #endif
 	if (s_osd_clone.ge2d_context == NULL)
 		s_osd_clone.ge2d_context = create_ge2d_work_queue();
@@ -195,7 +195,7 @@ void osd_clone_task_stop(void)
 
 	printk("osd_clone_task stop.\n");
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-	switch_mod_gate_by_name("ge2d", 0);
+	//switch_mod_gate_by_name("ge2d", 0);
 #endif
 	if (s_osd_clone.ge2d_context) {
 		destroy_ge2d_work_queue(s_osd_clone.ge2d_context);

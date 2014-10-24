@@ -20,6 +20,10 @@
 #ifndef VDEC_REG_H
 #define VDEC_REG_H
 
+#include <linux/kernel.h>
+#include <linux/amlogic/amports/vformat.h>
+#include "vdec.h"
+
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 #define READ_AOREG(r) (__raw_readl((volatile void __iomem *)AOBUS_REG_ADDR(r)))
 #define WRITE_AOREG(r, val) __raw_writel(val, (volatile void __iomem *)(AOBUS_REG_ADDR(r)))
@@ -31,7 +35,19 @@
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 #define READ_VREG(r) (__raw_readl((volatile void __iomem *)DOS_REG_ADDR(r)))
+//static inline u32 READ_VREG(u32 r)
+//{
+//    if (((r) > 0x2000) && ((r) < 0x3000) && !vdec_on(2)) dump_stack();
+//    return __raw_readl((volatile void __iomem *)DOS_REG_ADDR(r));
+//}
+
 #define WRITE_VREG(r, val) __raw_writel(val, (volatile void __iomem *)(DOS_REG_ADDR(r)))
+//static inline void WRITE_VREG(u32 r, u32 val)
+//{
+//    if (((r) > 0x2000) && ((r) < 0x3000) && !vdec_on(2)) dump_stack();
+//    __raw_writel(val, (volatile void __iomem *)(DOS_REG_ADDR(r)));
+//}
+
 #define WRITE_VREG_BITS(r, val, start, len) \
     WRITE_VREG(r, (READ_VREG(r) & ~(((1L<<(len))-1)<<(start)))|((unsigned)((val)&((1L<<(len))-1)) << (start)))
 #define SET_VREG_MASK(r, mask) WRITE_VREG(r, READ_VREG(r) | (mask))

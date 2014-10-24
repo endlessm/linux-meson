@@ -205,6 +205,7 @@ static int aml_dvb_dmx_init(struct aml_dvb *advb, struct aml_dmx *dmx, int id)
 	dmx->aud_chan = -1;
 	dmx->vid_chan = -1;
 	dmx->sub_chan = -1;
+	dmx->pcr_chan = -1;
 
 	if ((ret = aml_dmx_hw_init(dmx)) <0) {
 		pr_error("demux hw init error %d", ret);

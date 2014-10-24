@@ -53,6 +53,7 @@
             gpio_dat3 = "CARD_4";
             //jtag_pin = "CARD_0";
             gpio_cd = "CARD_6";
+            gpio_cd_level = <0>;
             //gpio_ro = "GPIOZ_0";
             irq_in = <3>;
             irq_out = <5>;

@@ -142,9 +142,8 @@ void temp_sensor_adc_init(int triming)
 {
 	select_temp();
 	set_trimming(triming&0xf);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
-	set_trimming1(triming>>4);
-#endif
+	if(!IS_MESON_M8_CPU)
+		set_trimming1(triming>>4);
 	enable_temp();
 	enable_temp__();
 }
@@ -455,6 +454,28 @@ err_free_mem:
 	return err;
 }
 
+static int saradc_suspend(struct platform_device *pdev)
+{
+	printk("%s: disable SARADC\n", __func__);
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	disable_bandgap();
+#endif
+	disable_adc();
+	disable_clock();
+	return 0;
+}
+
+static int saradc_resume(struct platform_device *pdev)
+{
+	printk("%s: enable SARADC\n", __func__);
+	enable_clock();
+	enable_adc();
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	enable_bandgap();
+#endif
+	return 0;
+}
+
 static int __exit saradc_remove(struct platform_device *pdev)
 {
 	struct saradc *saradc = platform_get_drvdata(pdev);
@@ -476,8 +497,8 @@ static const struct of_device_id saradc_dt_match[]={
 static struct platform_driver saradc_driver = {
 	.probe      = saradc_probe,
 	.remove     = saradc_remove,
-	.suspend    = NULL,
-	.resume     = NULL,
+	.suspend    = saradc_suspend,
+	.resume     = saradc_resume,
 	.driver     = {
 		.name   = "saradc",
 		.of_match_table = saradc_dt_match,

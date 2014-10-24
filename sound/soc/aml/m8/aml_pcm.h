@@ -1,5 +1,5 @@
-#ifndef __AML_PCM_BT_H__
-#define __AML_PCM_BT_H__
+#ifndef __AML_PCM_H__
+#define __AML_PCM_H__
 
 struct aml_pcm_runtime_data {
 	spinlock_t			lock;

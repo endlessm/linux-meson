@@ -94,8 +94,6 @@ static inline struct amvideocap_global_data *getgctrl(void) {
 #define gUNLOCK() mutex_unlock(&(getgctrl()->lock))
 #define gLOCKINIT() mutex_init(&(getgctrl()->lock))
 
-static struct amvideocap_private amvideocap_private_data;
-
 /*********************************************************
  * /dev/amvideo APIs
  *********************************************************/
@@ -108,7 +106,7 @@ static int amvideocap_open(struct inode *inode, struct file *file)
         return -ENOMEM;
     }
     if (!getgctrl()->vaddr) {
-        getgctrl()->vaddr = ioremap_nocache(getgctrl()->phyaddr, getgctrl()->size);
+        getgctrl()->vaddr = (unsigned long)ioremap_nocache(getgctrl()->phyaddr, getgctrl()->size);
         if (!getgctrl()->vaddr) {
             printk("%s: failed to remap y addr\n", __FUNCTION__);
             return -ENOMEM;
@@ -130,7 +128,7 @@ static int amvideocap_open(struct inode *inode, struct file *file)
     gUNLOCK();
     file->private_data = priv;
     priv->phyaddr = getgctrl()->phyaddr;
-    priv->vaddr = getgctrl()->vaddr;
+    priv->vaddr = (u8*)getgctrl()->vaddr;
     priv->want=getgctrl()->want;
     priv->src_rect.x = -1;
     priv->src_rect.y = -1;
@@ -181,32 +179,36 @@ static ssize_t  amvideocap_YUV_to_RGB(struct amvideocap_private *priv, u32 cur_i
 
     config_para_ex_t    ge2d_config;
     canvas_t cs0, cs1, cs2, cd;
-    static loff_t video_yuv_pos = 0;
+    int canvas_idx = AMVIDEOCAP_CANVAS_INDEX;
+    int y_index = cur_index & 0xff;
+    int u_index = (cur_index >> 8) & 0xff;
+    int v_index = (cur_index >> 16) & 0xff;
+    int input_x, input_y, input_width, input_height, intfmt;
+    unsigned long RGB_addr;
     ge2d_context_t *context = create_ge2d_work_queue();
     memset(&ge2d_config, 0, sizeof(config_para_ex_t));
-    unsigned long  size = w * h * 3;
-    int intfmt = amvideocap_get_input_format(vf);
-    int input_x, input_y, input_width, input_height;
+    intfmt = amvideocap_get_input_format(vf);
+
     ///unsigned long RGB_phy_addr=getgctrl()->phyaddr;
 
     if (!priv->phyaddr) {
         printk("%s: failed to alloc y addr\n", __FUNCTION__);
         return -1;
     }
-    printk("RGB_phy_addr:%x\n", priv->phyaddr);
-    unsigned long RGB_addr = priv->vaddr;
+    printk("RGB_phy_addr:%x\n", (unsigned int)priv->phyaddr);
+    RGB_addr = (unsigned long)priv->vaddr;
     if (!RGB_addr) {
         printk("%s: failed to remap y addr\n", __FUNCTION__);
         return -1;
     }
-    printk("RGB_addr:%x\n", RGB_addr);
+    printk("RGB_addr:%x\n",  (unsigned int)RGB_addr);
 
     if(vf == NULL) {
         printk("%s: vf is NULL\n", __FUNCTION__);
         return -1;
     }
 
-    int canvas_idx = AMVIDEOCAP_CANVAS_INDEX;
+
     canvas_config(canvas_idx, (unsigned long)priv->phyaddr, w * 3, h, CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
     if(priv->src_rect.x < 0 || priv->src_rect.x > vf->width) {
         input_x = 0;
@@ -244,12 +246,10 @@ static ssize_t  amvideocap_YUV_to_RGB(struct amvideocap_private *priv, u32 cur_i
     ge2d_config.bitmask_en  = 0;
     ge2d_config.src1_gb_alpha = 0;
     ge2d_config.dst_xy_swap = 0;
-    int y_index = cur_index & 0xff;
-    int u_index = (cur_index >> 8) & 0xff;
-    int v_index = (cur_index >> 16) & 0xff;
+
     canvas_read(y_index, &cs0);
     canvas_read(u_index, &cs1);
-    canvas_read(u_index, &cs2);
+    canvas_read(v_index, &cs2);
     printk("y_index=[0x%x]  u_index=[0x%x] cur_index:%x\n", y_index, u_index, cur_index);
     ge2d_config.src_planes[0].addr = cs0.addr;
     ge2d_config.src_planes[0].w = cs0.width;
@@ -282,7 +282,7 @@ static ssize_t  amvideocap_YUV_to_RGB(struct amvideocap_private *priv, u32 cur_i
 
 
     canvas_read(canvas_idx, &cd);
-    printk("cd.addr:%x\n", cd.addr);
+    printk("cd.addr:%x\n", (unsigned int)cd.addr);
     ge2d_config.dst_planes[0].addr = cd.addr;
     ge2d_config.dst_planes[0].w = cd.width;
     ge2d_config.dst_planes[0].h = cd.height;
@@ -349,7 +349,7 @@ static int amvideocap_capture_one_frame(struct amvideocap_private *priv,vframe_t
     int curindex;
     vframe_t *vf = vfput;
     int ret = 0;
-    printk("%s:start vf=%x,index=%x\n", __func__,vf,index);
+    printk("%s:start vf=%p,index=%x\n", __func__,vf,index);
     if (!vf) {
         ret = amvideocap_capture_get_frame(priv, &vf, &curindex);
     }else{
@@ -468,42 +468,74 @@ static long amvideocap_ioctl(struct file *file, unsigned int cmd, ulong arg)
             }
         case AMVIDEOCAP_IOR_GET_FRAME_FORMAT:
             {
-                copy_to_user((void*)arg,&priv->out.fmt,sizeof(priv->out.fmt));
-                break;	
+               if (copy_to_user((void*)arg,(void*)&priv->out.fmt,sizeof(priv->out.fmt)))
+               {
+                   ret = -EFAULT;
+                   break;
+               }
+               break;
             }
         case AMVIDEOCAP_IOR_GET_FRAME_WIDTH:
             {
-                copy_to_user((void*)arg,&priv->out.width,sizeof(priv->out.width));
+                if(copy_to_user((void*)arg,(void*)&priv->out.width,sizeof(priv->out.width)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;	
             }
         case AMVIDEOCAP_IOR_GET_FRAME_HEIGHT:
             {
-                copy_to_user((void*)arg,&priv->out.height,sizeof(priv->out.height));
+                if(copy_to_user((void*)arg,(void*)&priv->out.height,sizeof(priv->out.height)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;
             }
         case AMVIDEOCAP_IOR_GET_FRAME_TIMESTAMP_MS:
             {
-                copy_to_user((void*)arg,&priv->out.timestamp_ms,sizeof(priv->out.timestamp_ms));
+                if(copy_to_user((void*)arg,(void*)&priv->out.timestamp_ms,sizeof(priv->out.timestamp_ms)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;	
             }
         case AMVIDEOCAP_IOR_GET_SRCFRAME_FORMAT:
             {
-                copy_to_user((void*)arg,&priv->src.fmt,sizeof(priv->src.fmt));
+                if(copy_to_user((void*)arg,(void*)&priv->src.fmt,sizeof(priv->src.fmt)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;	
             }
         case AMVIDEOCAP_IOR_GET_SRCFRAME_WIDTH:
             {
-                copy_to_user((void*)arg,&priv->src.width,sizeof(priv->src.width));
+                if(copy_to_user((void*)arg,(void*)&priv->src.width,sizeof(priv->src.width)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;	
             }
         case AMVIDEOCAP_IOR_GET_SRCFRAME_HEIGHT:
             {
-                copy_to_user((void*)arg,&priv->src.height,sizeof(priv->src.height));
+                if(copy_to_user((void*)arg,(void*)&priv->src.height,sizeof(priv->src.height)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;	
             }
         case AMVIDEOCAP_IOR_GET_STATE:
             {
-                copy_to_user((void*)arg,&priv->state,sizeof(priv->state));
+                if(copy_to_user((void*)arg,(void*)&priv->state,sizeof(priv->state)))
+                {
+			ret = -EFAULT;
+			break;
+                }
                 break;	
             }
         case AMVIDEOCAP_IOW_SET_WANTFRAME_WAIT_MAX_MS:
@@ -513,7 +545,6 @@ static long amvideocap_ioctl(struct file *file, unsigned int cmd, ulong arg)
             }
         case AMVIDEOCAP_IOW_SET_START_CAPTURE:
             {
-                int wait;
                 ret=amvideocap_capture_one_frame_wait(priv,arg);
                 break;
             }
@@ -597,10 +628,10 @@ static ssize_t amvideocap_read(struct file *file, char __user *buf, size_t count
     if(!pos){/*trigger a new capture,*/
         printk("start amvideocap_read waitdelay=%d\n",waitdelay);
         ret = amvideocap_capture_one_frame_wait(priv,waitdelay);
-        printk("amvideocap_read=%d,priv->state=%d,priv->vaddr=%x\n", ret,priv->state,priv->vaddr);
+        printk("amvideocap_read=%d,priv->state=%d,priv->vaddr=%p\n", ret,priv->state,priv->vaddr);
         if ((ret == 0) && (priv->state==AMVIDEOCAP_STATE_FINISHED_CAPTURE) && (priv->vaddr != NULL)) {
-            int size = min(count, priv->out.byte_per_pix * priv->out.width_aligned* priv->out.height);
-            printk("priv->out_width=%d priv->out_height=%d priv->outfmt_byteppix=%d\n", priv->out.width,priv->out.height,priv->out.byte_per_pix,size);
+            int size = min((int)count, (priv->out.byte_per_pix * priv->out.width_aligned* priv->out.height));
+            printk("priv->out_width=%d priv->out_height=%d priv->outfmt_byteppix=%d, size=%d\n", priv->out.width,priv->out.height,priv->out.byte_per_pix,size);
             copied=copy_to_user(buf, priv->vaddr, size);
             if(copied){
                 printk("amvideocap_read %d copy_to_user failed \n",size);
@@ -614,7 +645,7 @@ static ssize_t amvideocap_read(struct file *file, char __user *buf, size_t count
         }else{
             int maxsize = priv->out.byte_per_pix * priv->out.width_aligned* priv->out.height;
             if(pos<maxsize){
-                int rsize=min(count,maxsize-pos);
+                int rsize=min((int)count,(maxsize-(int)pos));
                 ///printk("amvideocap_read11 try copy %d,pos=%d\n",rsize,pos);
                 copied=copy_to_user(buf, priv->vaddr+pos, rsize);
                 if(copied){
@@ -651,7 +682,7 @@ static ssize_t show_amvideocap_config(struct class *class, struct class_attribut
     pbuf += sprintf(pbuf, "width:%d\n",getgctrl()->want.width);
     pbuf += sprintf(pbuf, "height:%d\n",getgctrl()->want.height);
     pbuf += sprintf(pbuf, "format:%d\n",getgctrl()->want.fmt);
-    pbuf += sprintf(pbuf, "waitmaxms:%d\n",getgctrl()->wait_max_ms);
+    pbuf += sprintf(pbuf, "waitmaxms:%lld\n",getgctrl()->wait_max_ms);
     return (pbuf - buf);
 }
 
@@ -659,8 +690,11 @@ static ssize_t store_amvideocap_config(struct class *class, struct class_attribu
 
 {
     int ret,val;
-    char *pbuf=buf;
+    const char *pbuf=buf;
     for(;pbuf&&pbuf[0]!='\0';){
+#ifdef GETVAL
+#undef GETVAL
+#endif
 #define GETVAL(tag,v)\
         val=0;\
         ret=sscanf(pbuf,tag ":%d", &val); \
@@ -691,17 +725,17 @@ static struct class amvideocap_class = {
 };
 s32 amvideocap_register_memory(unsigned char *phybufaddr, int phybufsize)
 {
-    printk("amvideocap_register_memory %x %d\n", phybufaddr, phybufsize);
-    getgctrl()->phyaddr = phybufaddr;
-    getgctrl()->size = phybufsize;
-    getgctrl()->vaddr = NULL;
+    printk("amvideocap_register_memory %p %d\n", phybufaddr, phybufsize);
+    getgctrl()->phyaddr = (unsigned long)phybufaddr;
+    getgctrl()->size = (unsigned long)phybufsize;
+    getgctrl()->vaddr = 0;
     return 0;
 }
 s32 amvideocap_dev_register(unsigned char *phybufaddr, int phybufsize)
 {
+    s32 r = 0;
     printk("amvideocap_dev_register buf:%p,size:%x.\n", phybufaddr, phybufsize);
 
-    s32 r = 0;
     gLOCKINIT();
     r = register_chrdev(0, DEVICE_NAME, &amvideocap_fops);
     if (r < 0) {
@@ -724,8 +758,8 @@ s32 amvideocap_dev_register(unsigned char *phybufaddr, int phybufsize)
         goto err2;
     }
     if (phybufaddr != NULL) {
-        getgctrl()->phyaddr = phybufaddr;
-        getgctrl()->size = phybufsize;
+        getgctrl()->phyaddr = (unsigned long)phybufaddr;
+        getgctrl()->size = (unsigned long)phybufsize;
     }
     getgctrl()->wait_max_ms=0;
     getgctrl()->want.fmt=GE2D_FORMAT_S24_RGB;

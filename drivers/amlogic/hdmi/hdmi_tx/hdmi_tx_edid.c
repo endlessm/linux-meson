@@ -1284,67 +1284,93 @@ typedef struct{
 
 static dispmode_vic_t dispmode_VIC_tab[]=
 {
-    {"480i", HDMI_480i60}, 
-    {"480i", HDMI_480i60_16x9},
-    {"480p", HDMI_480p60},
-    {"480p", HDMI_480p60_16x9},
-    {"576i", HDMI_576i50},
-    {"576i", HDMI_576i50_16x9},
-    {"576p", HDMI_576p50},
-    {"576p", HDMI_576p50_16x9},
-    {"720p", HDMI_720p60},
-    {"1080i", HDMI_1080i60},
-    {"1080p", HDMI_1080p60},
+    {"480i_4_3",  HDMI_480i60},
+    {"480i_rpt",  HDMI_480i60_16x9_rpt},
+    {"480i",      HDMI_480i60_16x9},
+    {"480p_4_3",  HDMI_480p60},
+    {"480p_rpt",  HDMI_480p60_16x9_rpt},
+    {"480p",      HDMI_480p60_16x9},
+    {"576i_4_3",  HDMI_576i50},
+    {"576i_rpt",  HDMI_576i50_16x9_rpt},
+    {"576i",      HDMI_576i50_16x9},
+    {"576p_4_3",  HDMI_576p50},
+    {"576p_rpt",  HDMI_576p50_16x9_rpt},
+    {"576p",      HDMI_576p50_16x9},
+    {"720p50hz",  HDMI_720p50},
+    {"720p",      HDMI_720p60},
+    {"1080i50hz", HDMI_1080i50},
+    {"1080i",     HDMI_1080i60},
+    {"1080p50hz", HDMI_1080p50},
     {"1080p30hz", HDMI_1080p30},
     {"1080p24hz", HDMI_1080p24},
-    {"720p50hz", HDMI_720p50},
-    {"1080i50hz", HDMI_1080i50},
-    {"1080p50hz", HDMI_1080p50},
-    {"4k2k30hz", HDMI_4k2k_30},
-    {"4k2k25hz", HDMI_4k2k_25},
-    {"4k2k24hz", HDMI_4k2k_24},
+    {"1080p",     HDMI_1080p60},
+    {"4k2k30hz",  HDMI_4k2k_30},
+    {"4k2k25hz",  HDMI_4k2k_25},
+    {"4k2k24hz",  HDMI_4k2k_24},
     {"4k2ksmpte", HDMI_4k2k_smpte_24},
 };
 
-HDMI_Video_Codes_t hdmitx_get_VIC(hdmitx_dev_t* hdmitx_device, const char* disp_mode)
+int hdmitx_edid_VIC_support(HDMI_Video_Codes_t vic)
 {
-    HDMI_Video_Codes_t vic=HDMI_720p60;
-    int count=ARRAY_SIZE(dispmode_VIC_tab);
-    int  i;
-    for(i=0;i<count;i++)
-    {
-        if(strncmp(disp_mode, dispmode_VIC_tab[i].disp_mode, strlen(dispmode_VIC_tab[i].disp_mode))==0)
-        {
+    int i;
+
+    for(i = 0; i < ARRAY_SIZE(dispmode_VIC_tab); i++) {
+        if(vic == dispmode_VIC_tab[i].VIC)
+            return 1;
+    }
+
+    return 0;
+}
+
+HDMI_Video_Codes_t hdmitx_edid_vic_tab_map_vic(const char* disp_mode)
+{
+    HDMI_Video_Codes_t vic = HDMI_Unkown;
+    int i;
+
+    for(i = 0; i < ARRAY_SIZE(dispmode_VIC_tab); i++) {
+        if(strncmp(disp_mode, dispmode_VIC_tab[i].disp_mode, strlen(dispmode_VIC_tab[i].disp_mode))==0) {
             vic = dispmode_VIC_tab[i].VIC;
+            break;
         }
     }
-    hdmitx_device->vic_count = vic;
+
+    if(vic == HDMI_Unkown)
+        hdmi_print(INF, EDID "not find mapped vic\n");
+
     return vic;
 }
 
+const char * hdmitx_edid_vic_tab_map_string(HDMI_Video_Codes_t vic)
+{
+    int i;
+    const char * disp_str = NULL;
+
+    for(i = 0; i < ARRAY_SIZE(dispmode_VIC_tab); i++) {
+        if(vic == dispmode_VIC_tab[i].VIC) {
+            disp_str = dispmode_VIC_tab[i].disp_mode;
+            break;
+        }
+    }
+
+    if(!disp_str)
+        hdmi_print(INF, EDID "not find mapped display mode\n");
+
+    return disp_str;
+}
+
+// force_flag: 0 means check with RX's edid
+//             1 means no check wich RX's edid
 HDMI_Video_Codes_t hdmitx_edid_get_VIC(hdmitx_dev_t* hdmitx_device, const char* disp_mode, char force_flag)
 {
     rx_cap_t* pRXCap = &(hdmitx_device->RXCap);
-    int  i,j;
-    int count=ARRAY_SIZE(dispmode_VIC_tab);
-    HDMI_Video_Codes_t vic=HDMI_Unkown;
-    int mode_name_len=0;
+    int  j;
+    HDMI_Video_Codes_t vic = hdmitx_edid_vic_tab_map_vic(disp_mode);
 
-    for(i=0;i<count;i++)
-    {
-        if(strncmp(disp_mode, dispmode_VIC_tab[i].disp_mode, strlen(dispmode_VIC_tab[i].disp_mode))==0)
-        {
-            if((vic==HDMI_Unkown)||(strlen(dispmode_VIC_tab[i].disp_mode)>mode_name_len)){
-                vic = dispmode_VIC_tab[i].VIC;
-                mode_name_len = strlen(dispmode_VIC_tab[i].disp_mode);
-            }
-        }
-    }
-    if(vic!=HDMI_Unkown){
-        if(force_flag==0){
+    if(vic != HDMI_Unkown) {
+        if(force_flag == 0) {
             for( j = 0 ; j < pRXCap->VIC_count ; j++ ){
                 if(pRXCap->VIC[j]==vic)
-                    break;    
+                    break;
             }
             if(j>=pRXCap->VIC_count){
                 vic = HDMI_Unkown;
@@ -1354,20 +1380,11 @@ HDMI_Video_Codes_t hdmitx_edid_get_VIC(hdmitx_dev_t* hdmitx_device, const char* 
     return vic;
 }    
 
-char* hdmitx_edid_get_native_VIC(hdmitx_dev_t* hdmitx_device)
+const char* hdmitx_edid_get_native_VIC(hdmitx_dev_t* hdmitx_device)
 {
     rx_cap_t* pRXCap = &(hdmitx_device->RXCap);
-    int  i;
-    int count=ARRAY_SIZE(dispmode_VIC_tab);
 
-    char* disp_mode_ret=NULL;
-    for(i=0;i<count;i++){
-        if(pRXCap->native_VIC==dispmode_VIC_tab[i].VIC){
-            disp_mode_ret = (char*)(dispmode_VIC_tab[i].disp_mode);
-            break;    
-        }
-    }    
-    return disp_mode_ret;
+    return hdmitx_edid_vic_tab_map_string(pRXCap->native_VIC);
 }    
 
 //Clear HDMI Hardware Module EDID RAM and EDID Buffer
@@ -1379,9 +1396,11 @@ void hdmitx_edid_ram_buffer_clear(hdmitx_dev_t* hdmitx_device)
     hdmitx_device->HWOp.CntlDDC(hdmitx_device, DDC_EDID_CLEAR_RAM, 0);
     
     //Clear EDID Buffer
-    for(i = 0; i < EDID_MAX_BLOCK*128; i++)
-    {
+    for(i = 0; i < EDID_MAX_BLOCK*128; i++) {
         hdmitx_device->EDID_buf[i] = 0;
+    }
+    for(i = 0; i < EDID_MAX_BLOCK*128; i++) {
+        hdmitx_device->EDID_buf1[i] = 0;
     }
 }
 

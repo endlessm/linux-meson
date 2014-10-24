@@ -48,6 +48,7 @@ static  hdmi_only_info_t hdmi_only_info[PARA_HDMI_ONLY]={
 	{"720p50hz",VMODE_720P_50HZ},
 	{"1080i50hz",VMODE_1080I_50HZ},
 	{"1080p50hz",VMODE_1080P_50HZ},
+	{"1080p24hz", VMODE_1080P_24HZ},
 	{"4k2k24hz",VMODE_4K2K_24HZ},
 	{"4k2k25hz",VMODE_4K2K_25HZ},
 	{"4k2k30hz",VMODE_4K2K_30HZ},

@@ -13,6 +13,13 @@
 #include <linux/mmc/host.h>
 #include <linux/earlysuspend.h>
 
+#define     AML_ERROR_RETRY_COUNTER         10
+#define     AML_TIMEOUT_RETRY_COUNTER       2
+
+#define AML_SDHC_MAGIC			 "amlsdhc"
+#define AML_SDIO_MAGIC			 "amlsdio"
+
+
 enum aml_mmc_waitfor {
 	XFER_INIT,              /* 0 */
 	XFER_START,				/* 1 */
@@ -79,6 +86,7 @@ struct amlsd_platform {
 	unsigned int irq_out;
 	unsigned int irq_out_edge;
 	unsigned int gpio_cd;
+	unsigned int gpio_cd_level;
 	unsigned int gpio_power;
 	unsigned int power_level;
 	char pinname[32];
@@ -156,6 +164,8 @@ struct amlsd_host {
 	struct delayed_work	timeout;
 	// struct early_suspend amlsd_early_suspend;
 
+    struct class            debug;
+    
 	unsigned int send;
 	unsigned int ctrl;
 	unsigned int clkc;
@@ -184,6 +194,7 @@ struct amlsd_host {
 	// unsigned int		ccnt, dcnt;
 
 	int     status; // host status: xx_error/ok
+	int init_flag;
 
     char    *msg_buf;
 #define MESSAGE_BUF_SIZE            512
@@ -205,10 +216,10 @@ struct amlsd_host {
 #ifdef      CONFIG_MMC_AML_DEBUG
     u32         req_cnt;
     u32         trans_size;
-    u32         time_req_sta; // request start time
 
     u32         reg_buf[16];
 #endif
+    u32         time_req_sta; // request start time
     
     struct pinctrl  *pinctrl;
     char        pinctrl_name[30];
@@ -498,7 +509,7 @@ struct sdhc_misc{
 	u32 burst_num:6; /*[21:16] Burst Number*/
 	u32 thread_id:6; /*[27:22] Thread ID*/
 	u32 manual_stop:1; /*[28] 0:auto stop mode, 1:manual stop mode*/
-	u32 reserved2:3; /*[31:29] reserved*/
+	u32 txstart_thres:3; /*[31:29] txstart_thres(if (txfifo_cnt/4)>(threshold*2), Tx will start)*/
 };
 
 struct sdhc_ictl{
@@ -556,14 +567,29 @@ struct sdhc_srst{
 	u32 reserved:26; /*[31:6] reserved*/
 };
 
-struct sdhc_enhc{
-	u32 rx_timeout:8; /*[7:0] Data Rx Timeout Setting*/
-	u32 sdio_irq_period:8; /*[15:8] SDIO IRQ Period Setting
-			(IRQ checking window length)*/
-	u32 dma_rd_resp:1; /*[16] No Read DMA Response Check*/
-	u32 dma_wr_resp:1; /*[16] No Write DMA Response Check*/
-	u32 rxfifo_th:7; /*[24:18] RXFIFO Full Threshold,default 60*/
-	u32 txfifo_th:7; /*[31:25] TXFIFO Empty Threshold,default 0*/
+struct  sdhc_enhc{	
+	union  {		
+		struct  {			
+			u32 wrrsp_mode:1; /*[0] 0:Wrrsp Check in DMA Rx FSM 1:No Check in FSM*/		    	
+			u32 chk_wrrsp:1; /*[1] Rx Done without checking if Wrrsp count is 0*/		    	
+			u32 chk_dma:1; /*[2] Rx Done without checking if DMA is IDLE*/		    	
+			u32 debug:3;  /*[5:3] debug only*/		    	
+			u32 reserved:2;		    	
+			u32 sdio_irq_period:8; /*[15:8] SDIO IRQ Period Setting*/		    	
+			u32 reserved1:2;		    	
+			u32 rxfifo_th:7; /*[24:18] RXFIFO Full Threshold,default 60*/		    	
+			u32 txfifo_th:7; /*[31:25] TXFIFO Empty Threshold,default 0*/				
+		}  meson8m2;		
+		struct  {			
+			u32 rx_timeout:8; /*[7:0] Data Rx Timeout Setting*/			
+			u32 sdio_irq_period:8; /*[15:8] SDIO IRQ Period Setting					
+				(IRQ checking window length)*/			
+			u32 dma_rd_resp:1; /*[16] No Read DMA Response Check*/			
+			u32 dma_wr_resp:1; /*[16] No Write DMA Response Check*/			
+			u32 rxfifo_th:7; /*[24:18] RXFIFO Full Threshold,default 60*/			
+			u32 txfifo_th:7; /*[31:25] TXFIFO Empty Threshold,default 0*/				
+		}  meson;		
+	}reg;
 };
 
 struct sdhc_clk2{
@@ -623,7 +649,7 @@ extern struct mmc_host *sdio_host;
 #define     SPI_EMMC_FLAG                   5
 
 #define R_BOOT_DEVICE_FLAG  READ_CBUS_REG(ASSIST_POR_CONFIG)
-#ifdef CONFIG_ARCH_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8 
 #define POR_BOOT_VALUE ((((R_BOOT_DEVICE_FLAG>>9)&1)<<2)|((R_BOOT_DEVICE_FLAG>>6)&3)) // {poc[9],poc[7:6]}
 #else
 #define POR_BOOT_VALUE (R_BOOT_DEVICE_FLAG & 7)
@@ -631,7 +657,13 @@ extern struct mmc_host *sdio_host;
 
 #define POR_NAND_BOOT() ((POR_BOOT_VALUE == 7) || (POR_BOOT_VALUE == 6))
 #define POR_SPI_BOOT() ((POR_BOOT_VALUE == 5) || (POR_BOOT_VALUE == 4))
-#define POR_EMMC_BOOT() (POR_BOOT_VALUE == 3)
+
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	#define POR_EMMC_BOOT() ((POR_BOOT_VALUE == 3) || ((POR_BOOT_VALUE == 1)))
+#else
+	#define POR_EMMC_BOOT()	 (POR_BOOT_VALUE == 3)
+#endif
+
 #define POR_CARD_BOOT() (POR_BOOT_VALUE == 0)
 
 #define print_tmp(fmt, args...) do{\

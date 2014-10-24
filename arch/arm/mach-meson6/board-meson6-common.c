@@ -161,6 +161,7 @@ static __init void meson_init_early(void)
 	 * the allocations won't fail.
 	 */
 	init_dma_coherent_pool_size(SZ_4M);
+	meson_cpu_version_init();
 }
 
 static void __init meson_init_irq(void)
@@ -174,7 +175,7 @@ static const char *m6_common_board_compat[] __initdata = {
 	NULL,
 };
 
-DT_MACHINE_START(AML8726_MX, "Amlogic Meson6 platform")
+DT_MACHINE_START(AML8726_MX, "Amlogic Meson6")
 	.reserve	= meson6_reserve,
 //.nr_irqs	= 
 	.smp		= smp_ops(meson_smp_ops),

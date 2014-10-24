@@ -5,9 +5,9 @@
 
 
 #define AML_MMC_MAJOR_VERSION   1
-#define AML_MMC_MINOR_VERSION   05
+#define AML_MMC_MINOR_VERSION   07
 #define AML_MMC_VERSION         ((AML_MMC_MAJOR_VERSION << 8) | AML_MMC_MINOR_VERSION)
-#define AML_MMC_VER_MESSAGE     "2014-05-14: sdhc regular tuning support"
+#define AML_MMC_VER_MESSAGE     "2014-06-30: eMMC add hw reset function"
 
 extern unsigned sdhc_debug;
 extern unsigned sdio_debug;
@@ -146,6 +146,7 @@ void aml_cs_dont_care (struct amlsd_platform * pdata); // chip select don't care
 bool is_emmc_exist (struct amlsd_host* host); // is eMMC/tSD exist
 void aml_devm_pinctrl_put (struct amlsd_host* host);
 // void of_init_pins (struct amlsd_platform* pdata);
+extern void aml_emmc_hw_reset(struct mmc_host *mmc);
 
 void aml_snprint (char **pp, int *left_size,  const char *fmt, ...);
 

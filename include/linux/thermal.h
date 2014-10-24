@@ -261,15 +261,16 @@ static inline int thermal_generate_netlink_event(struct thermal_zone_device *tz,
 
 #ifdef CONFIG_AMLOGIC_THERMAL
 #include <mach/thermal.h>
-#else 
-int thermal_firmware_init()
-{
-	return -1;
-}
-int get_cpu_temp(void)
+#else
+static int thermal_firmware_init(void)
 {
 	return -1;
 }
 
-#endif
+static int get_cpu_temp(void)
+{
+	return -1;
+}
+#endif /* CONFIG_AMLOGIC_THERMAL */
+
 #endif /* __THERMAL_H__ */

@@ -90,7 +90,9 @@ struct aml_i2c_reg_ctrl {
 		pulled low.  If this bit is '1' then the SDA line is tri-stated.*/
 	unsigned int rdscl:1; 		/*[25] Read back level of the SCL line*/
 	unsigned int rdsda:1; 		/*[26] Read back level of the SDA line*/
-	unsigned int unused:5; 	/*[31:27]*/
+	unsigned int unused:1; 	/*[27]*/
+	unsigned int clk_delay_ext:2; 	/*[29:28]*/
+	unsigned int unused2:2; 	/*[31:30]*/
 };
 
 struct aml_i2c_reg_slave_addr {
@@ -111,7 +113,10 @@ struct aml_i2c_reg_slave_addr {
 	unsigned int scl_filter:3;	/*[13:11] SCL FILTER*/
 	/*A filter was added in the SCL input path to allow for filtering of slow 
 		rise times.  0 = no filtering, 7 = max filtering*/
-	unsigned int unused:18;	/*[31:14]*/
+	unsigned int unused:2;	/*[15:14]*/
+	unsigned int clk_low_delay:12;	/*[27:16]*/
+	unsigned int clk_low_delay_en:1;	/*[28]*/
+	unsigned int unused2:3;	/*[31:29]*/
 };
 
 /*Write data associated with the DATA token should be placed into the 
@@ -138,61 +143,6 @@ struct aml_i2c_reg_master {
 	volatile unsigned int i2c_token_wdata_1;
 	volatile unsigned int i2c_token_rdata_0;
 	volatile unsigned int i2c_token_rdata_1;	
-};
-
-
-struct aml_i2c_reg_slave_ctrl {
-	unsigned int samp_rate:7;	/*[6:0] sampling rate*/
-	/*Defined as MPEG system clock / (value + 1).  The SDA and SCL inputs into 
-		the slave module are sampled as a way of filtering the inputs.   A 
-		rising or falling edge is determined by when 3 successive samples are 
-		either high or low respectively*/	
-	unsigned int enable:1;		/*[7] A '1' enables the I2C slave state machine*/
-	unsigned int hold_time:8;	/*[15:8]*/
-	/*Data hold time after the falling edge of SCL.  
-		Hold time = (MPEG system clock period) * (value + 1).
-	*/
-	unsigned int slave_addr:8;	/*[23-16]*/
-	/*Bits [7:1] are used to identify the device.  
-		Bit [0] is ignored since this corresponds to the R/W bit.*/
-	unsigned int ack_always:1;	/*[24]*/
-	/*Typically the ACK of a slave I2C device is dependent upon the 
-		availability of data (if reading) and room to store data (when we are 
-		being written).  Our I2C module has a status register that can be read
-		continuously.  This bit can be set if the I2C master wants to 
-		continually read the status register. */
-	unsigned int irq_en:1;		/*[25]*/
-	/*If this bit is set, then an interrupt will be sent to the ARC whenever 4 
-		bytes have been read or 4 bytes have been written to the I2C slave 
-		module.*/
-	unsigned int busy:1;		/*[26] */
-	/*Read only status bit.  '1' indicates that the I2C slave module is sending
-		or receiving data.*/
-	unsigned int rx_rdy:1;		/*[27] */
-	/*This bit is set to '1' by the ARC to indicate to the slave machine that 
-		the I2C slave module is ready to receive data.  This bit is cleared by 
-		the I2C module when it has received 4 bytes from the I2C master.  
-		This bit is also available in the status register that can be read by 
-		the I2C master.   The I2C master can read the status register to see 
-		when the I2C slave module is ready to receive data.*/
-	unsigned int tx_rdy:1;		/*[28] */
-	/*This bit is set to '1' by the ARC to indicate to the slave machine that 
-		the I2C slave module is ready to send data.  This bit is cleared by 
-		the I2C module when it has sent 4 bytes to the I2C master.  This bit
-		is also available in the status register that can be read by the I2C 
-		master.   The I2C master can read the status register to see when the
-		I2C slave module has data to send.*/
-	unsigned int reg_ptr:3;		/*[31:29] */
-	/*There are 5 internal registers inside the I2C slave module.  The I2C 
-		Master sets this value using the byte that follows the address byte 
-		in the I2C data stream.  Register 4 (numbered 0,1,бн4) is the 
-		status register.*/
-};
-
-struct aml_i2c_reg_slave{
-	unsigned int i2c_slave_ctrl;
-	unsigned int i2c_slave_tx_data;
-	unsigned int i2c_slave_rx_data;
 };
 
 struct aml_i2c {

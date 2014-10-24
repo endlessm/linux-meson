@@ -302,6 +302,124 @@ static efuseinfo_item_t efuseinfo_v3[] =
         .bch_reverse = 0, //0,
     },
 };
+
+static efuseinfo_item_t efuseinfo_v4[] = {
+    {
+        .title = "licence",
+        .id = EFUSE_LICENCE_ID,
+        .offset = 0,
+        .enc_len = 3,
+        .data_len = 3,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "version",   // include machid
+        .id = EFUSE_VERSION_ID,
+        .offset = V2_EFUSE_VERSION_OFFSET, //3,
+        .enc_len = V2_EFUSE_VERSION_ENC_LEN, //1,
+        .data_len = V2_EFUSE_VERSION_DATA_LEN, //1,
+        .bch_en = V2_EFUSE_VERSION_BCH_EN, //0,
+        .bch_reverse = V2_EFUSE_VERSION_BCH_REVERSE, //0,
+    },
+    {
+        .title = "customerid",   // include machid
+        .id = EFUSE_CUSTOMER_ID,
+        .offset = 4,
+        .enc_len = 4,
+        .data_len = 4,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "rsakey",
+        .id = EFUSE_RSA_KEY_ID,
+        .offset = 8,
+        .enc_len = 128,
+        .data_len = 128,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+	{
+        .title = "secu-boot",
+        .offset = 136,
+        .enc_len = 156,
+        .data_len = 156,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },    
+    {
+        .title = "reserved",
+        .offset = 292,
+        .enc_len = 112,
+        .data_len = 112,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },    
+    {
+        .title = "storagekey",
+        .offset = 404,
+        .enc_len = 32,
+        .data_len = 32,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "mac",    //for the main network interface
+        .id = EFUSE_MAC_ID,
+        .offset = 436,
+        .enc_len = 6,
+        .data_len = 6,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "mac_bt",  //for the second network interface or bt
+        .id = EFUSE_MAC_BT_ID,
+        .offset = 442,
+        .enc_len = 6,
+        .data_len = 6,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "mac_wifi", //for the second network interface or bt
+	.id = EFUSE_MAC_WIFI_ID,
+        .offset = 448,
+        .enc_len = 6,
+        .data_len = 6,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "usid",
+	.id = EFUSE_USID_ID,
+        .offset = V2_EFUSE_USID_OFFSET,// 454,
+        .enc_len = V2_EFUSE_USID_ENC_LEN, //58,
+        .data_len = V2_EFUSE_USID_DATA_LEN, //58,
+        .bch_en = V2_EFUSE_USID_BCH_EN, //0,
+        .bch_reverse = V2_EFUSE_USID_BCH_REVERSE, //0,
+    },
+    {
+        .title = "machineid",
+	.id = EFUSE_MACHINEID_ID,
+        .offset = 502,
+        .enc_len = 4,
+        .data_len = 4,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+    {
+        .title = "reserved",
+        .offset = 506,
+        .enc_len = 6,
+        .data_len = 6,
+        .bch_en = 0,
+        .bch_reverse = 0,
+    },
+        
+};
+
 #endif///endif efuseinfo version3
 static efuseinfo_item_t efuseinfo_v2[] = 
 {
@@ -546,6 +664,11 @@ efuseinfo_t efuseinfo[] =
 		.efuseinfo_version = efuseinfo_v3,
 		.size = sizeof(efuseinfo_v3)/sizeof(efuseinfo_item_t),
 		.version =3,
+	},
+	{
+		.efuseinfo_version = efuseinfo_v4,
+		.size = sizeof(efuseinfo_v4) / sizeof(efuseinfo_item_t),
+		.version = 4,
 	},
 	{
 		.efuseinfo_version = efuseinfo_M8_serialNum_v1,

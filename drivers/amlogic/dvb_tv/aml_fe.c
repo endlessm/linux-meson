@@ -60,6 +60,14 @@ static int slow_mode=0;
 module_param(slow_mode,int,0644);
 MODULE_DESCRIPTION("search the channel by slow_mode,by add +1MHz\n");
 
+static int tuner_status_cnt=4;
+module_param(tuner_status_cnt,int,0644);
+MODULE_DESCRIPTION("after write a freq, max cnt value of read tuner status\n");
+
+static int delay_cnt=10;//ms
+module_param(delay_cnt,int,0644);
+MODULE_DESCRIPTION("delay_cnt value of read cvd format\n");
+
 static struct aml_fe_drv *tuner_drv_list = NULL;
 static struct aml_fe_drv *atv_demod_drv_list = NULL;
 static struct aml_fe_drv *dtv_demod_drv_list = NULL;
@@ -71,12 +79,15 @@ static DEFINE_SPINLOCK(lock);
 static int aml_fe_afc_closer(struct dvb_frontend *fe,int minafcfreq,int maxafcfqreq);
 
 typedef int (*hook_func_t)(void);
+hook_func_t aml_fe_hook_atv_status = NULL;
+hook_func_t aml_fe_hook_hv_lock = NULL;
 void aml_fe_hook_cvd(hook_func_t atv_mode,hook_func_t cvd_hv_lock)
 {
-//	aml_fe_hook_atv_status = atv_mode;
-//	aml_fe_hook_hv_lock = cvd_hv_lock;
-//	printk("[aml_fe]%s \n",__func__);
+	aml_fe_hook_atv_status = atv_mode;
+	aml_fe_hook_hv_lock = cvd_hv_lock;
+	printk("[aml_fe]%s \n",__func__);
 }
+EXPORT_SYMBOL(aml_fe_hook_cvd);
 
 
 static struct aml_fe_drv** aml_get_fe_drv_list(aml_fe_dev_type_t type)
@@ -237,26 +248,89 @@ static enum dvbfe_algo aml_fe_get_analog_algo(struct dvb_frontend *dev)
 {
         return DVBFE_ALGO_CUSTOM;
 }
-#if 0
-//+1 M or the step from api,then get tuner lock status,if lock get demod lock
-  // status,if lock update the analog_parameter
-static enum dvbfe_search aml_fe_analog_search(struct dvb_frontend *fe, struct dvb_frontend_parameters *p)
+//this func set two ways to search the channel
+//1.if the afc_range>1Mhz,set the freq  more than once
+//2. if the afc_range<=1MHz,set the freq only once ,on the mid freq
+static enum dvbfe_search aml_fe_analog_search(struct dvb_frontend *fe)
 {
-	fe_status_t tuner_state;
-	fe_status_t ade_state;
-	int minafcfreq, maxafcfreq;
+	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
+	fe_status_t tuner_state = FE_TIMEDOUT;
+	fe_status_t ade_state = FE_TIMEDOUT;
+	__u32  set_freq=0;
+	__u32 minafcfreq, maxafcfreq;
+	__u32 frist_step;
+	__u32 afc_step;
+	int tuner_status_cnt_local = tuner_status_cnt;
+	int atv_cvd_format,hv_lock_status,snr_vale;
+	v4l2_std_id std_bk = 0;
+	struct aml_fe *fee;
+	fee = fe->demodulator_priv;
+	pr_dbg("[%s] is working,afc_range=%d,flag=0x%x[1->auto,11->mannul],the received freq=[%d]\n",\
+			__func__,p->analog.afc_range,p->analog.flag,p->frequency);
+	pr_dbg("the tuner type is [%d]\n",fee->tuner->drv->id);
+	//backup the freq by api
+	set_freq=p->frequency;
+	if(p->analog.flag == ANALOG_FLAG_MANUL_SCAN){/*manul search force to ntsc_m*/
+		std_bk = p->analog.std;
+		p->analog.std = (p->analog.std&(~(V4L2_STD_B|V4L2_STD_GH)))|V4L2_STD_NTSC_M;
+		if( fe->ops.set_frontend(fe)){
+			printk("[%s]the func of set_param err.\n",__func__);
+			p->analog.std = std_bk;
+			fe->ops.set_frontend(fe);
+			std_bk = 0;
+			return DVBFE_ALGO_SEARCH_FAILED;
+		}
+		fe->ops.tuner_ops.get_status(fe, &tuner_state);
+		fe->ops.analog_ops.get_status(fe, &ade_state);
+		if(FE_HAS_LOCK==ade_state && FE_HAS_LOCK==tuner_state){
+			if(aml_fe_afc_closer(fe,p->frequency - ATV_AFC_1_0MHZ ,p->frequency + ATV_AFC_1_0MHZ)==0){
+				printk("[%s] manul scan mode:p->frequency=[%d] has lock,search success.\n",__func__,p->frequency);
+				p->analog.std = std_bk;
+				fe->ops.set_frontend(fe);
+				std_bk = 0;
+				return DVBFE_ALGO_SEARCH_SUCCESS;
+			}
+			else{
+				p->analog.std = std_bk;
+				fe->ops.set_frontend(fe);
+				std_bk = 0;
+				return DVBFE_ALGO_SEARCH_FAILED;
+			}
+		}
+		else
+		    return DVBFE_ALGO_SEARCH_FAILED;
+	}
+	if(p->analog.afc_range==0)
+	{
+		pr_dbg("[%s]:afc_range==0,skip the search\n",__func__);
+		return DVBFE_ALGO_SEARCH_FAILED;
+	}
+
+//set the frist_step
+	if(p->analog.afc_range>ATV_AFC_1_0MHZ)
+		frist_step=ATV_AFC_1_0MHZ;
+	else
+		frist_step=p->analog.afc_range;
 //set the afc_range and start freq
-	if(p->u.analog.afc_range==0)
-		p->u.analog.afc_range=ATV_AFC_1_0MHZ;
-	tuner_state = FE_TIMEDOUT;
-	ade_state   = FE_TIMEDOUT;
-	minafcfreq  = p->frequency  - p->u.analog.afc_range;
-	maxafcfreq = p->frequency + p->u.analog.afc_range;
-	pr_dbg("[%s] is working,afc_range=%d.\n",__func__,p->u.analog.afc_range);
-//from the min freq start
-	p->frequency = minafcfreq;
-	if( fe->ops.set_frontend(fe, p)){
-		pr_error("[%s]the func of set_param err.\n",__func__);
+	minafcfreq  = p->frequency  - p->analog.afc_range;
+	maxafcfreq = p->frequency + p->analog.afc_range;
+//from the min freq start,and set the afc_step
+	if(slow_mode || fee->tuner->drv->id ==	AM_TUNER_FQ1216 || AM_TUNER_HTM == fee->tuner->drv->id ){
+		pr_dbg("[%s]this is slow mode to search the channel\n",__func__);
+		p->frequency = minafcfreq;
+		afc_step=ATV_AFC_1_0MHZ;
+	}
+	else if(!slow_mode && (fee->tuner->drv->id== AM_TUNER_SI2176)){
+		p->frequency = minafcfreq+frist_step;
+		afc_step=ATV_AFC_2_0MHZ;
+	}
+	else{
+		pr_dbg("[%s]this is ukown tuner type and on slow_mode to search the channel\n",__func__);
+		p->frequency = minafcfreq;
+		afc_step=ATV_AFC_1_0MHZ;
+	}
+	if( fe->ops.set_frontend(fe)){
+		printk("[%s]the func of set_param err.\n",__func__);
 		return DVBFE_ALGO_SEARCH_FAILED;
 	}
 //atuo bettween afc range
@@ -265,138 +339,84 @@ static enum dvbfe_search aml_fe_analog_search(struct dvb_frontend *fe, struct dv
 		 while( p->frequency<=maxafcfreq)
 		{
 			pr_dbg("[%s] p->frequency=[%d] is processing\n",__func__,p->frequency);
-			fe->ops.tuner_ops.get_status(fe, &tuner_state);
-			fe->ops.analog_ops.get_status(fe, &ade_state);
-			if(FE_HAS_LOCK==ade_state && FE_HAS_LOCK==tuner_state){
-				if(aml_fe_afc_closer(fe,p,minafcfreq,maxafcfreq)<0){
-					return  DVBFE_ALGO_SEARCH_FAILED;
-				}
-
-			pr_dbg("[%s] afc end  :p->frequency=[%d] has lock,search success.\n",__func__,p->frequency);
-	            	return DVBFE_ALGO_SEARCH_SUCCESS;
-
-			}
- 			else
-			{
-				pr_dbg("[%s] freq is[%d] unlock\n",__func__,p->frequency);
-				p->frequency +=  ATV_AFC_1_0MHZ;
-				if(p->frequency >maxafcfreq)
-				{
-					p->frequency -=  ATV_AFC_1_0MHZ;
-					pr_dbg("[%s] p->frequency=[%d] over maxafcfreq=[%d].search failed.\n",__func__,p->frequency,maxafcfreq);
+			do{
+				if((fe->ops.tuner_ops.get_pll_status == NULL)||(fe->ops.tuner_ops.get_pll_status == NULL)){
+					printk("[%s]error:the func of get_pll_status is NULL.\n",__func__);
 					return DVBFE_ALGO_SEARCH_FAILED;
 				}
-				if( fe->ops.set_frontend(fe, p)){
-					pr_error("[%s] the func of set_frontend err.\n",__func__);
-					return  DVBFE_ALGO_SEARCH_FAILED;
-				}
+				fe->ops.tuner_ops.get_pll_status(fe, &tuner_state);
+				fe->ops.analog_ops.get_pll_status(fe, &ade_state);
+				tuner_status_cnt_local--;
+				if(FE_HAS_LOCK==ade_state || FE_HAS_LOCK==tuner_state || tuner_status_cnt_local == 0)
+					break;
+			}while(1);
+			tuner_status_cnt_local = tuner_status_cnt;
+			if(FE_HAS_LOCK==ade_state || FE_HAS_LOCK==tuner_state){
+				pr_dbg("[%s] pll lock success \n",__func__);
+				do{
+					tuner_status_cnt_local--;
+					atv_cvd_format = aml_fe_hook_atv_status();//tvafe_cvd2_get_atv_format();
+					hv_lock_status = aml_fe_hook_hv_lock();//tvafe_cvd2_get_hv_lock();
+					snr_vale = fe->ops.analog_ops.get_snr(fe);
+					pr_dbg("[%s] atv_cvd_format:0x%x;hv_lock_status:0x%x;snr_vale:%d \n",
+						__func__,atv_cvd_format,hv_lock_status,snr_vale);
+					if(((atv_cvd_format & 0x4)==0)||((hv_lock_status==0x6)&&(snr_vale < 10))){
+						std_bk = p->analog.std;
+						p->analog.std = (p->analog.std&(~(V4L2_STD_B|V4L2_STD_GH)))|V4L2_STD_NTSC_M;
+						p->frequency +=1;/*avoid std unenable*/
+						pr_dbg("[%s] maybe ntsc m \n",__func__);
+						break;
+					}
+					if(tuner_status_cnt_local == 0)
+						break;
+					mdelay(delay_cnt);
+				}while(1);
 			}
-		}
-        }
-
-	   return DVBFE_ALGO_SEARCH_FAILED;
-}
-#endif
-//this func set two ways to search the channel
-//1.if the afc_range>1Mhz,set the freq  more than once
-//2. if the afc_range<=1MHz,set the freq only once ,on the mid freq
-
-static enum dvbfe_search aml_fe_analog_search(struct dvb_frontend *fe)
-{
-	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
-	fe_status_t tuner_state;
-	fe_status_t ade_state;
-	int minafcfreq, maxafcfreq;
-	int frist_step;
-	int afc_step;
-	struct aml_fe *fee;
-	fee = fe->demodulator_priv;
-
-	//if(c->analog.flag & ANALOG_FLAG_MANUL_SCAN){
-	if(c->analog.flag == ANALOG_FLAG_MANUL_SCAN){
-		pr_dbg("[%s]:set the mannul scan mode and current freq [%d]\n",__func__,c->frequency);
-		if( fe->ops.set_frontend(fe)){
-		    pr_dbg("[%s]the func of set_param err.\n",__func__);
-		    return DVBFE_ALGO_SEARCH_FAILED;
-		}
-		fe->ops.tuner_ops.get_status(fe, &tuner_state);
-		fe->ops.analog_ops.get_status(fe, &ade_state);
-		if(FE_HAS_LOCK==ade_state && FE_HAS_LOCK==tuner_state){
-		    pr_dbg("[%s] manul scan mode:p->frequency=[%d] has lock,search success.\n",__func__,c->frequency);
-		    return DVBFE_ALGO_SEARCH_SUCCESS;
-		}
-		else
-		    return DVBFE_ALGO_SEARCH_FAILED;
-	}
-	else if(c->analog.afc_range==0)
-	{
-		pr_dbg("[%s]:afc_range==0,skip the search\n",__func__);
-		return DVBFE_ALGO_SEARCH_FAILED;
-	}
-
-//set the frist_step
-	if(c->analog.afc_range>ATV_AFC_1_0MHZ)
-		frist_step=ATV_AFC_1_0MHZ;
-	else
-		frist_step=c->analog.afc_range;
-//set the afc_range and start freq
-	tuner_state = FE_TIMEDOUT;
-	ade_state   = FE_TIMEDOUT;
-	minafcfreq  = c->frequency  - c->analog.afc_range;
-	maxafcfreq  = c->frequency + c->analog.afc_range;
-	pr_dbg("[%s] is working,afc_range=%d,the received freq=[%d]\n",__func__,c->analog.afc_range,c->frequency);
-	pr_dbg("the tuner type is [%d]\n",fee->tuner->drv->id);
-//from the min freq start,and set the afc_step
-	if(slow_mode || fee->tuner->drv->id ==  AM_TUNER_FQ1216 || AM_TUNER_HTM == fee->tuner->drv->id ){
-		pr_dbg("[%s]this is slow mode to search the channel\n",__func__);
-		c->frequency = minafcfreq;
-		afc_step=ATV_AFC_1_0MHZ;
-	}
-	else if(!slow_mode && fee->tuner->drv->id== AM_TUNER_SI2176){
-		c->frequency = minafcfreq+frist_step;
-		afc_step=ATV_AFC_2_0MHZ;
-	}
-	else{
-		pr_dbg("[%s]this is ukown tuner type and on slow_mode to search the channel\n",__func__);
-		c->frequency = minafcfreq;
-		afc_step=ATV_AFC_1_0MHZ;
-	}
-	if( fe->ops.set_frontend(fe)){
-		pr_error("[%s]the func of set_param err.\n",__func__);
-		return DVBFE_ALGO_SEARCH_FAILED;
-	}
-//atuo bettween afc range
-	if(likely(fe->ops.tuner_ops.get_status && fe->ops.analog_ops.get_status && fe->ops.set_frontend))
-	{
-		 while( c->frequency<=maxafcfreq)
-		{
-			pr_dbg("[%s] p->frequency=[%d] is processing\n",__func__,c->frequency);
+			tuner_status_cnt_local = tuner_status_cnt;
+			if( fe->ops.set_frontend(fe)){
+				printk("[%s] the func of set_frontend err.\n",__func__);
+				return	DVBFE_ALGO_SEARCH_FAILED;
+			}
+			do{
 			fe->ops.tuner_ops.get_status(fe, &tuner_state);
 			fe->ops.analog_ops.get_status(fe, &ade_state);
-			if(FE_HAS_LOCK==ade_state && FE_HAS_LOCK==tuner_state){
+			tuner_status_cnt_local--;
+			if(FE_HAS_LOCK==ade_state || FE_HAS_LOCK==tuner_state || tuner_status_cnt_local == 0)
+				break;
+			}while(1);
+			tuner_status_cnt_local = tuner_status_cnt;
+			if(FE_HAS_LOCK==ade_state || FE_HAS_LOCK==tuner_state){
 				if(aml_fe_afc_closer(fe,minafcfreq,maxafcfreq)==0){
-					pr_dbg("[%s] afc end  :p->frequency=[%d] has lock,search success.\n",__func__,c->frequency);
-	            	return DVBFE_ALGO_SEARCH_SUCCESS;
+					printk("[%s] afc end  :p->frequency=[%d] has lock,search success.\n",__func__,p->frequency);
+					if(std_bk != 0){/*avoid sound format is not match after search over*/
+						p->analog.std = std_bk;
+						p->frequency -=1;/*avoid std unenable*/
+						fe->ops.set_frontend(fe);
+						std_bk = 0;
+					}
+					return DVBFE_ALGO_SEARCH_SUCCESS;
 				}
 			}
-			pr_dbg("[%s] freq is[%d] unlock\n",__func__,c->frequency);
-			c->frequency +=  afc_step;
-			if(c->frequency >maxafcfreq)
+			if(std_bk != 0){/*avoid sound format is not match after search over*/
+				p->analog.std = std_bk;
+				fe->ops.set_frontend(fe);
+				std_bk = 0;
+			}
+			pr_dbg("[%s] freq is[%d] unlock\n",__func__,p->frequency);
+			p->frequency +=  afc_step;
+			if(p->frequency >maxafcfreq)
 			{
-				c->frequency -=  afc_step;
-				pr_dbg("[%s] p->frequency=[%d] over maxafcfreq=[%d].search failed.\n",__func__,c->frequency,maxafcfreq);
+				pr_dbg("[%s] p->frequency=[%d] over maxafcfreq=[%d].search failed.\n",__func__,p->frequency,maxafcfreq);
+				//back	original freq  to api
+				p->frequency =	set_freq;
+				fe->ops.set_frontend(fe);
 				return DVBFE_ALGO_SEARCH_FAILED;
 			}
-			if( fe->ops.set_frontend(fe)){
-				pr_error("[%s] the func of set_frontend err.\n",__func__);
-				return  DVBFE_ALGO_SEARCH_FAILED;
-			}
 		}
-        }
+	}
 
 	   return DVBFE_ALGO_SEARCH_FAILED;
 }
-
 static int aml_fe_afc_closer(struct dvb_frontend *fe,int minafcfreq,int maxafcfqreq)
 {
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
@@ -965,7 +985,7 @@ static void aml_fe_man_run(struct aml_dvb *dvb, struct aml_fe *fe)
 		demod_cap |= fe->atv_demod->drv->capability;
 		fe->init = 1;
 	}
-	
+
 	if(fe->dtv_demod && fe->dtv_demod->drv){
 		demod_cap |= fe->dtv_demod->drv->capability;
 		fe->init = 1;
@@ -1845,7 +1865,6 @@ const char *v4l2_std_to_str(v4l2_std_id std)
          case V4L2_STD_ATSC_16_VSB:
             return "V4L2_STD_ATSC_16_VSB";
             break;
-	    /*
          case V4L2_COLOR_STD_PAL:
             return "V4L2_COLOR_STD_PAL";
             break;
@@ -1855,7 +1874,6 @@ const char *v4l2_std_to_str(v4l2_std_id std)
         case V4L2_COLOR_STD_SECAM:
             return "V4L2_COLOR_STD_SECAM";
             break;
-            */
         case V4L2_STD_MN:
             return "V4L2_STD_MN";
             break;

@@ -1,5 +1,5 @@
-#ifndef __AML_PCM_H__
-#define __AML_PCM_H__
+#ifndef __AML_I2S_H__
+#define __AML_I2S_H__
 
 //#define debug_printk
 #ifdef debug_printk
@@ -19,6 +19,7 @@ typedef struct audio_stream {
     struct snd_pcm_substream *stream;
 	unsigned i2s_mode; //0:master, 1:slave,
     unsigned device_type;
+    unsigned int xrun_num;
 } audio_stream_t;
 
 typedef struct aml_audio {
@@ -26,6 +27,11 @@ typedef struct aml_audio {
     struct snd_pcm *pcm;
     audio_stream_t s[2];
 } aml_audio_t;
+
+typedef struct aml_audio_buffer {
+    void *buffer_start;
+    unsigned int buffer_size;
+} aml_audio_buffer_t;
 
 typedef struct audio_mixer_control {
     int output_devide;
@@ -68,7 +74,8 @@ struct aml_runtime_data {
 	struct snd_pcm_substream *substream;
 	audio_stream_t s;	
 	struct timer_list timer;	// timeer for playback and capture
-    struct hrtimer hrtimer;
+	struct hrtimer hrtimer;
+	void *buf; //tmp buffer for playback or capture
 };
 
 extern struct snd_soc_platform_driver aml_soc_platform;

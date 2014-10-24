@@ -1315,6 +1315,7 @@ static void sdio_rescan (struct mmc_host *host)
     int ret;
 
     host->rescan_entered = 0;
+	host->host_rescan_disable = false;
     mmc_detect_change(host, 0); // start the delayed_work
     ret = flush_work(&(host->detect.work)); // wait for the delayed_work to finish
     if (!ret) {

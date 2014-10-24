@@ -161,6 +161,7 @@ void cec_standby(cec_rx_message_t* pcec_message)
             input_sync(cec_global_info.remote_cec_dev);
             input_event(cec_global_info.remote_cec_dev, EV_KEY, KEY_POWER, 0);
             input_sync(cec_global_info.remote_cec_dev);
+            cec_disable_irq();
         }
     }
 }

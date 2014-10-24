@@ -420,7 +420,7 @@ static void ir_hardware_init(void)
 }
 static void ir_hardware_release(void)
 {
-	unsigned int control_value;
+	//unsigned int control_value;
 	am_remote_write_reg(AM_IR_DEC_REG0, temp_value);
 	am_remote_write_reg(AM_IR_DEC_REG1, temp_value1);
 	free_irq(INT_REMOTE,irblaster_interrupt);

@@ -80,6 +80,8 @@ MODULE_DESCRIPTION("hm5065 On Board");
 MODULE_AUTHOR("amlogic-sh");
 MODULE_LICENSE("GPL v2");
 
+#define HM5065_DRIVER_VERSION "HM5065-COMMON-01-140717"
+
 static unsigned video_nr = -1;  /* videoX start number, -1 is autodetect. */
 
 static unsigned debug;
@@ -747,10 +749,10 @@ void HM5065_init_regs(struct hm5065_device *dev)
 	return;
 }
 
-static unsigned long hm5065_preview_exposure;
-static unsigned long hm5065_preview_extra_lines;
-static unsigned long hm5065_gain;
-static unsigned long hm5065_preview_maxlines;
+//static unsigned long hm5065_preview_exposure;
+//static unsigned long hm5065_preview_extra_lines;
+//static unsigned long hm5065_gain;
+//static unsigned long hm5065_preview_maxlines;
 /*************************************************************************
 * FUNCTION
 *    HM5065_set_param_wb
@@ -1019,7 +1021,7 @@ void HM5065_set_param_effect(struct hm5065_device *dev,enum camera_effect_flip_e
 static void HM5065_set_param_banding(struct hm5065_device *dev,enum  camera_banding_flip_e banding)
 {
 		struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-		unsigned char buf[4];
+		//unsigned char buf[4];
 		switch(banding){
 			case CAM_BANDING_60HZ:
 							printk("set banding 60Hz\n");
@@ -1040,7 +1042,7 @@ static int HM5065_AutoFocus(struct hm5065_device *dev, int focus_mode)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
 	int ret = 0;
-    int i = 0;
+    //int i = 0;
     
 	switch (focus_mode) {
 					case CAM_FOCUS_MODE_AUTO:
@@ -1072,11 +1074,33 @@ static int HM5065_AutoFocus(struct hm5065_device *dev, int focus_mode)
 
 static int HM5065_FlashCtrl(struct hm5065_device *dev, int flash_mode)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	//struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
 	int ret = 0;
-    int i = 0;
-    return ret;
-
+    
+	switch (flash_mode) {
+	case FLASHLIGHT_ON:
+	case FLASHLIGHT_AUTO:
+		if (dev->cam_info.torch_support)
+			aml_cam_torch(&dev->cam_info, 1);
+		aml_cam_flash(&dev->cam_info, 1);
+		break;
+	case FLASHLIGHT_TORCH:
+		if (dev->cam_info.torch_support) {
+			aml_cam_torch(&dev->cam_info, 1);
+			aml_cam_flash(&dev->cam_info, 0);
+		} else 
+			aml_cam_torch(&dev->cam_info, 1);
+		break;
+	case FLASHLIGHT_OFF:
+		aml_cam_flash(&dev->cam_info, 0);
+		if (dev->cam_info.torch_support)
+			aml_cam_torch(&dev->cam_info, 0);
+		break;
+	default:
+		printk("this flash mode not support yet\n");
+		break;
+	}
+	return ret;
 }    /* HM5065_FlashCtrl */
 
 static resolution_size_t get_size_type(int width, int height)
@@ -1188,7 +1212,6 @@ static int set_focus_zone(struct hm5065_device *dev, int value)
 			int retry_count = 9;
 			int reg_value = 0;
 			int ret = -1;
-			printk("xc = %d, yc = %d\n", xc, yc);	
 			xc = ((value >> 16) & 0xffff) * 80 / 2000;
 			yc = (value & 0xffff) * 60 / 2000;
 			printk("xc1 = %d, yc1 = %d\n", xc, yc); 	
@@ -1920,7 +1943,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct hm5065_fh  *fh = priv;
 	int ret = videobuf_querybuf(&fh->vb_vidq, p);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	if(ret == 0){
 	    p->reserved  = convert_canvas_index(fh->fmt->fourcc, HM5065_RES0_CANVAS_INDEX+p->index*3);
 	}else{
@@ -2509,6 +2532,11 @@ static int hm5065_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
+	
+	t->cam_info.version = HM5065_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
 		video_device_release(t->vdev);
@@ -2526,6 +2554,7 @@ static int hm5065_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

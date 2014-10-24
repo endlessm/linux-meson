@@ -216,9 +216,12 @@ int tvoutc_setclk(tvmode_t mode)
 	switch(mode)
 	{
 		case TVMODE_480I:
+		case TVMODE_480I_RPT:
 		case TVMODE_480CVBS:
 		case TVMODE_480P:
+		case TVMODE_480P_RPT:
 		case TVMODE_576I:
+		case TVMODE_576I_RPT:
 		case TVMODE_576CVBS:
 		case TVMODE_576P:
 			  setreg(&sd[xtal]);
@@ -320,7 +323,8 @@ void cvbs_config_vdac(unsigned int flag, unsigned int cfg)
 
 	return ;
 }
-static void cvbs_cntl_output(unsigned int open)
+
+void cvbs_cntl_output(unsigned int open)
 {
 	unsigned int cntl0=0, cntl1=0;
 
@@ -364,8 +368,22 @@ int tvoutc_setmode(tvmode_t mode)
 //TODO
 //    switch_mod_gate_by_name("venc", 1);
 #endif
-
     printk("TV mode %s selected.\n", tvinfoTab[mode].id);
+
+#ifdef CONFIG_ARCH_MESON8B
+	if( (mode!=TVMODE_480CVBS) && (mode!=TVMODE_576CVBS) )
+	{
+		CLK_GATE_OFF(CTS_VDAC);
+		CLK_GATE_OFF(DAC_CLK);
+	}
+	if( (mode!=TVMODE_480I) && (mode!=TVMODE_480CVBS) &&
+		(mode!=TVMODE_576I) && (mode!=TVMODE_576CVBS) )
+	{
+		CLK_GATE_OFF(CTS_ENCI);
+		CLK_GATE_OFF(VCLK2_ENCI);
+		CLK_GATE_OFF(VCLK2_VENCI1);
+	}
+#endif
 
     s = tvregsTab[mode];
 
@@ -390,6 +408,7 @@ int tvoutc_setmode(tvmode_t mode)
 	{
 		WRITE_CBUS_REG_BITS(HHI_VID_PLL_CNTL, 0x0, 30, 1);
 	}
+
     cvbs_cntl_output(0);
 #endif
     while (MREG_END_MARKER != s->reg)
@@ -419,15 +438,19 @@ int tvoutc_setmode(tvmode_t mode)
 	switch(mode)
 	{
 		case TVMODE_480I:
+		case TVMODE_480I_RPT:
 		case TVMODE_480CVBS:
 		case TVMODE_576I:
+		case TVMODE_576I_RPT:
 		case TVMODE_576CVBS:
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 1, 0, 2); //reg0x271a, select ENCI to VIU1
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 1, 4, 4); //reg0x271a, Select encI clock to VDIN
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 1, 8, 4); //reg0x271a,Enable VIU of ENC_I domain to VDIN;
 			  break;
 		case TVMODE_480P:
+		case TVMODE_480P_RPT:
 		case TVMODE_576P:
+		case TVMODE_576P_RPT:
 		case TVMODE_720P:
 		case TVMODE_720P_50HZ:
 		case TVMODE_1080I: //??
@@ -483,7 +506,13 @@ printk(" clk_util_clk_msr 29 = %d\n", clk_util_clk_msr(29));
     if( (mode==TVMODE_480CVBS) || (mode==TVMODE_576CVBS) )
     {
         msleep(1000);
-        aml_write_reg32(P_HHI_GCLK_OTHER, aml_read_reg32(P_HHI_GCLK_OTHER) | (0x1<<10) | (0x1<<8)); //enable CVBS GATE, DAC_CLK:bit[10] = 1;VCLK2_ENCI:bit[8] = 1;
+#ifdef CONFIG_ARCH_MESON8B
+		CLK_GATE_ON(VCLK2_ENCI);
+		CLK_GATE_ON(VCLK2_VENCI1);
+        CLK_GATE_ON(CTS_ENCI);
+        CLK_GATE_ON(CTS_VDAC);
+		CLK_GATE_ON(DAC_CLK);
+#endif
         cvbs_cntl_output(1);
     }
 #endif

@@ -165,7 +165,8 @@ typedef union phy_test_data {
 	unsigned clk:1;
 	unsigned vatestenb:2;
 	unsigned data_out:4;
-	unsigned not_used:12;
+  unsigned disable_idpull_up:1;
+	unsigned not_used:11;
     } b;
 } phy_test_data_t;
 
@@ -184,7 +185,9 @@ typedef union phy_tune_data {
 	unsigned sqrx_tune:3;
 	unsigned otg_tune:3;
 	unsigned comp_dis_tune:3;
-	unsigned not_used:6;
+  unsigned host_dmpulldown:1;
+	unsigned host_dppulldown:1;
+	unsigned not_used:4;
     } b;
 } phy_tune_data_t;
 
@@ -207,6 +210,9 @@ typedef union phy_tune_data {
 #define USB_BC_MODE_SDP		1	/* PC */
 #define USB_BC_MODE_DCP		2	/* Charger */
 #define USB_BC_MODE_CDP		3	/* PC + Charger */
+
+#define USB_CORE_RESET_TIME 	10
+#define USB_ID_CHANGE_TIME	20
 
 int clk_enable_usb(struct clk *clk);
 int clk_disable_usb(struct clk *clk);

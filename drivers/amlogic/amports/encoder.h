@@ -22,23 +22,48 @@
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 #define HDEC_255M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (2 << 25) | (1 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
 #define HDEC_319M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (0 << 25) | (1 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
-#define hvdec_clock_enable() \
-    HDEC_319M(); \
+#define HDEC_364M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (3 << 25) | (0 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
+#define HDEC_425M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (1 << 25) | (1 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
+#define HDEC_510M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (2 << 25) | (0 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
+#define HDEC_638M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (0 << 25) | (0 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
+#define hvdec_clock_enable(level) \
+    if(level == 0)  \
+        HDEC_255M(); \
+    else if(level == 1)  \
+        HDEC_319M(); \
+    else if(level == 2)  \
+        HDEC_425M(); \
+    else if(level == 3)  \
+        HDEC_510M(); \
+    else if(level == 4)  \
+        HDEC_638M(); \
     WRITE_VREG_BITS(DOS_GCLK_EN0, 0x7fff, 12, 15)
 
 #define hvdec_clock_disable() \
     WRITE_VREG_BITS(DOS_GCLK_EN0, 0, 12, 15); \
-    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  24, 0, 1);
+    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  0, 24, 1);
 #else
 #define HDEC_250M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (0 << 25) | (3 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
-#define hvdec_clock_enable() \
+#define hvdec_clock_enable(level) \
     HDEC_250M(); \
     WRITE_VREG(DOS_GCLK_EN0, 0xffffffff)
 
 #define hvdec_clock_disable() \
-    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  24, 0, 1);
+    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  0, 24, 1);
 #endif
 
+#if MESON_CPU_TYPE < MESON_CPU_TYPE_MESON8
+#define HCODEC_ANC0_CANVAS_ADDR ANC0_CANVAS_ADDR
+#define HCODEC_REC_CANVAS_ADDR  REC_CANVAS_ADDR 
+#define HCODEC_DBKR_CANVAS_ADDR DBKR_CANVAS_ADDR
+#define HCODEC_DBKW_CANVAS_ADDR DBKW_CANVAS_ADDR
+#define HCODEC_CURR_CANVAS_CTRL CURR_CANVAS_CTRL
+#define HCODEC_MPSR             MPSR            
+#define HCODEC_CPSR             CPSR            
+#define HCODEC_IMEM_DMA_CTRL    IMEM_DMA_CTRL   
+#define HCODEC_IMEM_DMA_ADR     IMEM_DMA_ADR    
+#define HCODEC_IMEM_DMA_COUNT   IMEM_DMA_COUNT  
+#endif
 
 #define AMVENC_AVC_IOC_MAGIC  'E'
 
@@ -60,6 +85,10 @@
 
 #define AMVENC_AVC_IOC_SET_IE_ME_MB_TYPE 		_IOW(AMVENC_AVC_IOC_MAGIC, 0x0d, unsigned int)
 #define AMVENC_AVC_IOC_SET_ME_PIXEL_MODE 		_IOW(AMVENC_AVC_IOC_MAGIC, 0x0e, unsigned int)
+#define AMVENC_AVC_IOC_SUBMIT_ENCODE_DONE 		_IOW(AMVENC_AVC_IOC_MAGIC, 0x0f, unsigned int)
+#define AMVENC_AVC_IOC_READ_CANVAS 				_IOW(AMVENC_AVC_IOC_MAGIC, 0x10, unsigned int)
+#define AMVENC_AVC_IOC_LIGHT_RESET 				_IOW(AMVENC_AVC_IOC_MAGIC, 0x11, unsigned int)
+
 
 #define IE_PIPPELINE_BLOCK_SHIFT 0
 #define IE_PIPPELINE_BLOCK_MASK  0x1f
@@ -86,7 +115,6 @@ typedef enum{
     FMT_RGBA8888,
     MAX_FRAME_FMT 
 }amvenc_frame_fmt;
-
 
 // Memory Address 
 ///////////////////////////////////////////////////////////////////////////
@@ -125,9 +153,10 @@ typedef enum{
  *  Interrupt
 ********************************************/
 #define VB_FULL_REQ            0x01
-#define VLC_REQ                0x02
-#define MAIN_REQ               0x04
+#define MAIN_REQ               0x02
+#define VLC_REQ                0x04
 #define QDCT_REQ               0x08
+#define LDMA_REQ               0x10
 
 /********************************************
  *  Regsiter
@@ -172,20 +201,94 @@ typedef enum{
 #define QDCT_REG_6                r14
 #define QDCT_REG_7                r15
 
-#define TOP_INFO_0                r26 
-#define TOP_INFO_1                r27 
-#define TOP_INFO_1_NEXT           r28 
-#define TOP_MV_0                  r29 
-#define TOP_MV_1                  r30 
-#define TOP_MV_2                  r31 
-#define TOP_MV_3                  r32 
-#define MAIN_LOOP_REG_0			  r33   //determine encoder stage
+#ifdef USE_SW_IF
+#else
+#define MB_QUANT_CHANGED          r21
+#endif
+#define LAST_MB_MV_BITS           r22
+#define LAST_MB_COEFF_BITS        r23
+
+#define TOP_INFO_0                r24 
+#define TOP_INFO_1                r25 
+#define TOP_INFO_1_NEXT           r26 
+#define TOP_MV_0                  r27 
+#define TOP_MV_1                  r28 
+#define TOP_MV_2                  r29 
+#define TOP_MV_3                  r30 
 
 #define vr00                      r8
 #define vr01                      r9
 #define vr02                      r10
 #define vr03                      r11
-#define MEM_OFFSET                r12
+
+#define MEM_OFFSET                r31
+
+
+#ifdef INTRA_IN_P_TOP
+#define TOP_Y_DDR_SWAP_LEFT_REG   r32 
+#define CURRENT_SLICE_QUANT       r33
+#define TOP_C_DDR_SWAP_LEFT_REG   r34 
+
+#define CURRENT_INTRA_REG         r35
+#define TOP_INFO_0_NEXT           r36 
+#define TOP_INFO_0_READ           r37 
+#define SW_IF_REG_0               r38 
+#define SW_IF_REG_1               r39 
+// bit[31:1] top
+// bit[0] left
+#define INTRA_STATUS_REG          r40
+// bit[1] next_top
+// bit[0] next_left
+#define NEXT_INTRA_STATUS_REG     r41
+
+#define PRED_U                    r42
+#define PRED_UR                   r43
+#define PRED_L                    r44
+
+#define TOP_Y_DDR_ADDR            r45
+#ifdef DBLK_FIX
+#define T_L_INFO_REG              r46
+#else
+#define TOP_C_DDR_ADDR            r46
+#endif
+#define TOP_W_DDR_ADDR            r47
+#define NEXT_TOP_CONTROL_REG      r48
+#define TOP_MV_0_d1               r49
+#define TOP_MV_0_d2               r50
+#else
+#define TOTAL_BITS_REG            r32
+#define CURRENT_SLICE_QUANT       r33
+#define SUM_BITS_8                r34
+#define I4x4_MODE_HI_REG          r35
+#define I4x4_MODE_LO_REG          r36
+#define C_PRED_MODE_REG           r37
+
+#define MV_0_REG                  r35
+#define MV_1_REG                  r36
+#define MV_2_REG                  r37
+#define MV_3_REG                  r38
+#define MV_4_REG                  r39
+#define MV_5_REG                  r40
+#define MV_6_REG                  r41
+#define MV_7_REG                  r42
+#define MV_8_REG                  r43
+#define MV_9_REG                  r44
+#define MV_A_REG                  r45
+#define MV_B_REG                  r46
+#define MV_C_REG                  r47
+#define MV_D_REG                  r48
+#define MV_E_REG                  r49
+#define MV_F_REG                  r50
+#endif
+#define VLC_MB_INFO_REG           r51
+
+
+#define MAIN_LOOP_REG_0           r52
+#define MAIN_LOOP_REG_1           r53
+
+#define dbg_r0                  r54
+#define dbg_r1                  r55
+#define dbg_r2                  r56
 
 /********************************************
  *  AV Scratch Register Re-Define
@@ -193,8 +296,8 @@ typedef enum{
 #define ENCODER_STATUS					HENC_SCRATCH_0
 #define MEM_OFFSET_REG					HENC_SCRATCH_1
 #define DEBUG_REG						HENC_SCRATCH_2  //0X0ac2
-#define MB_COUNT						HENC_SCRATCH_3
-#define IDR_INIT_COUNT					HENC_SCRATCH_4
+//#define MB_COUNT                    HENC_SCRATCH_3
+//#define IDR_INIT_COUNT              HENC_SCRATCH_4
 #define IDR_PIC_ID						HENC_SCRATCH_5
 #define FRAME_NUMBER					HENC_SCRATCH_6
 #define PIC_ORDER_CNT_LSB				HENC_SCRATCH_7
@@ -203,10 +306,55 @@ typedef enum{
 #define ANC0_BUFFER_ID					HENC_SCRATCH_A
 #define QPPICTURE						HENC_SCRATCH_B
 
-#define START_POSITION					HENC_SCRATCH_C
+//#define START_POSITION              HENC_SCRATCH_C
 #define IE_ME_MB_TYPE					HENC_SCRATCH_D
 #define IE_ME_MODE						HENC_SCRATCH_E  //bit 0-4, IE_PIPPELINE_BLOCK, bit 5 me half pixel, bit 6, me step2 sub pixel
 #define IE_REF_SEL						HENC_SCRATCH_F
+
+
+// [21:16] P_INTRA_QUANT 
+// [15:0]  INTRA_MIN_BITS 
+#define P_INTRA_CONFIG            HENC_SCRATCH_G
+
+// [31:16] TARGET_BITS_PER_MB
+// [15:8] MIN_QUANT
+//  [7:0] MAX_QUANT
+#define P_MB_QUANT_CONFIG         HENC_SCRATCH_I
+// [31:24] INC_4_BITS
+// [23:16] INC_3_BITS
+// [15:8]  INC_2_BITS
+// [7:0]   INC_1_BITS
+#define P_MB_QUANT_INC_CFG        HENC_SCRATCH_J
+// [31:24] DEC_4_BITS
+// [23:16] DEC_3_BITS
+// [15:8]  DEC_2_BITS
+// [7:0]   DEC_1_BITS
+#define P_MB_QUANT_DEC_CFG        HENC_SCRATCH_K
+
+// [31:0] NUM_ROWS_PER_SLICE_P
+// [15:0] NUM_ROWS_PER_SLICE_I
+#define FIXED_SLICE_CFG           HENC_SCRATCH_L
+
+// Each MB have 32 bits :
+// 12-bits MV_BITS, 4-bits MB_TYPE,  and 16-bits COEFF_BITS
+#define BITS_INFO_DDR_START       HENC_SCRATCH_M
+// Each MV has 16 x 32 bits 
+#define MV_INFO_DDR_START         HENC_SCRATCH_N
+// Each I4x4 has 64 bits 
+#define I4x4_INFO_DDR_START       MV_INFO_DDR_START  //shared will not dump I4x4 and MV at same time
+
+// can be shared by BITS_INFO_DDR_START
+// bit[7] - 0-same slice, 1-new slice
+// bit[6] - 0-inter, 1-intra
+// bit[5:0] - quant
+#define SW_CTL_INFO_DDR_START     BITS_INFO_DDR_START
+
+#define CURRENT_Y_CANVAS_START    HENC_SCRATCH_3
+#define CURRENT_C_CANVAS_START    HENC_SCRATCH_4
+// For Block Mode 1 - 32x32 
+// If CAVAS width = 1920, then row_size = 1920/32 * 32 * 32 = 61440 (0xf000)
+#define CANVAS_ROW_SIZE           HENC_SCRATCH_C
+
 
 #define LOW_LATENCY_EN_REG			DOS_SCRATCH9
 #define PREVIOUS_FNUM_REG				DOS_SCRATCH10
@@ -228,6 +376,10 @@ typedef enum{
 #define ENCODER_NON_IDR_DONE           10
 #define ENCODER_MB_HEADER_DONE         11
 #define ENCODER_MB_DATA_DONE           12
+
+#define ENCODER_NON_IDR_INTRA     13
+#define ENCODER_NON_IDR_INTER     14
+
 //---------------------------------------------------
 // NAL start code define
 //---------------------------------------------------
@@ -255,6 +407,13 @@ typedef enum{
 #define IDR_NAL      ((nal_reference_idc_idr<<5) | Coded_slice_of_an_IDR_picture) 
 #define NON_IDR_NAL  ((nal_reference_idc_non_idr<<5) | Coded_slice_of_a_non_IDR_picture) 
 
+//---------------------------------------------------
+// I_IN_P TOP Status
+//---------------------------------------------------
+#define I_IN_P_TOP_STATUS_IDLE    0
+#define I_IN_P_TOP_STATUS_READ_Y  1
+#define I_IN_P_TOP_STATUS_READ_C  2
+#define I_IN_P_TOP_STATUS_WRITE   3
 /********************************************
  *  Local Memory
 ********************************************/
@@ -273,12 +432,87 @@ typedef enum{
 //#define pic_width_in_mbs_minus1        0x00c
 //#define pic_height_in_map_units_minus1 0x00d
 //#define anc0_buffer_id                 0x00e
-//#define me_start_position              0x00f
-//#define ie_me_mb_type                  0x010
-//#define ie_me_mode                     0x011
-//#define ie_cur_ref_sel                 0x012
 
-#define HENC_TOP_LMEM_BEGIN            0x300
+//#define enc_header_ready               0x00f
+
+
+//#define cur_mv_bits                    0x010
+//#define cur_coeff_bits                 0x011
+//#define slice_mb_num                   0x012
+//#define current_slice_quant            0x013
+
+//#define insert_slice_header            0x014
+
+//#define Quant_change_bits              0x015
+
+//#define prev_mb_quant                  0x016
+//#define current_mb_quant               0x017
+//#define next_mb_quant                  0x018
+//#define delta_qp_data                  0x019
+//#define qp_change_mbx                  0x01a
+
+//#define process_vlc_mbx                0x01b
+//#define process_vlc_mby                0x01c
+//#define big_delta_qp                   0x01d
+
+//#define current_mb_type                0x01e
+//#define next_mb_type                   0x01f
+
+//#define T_BITS_0                       0x020
+//#define T_BITS_1                       0x021
+//#define T_BITS_2                       0x022
+//#define T_BITS_3                       0x023
+//#define T_BITS_4                       0x024
+//#define T_BITS_5                       0x025
+//#define T_BITS_6                       0x026
+
+//#define just_changed_status            0x027
+//#define mb_type                        0x028
+//#define top_store_intra                0x029
+//#define MB_SKIP_RUN_I_IN_P             0x02a
+//#define I_IN_P_TOP_STATUS              0x02b
+//#define WAIT_I_IN_P_TOP_STATUS         0x02c
+//#define top_pre_load_times             0x02d
+
+//#define MB_INC_1_BITS                  0x030
+//#define MB_INC_2_BITS                  0x031
+//#define MB_INC_3_BITS                  0x032
+//#define MB_INC_4_BITS                  0x033
+//#define MB_DEC_1_BITS                  0x034
+//#define MB_DEC_2_BITS                  0x035
+//#define MB_DEC_3_BITS                  0x036
+//#define MB_DEC_4_BITS                  0x037
+//#define MB_MIN_QUANT                   0x038
+//#define MB_MAX_QUANT                   0x039
+
+//#define ie_me_mode                     0x040
+
+// there are 32 bits BITS_INFO Per MB
+// 12-bits MV_BITS, 4-bits MB_TYPE,  and 16-bits COEFF_BITS
+//#define BITS_INFO_START                0x100
+
+//#ifdef HDEC_BLK_MODE_LINEAR
+//#define INTRA_LEFT_START               0x200
+//#define INTRA_LEFT_YC_START            0x280
+//#define INTRA_TOP_START                0x200
+//#define INTRA_TOP_Y_START              0x220
+//#define INTRA_TOP_C_START              0x240
+//#else
+//#define INTRA_LEFT_C_START             0x180
+//#define INTRA_LEFT_START               0x200
+//#define INTRA_LEFT_Y_START             0x200
+//#endif
+
+
+//#define SW_CTL_INFO_START              BITS_INFO_START
+
+// there are 64 bits I4x4_INFO per MB
+//#define I4x4_INFO_START                0x200
+
+// there are 16x32 bits MV_INFO per MB
+//#define MV_INFO_START                  0x200
+
+//#define HENC_TOP_LMEM_BEGIN            0x300
 
 /********************************************
 * defines for HENC command 
@@ -339,17 +573,42 @@ typedef enum{
 #define DEFAULT_MVY             0x4000
 
 // For I Slice
-// Bit[31:16] Reserved
+// Bit[31:20] Reserved
+// Bit[19:16] cbp
 // Bit[15:0] IntraType 
 //`define     HENC_TOP_INFO_0        8'h37 
 //`define     HENC_LEFT_INFO_0       8'h38 
 
-// For I Slice
+// For I Slice and Intra/Inter Mixed Slice
 // Bit[31:24] V_nnz
 // Bit[23:16] U_nnz
 // Bit[15:0]  Y_nnz 
 //`define     HENC_TOP_INFO_1        8'h39 
-//`define     HENC_LEFT_INFO_2       8'h3a 
+//`define     HENC_LEFT_INFO_1       8'h3a 
+
+// For Intra/Inter Mixed Slice
+// 
+// bit[31] -  cbp[3]
+// bit[30:16] - MVY ( 0x3fff Means Intra MB)
+// bit[15:0]  - MVX ( IntraType for Intra MB) 
+//`define     HENC_TOP_MV_0
+// bit[31] -  cbp[2]
+// bit[30:16] - MVY
+// bit[15:0]  - MVX
+//`define     HENC_TOP_MV_1
+// bit[31] -  cbp[1]
+// bit[30:16] - MVY
+// bit[15:0]  - MVX
+//`define     HENC_TOP_MV_2
+// bit[31] -  cbp[0]
+// bit[30:16] - MVY
+// bit[15:0]  - MVX
+//`define     HENC_TOP_MV_3
+
+//`define     HENC_LEFT_MV_0
+//`define     HENC_LEFT_MV_1
+//`define     HENC_LEFT_MV_2
+//`define     HENC_LEFT_MV_3
 
 ///////////////////////////////////////////////////////////////////////////
 // 

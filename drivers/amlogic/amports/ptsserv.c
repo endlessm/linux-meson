@@ -12,7 +12,7 @@
 
 #include "vdec_reg.h"
 
-#define VIDEO_REC_SIZE  8192
+#define VIDEO_REC_SIZE  (8192*2)
 #define AUDIO_REC_SIZE  8192
 #define VIDEO_LOOKUP_RESOLUTION 2500
 #define AUDIO_LOOKUP_RESOLUTION 1024
@@ -66,8 +66,9 @@ typedef struct pts_table_s {
        u32 last_checkin_jiffies;
     u32 last_bitrate;
     u32 last_avg_bitrate;
+    u32 last_pts_delay_ms;
 #endif
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     u32 hevc;
 #endif
 } pts_table_t;
@@ -179,26 +180,28 @@ EXPORT_SYMBOL(pts_cached_time);
 int calculation_stream_delayed_ms(u8 type, u32 *latestbitrate, u32 *avg_bitare)
 {
     pts_table_t *pTable;
-    u32 timestampe_delayed=0;
-    u32 outtime;
+    int timestampe_delayed=0;
+    unsigned long outtime;
 	
     if (type >= PTS_TYPE_MAX) {
         return 0;
     }
 
-#if HAS_HEVC_VDEC
-    if (type == PTS_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && (type == PTS_TYPE_HEVC)) {
         pTable = &pts_table[PTS_TYPE_VIDEO];
     } else
 #endif
-    pTable = &pts_table[type];
+    {
+        pTable = &pts_table[type];
+    }
 
     if((pTable->last_checkin_pts==-1) || (pTable->last_checkout_pts==-1)) {
         return 0;
     }
 
-#if HAS_HEVC_VDEC
-    if (type == PTS_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && (type == PTS_TYPE_HEVC)) {
         outtime = timestamp_vpts_get();
     } else
 #endif
@@ -209,30 +212,36 @@ int calculation_stream_delayed_ms(u8 type, u32 *latestbitrate, u32 *avg_bitare)
     } else {
         outtime = timestamp_pcrscr_get();
     }
-
+    if(outtime == 0 || outtime == 0xffffffff )
+        outtime = pTable->last_checkout_pts;
     timestampe_delayed = (pTable->last_checkin_pts-outtime)/90;
-
-    if ((timestampe_delayed<0 ||timestampe_delayed>5*1000) && pTable->last_avg_bitrate>0) {
+	pTable->last_pts_delay_ms = timestampe_delayed;
+    if ((timestampe_delayed < 10 || abs(pTable->last_pts_delay_ms - timestampe_delayed)> 3000 ) && pTable->last_avg_bitrate>0) {
         int diff = pTable->last_checkin_offset-pTable->last_checkout_offset;
         int diff2;
+        int delay_ms;
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
-        if (pTable->hevc) {
-            diff2 = stbuf_level(get_buf_by_type(PTS_TYPE_HEVC));
-        } else
-#endif
-        diff2 = stbuf_level(get_buf_by_type(type));
-
-        if ((diff-diff2) > (pTable->last_avg_bitrate/8/10) || (diff-diff2*10)) {
-            int delay_ms;
-            diff = diff2;
-            delay_ms=diff*1000/(1+pTable->last_avg_bitrate/8);
-
-            if (timestampe_delayed< 0 ||abs(timestampe_delayed-delay_ms)>3*1000) {
-                timestampe_delayed=delay_ms;
-                ///printk("..recalculated %d ms delay,diff=%d\n",timestampe_delayed,diff);
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+        if (HAS_HEVC_VDEC) {
+            if (pTable->hevc) {
+                diff2 = stbuf_level(get_buf_by_type(PTS_TYPE_HEVC));
+            } else{
+                diff2 = stbuf_level(get_buf_by_type(type));
             }
-	}
+        } else 
+#endif
+        {
+            diff2 = stbuf_level(get_buf_by_type(type));
+        }
+        
+	if(diff2 > stbuf_space(get_buf_by_type(type)))
+            diff = diff2;
+        delay_ms=diff*1000/(1+pTable->last_avg_bitrate/8);
+
+        if (timestampe_delayed < 10 || (abs(timestampe_delayed - delay_ms)>3*1000 && delay_ms > 1000)) {
+            printk("%d:recalculated ptsdelay=%dms bitratedelay=%d,diff=%d,pTable->last_avg_bitrate=%d\n",type,timestampe_delayed,delay_ms,diff,pTable->last_avg_bitrate);
+            timestampe_delayed=delay_ms;
+        }
     }
 
     if (latestbitrate) {
@@ -242,7 +251,6 @@ int calculation_stream_delayed_ms(u8 type, u32 *latestbitrate, u32 *avg_bitare)
     if (avg_bitare) {
         *avg_bitare=pTable->last_avg_bitrate;
     }
-
     return timestampe_delayed;
 }
 EXPORT_SYMBOL(calculation_stream_delayed_ms);
@@ -281,8 +289,8 @@ int calculation_stream_ext_delayed_ms(u8 type)
          return 0;
     }
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
-    if (type == PTS_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && (type == PTS_TYPE_HEVC)) {
         pTable = &pts_table[PTS_TYPE_VIDEO];
     } else
 #endif
@@ -356,7 +364,7 @@ static int pts_checkin_offset_inline(u8 type, u32 offset, u32 val,u64 uS64)
 				int newbitrate=diff*8*90/(1+(val-pTable->last_checkin_pts)/1000);
 				if(pTable->last_bitrate>100){
 					if(newbitrate<pTable->last_bitrate*5 && newbitrate>pTable->last_bitrate/5){
-						pTable->last_avg_bitrate=(pTable->last_avg_bitrate*9+newbitrate)/10;
+						pTable->last_avg_bitrate=(pTable->last_avg_bitrate*19+newbitrate)/20;
 					}else{
 						/*
 						newbitrate is >5*lastbitrate or < bitrate/5;
@@ -632,6 +640,8 @@ static int pts_lookup_offset_inline(
 
         if ((p2) &&
             (OFFSET_DIFF(offset, p2->offset) < lookup_threshold)) {
+            if (p2->val==0) //FFT: set valid vpts
+                p2->val = 1;            
             if (tsync_get_debug_pts_checkout()) {
                 if (tsync_get_debug_vpts() && (type == PTS_TYPE_VIDEO)) {
                     printk("vpts look up offset<0x%x> --> <0x%x:0x%x>, look_cnt = %d\n",
@@ -886,16 +896,18 @@ int pts_start(u8 type)
         return -EINVAL;
     }
 
-#if HAS_HEVC_VDEC
-    if (type == PTS_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && (type == PTS_TYPE_HEVC)) {
         pTable = &pts_table[PTS_TYPE_VIDEO];
         pTable->hevc = 1;
     } else
 #endif
     {
         pTable = &pts_table[type];
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8B
-        pTable->hevc = 0;
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+        if (!IS_MESON_M8_CPU) {
+            pTable->hevc = 0;
+        }
 #endif
     }
 
@@ -910,8 +922,8 @@ int pts_start(u8 type)
             return -ENOMEM;
         }
 
-#if HAS_HEVC_VDEC
-        if (type == PTS_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+        if (HAS_HEVC_VDEC && (type == PTS_TYPE_HEVC)) {
             pTable->buf_start = READ_VREG(HEVC_STREAM_START_ADDR);
             pTable->buf_size = READ_VREG(HEVC_STREAM_END_ADDR)
                                - pTable->buf_start;
@@ -920,7 +932,7 @@ int pts_start(u8 type)
             pTable->first_checkin_pts = -1;
             pTable->first_lookup_ok = 0;
             pTable->first_lookup_is_fail = 0;
-        } else
+        } else 
 #endif
         if (type == PTS_TYPE_VIDEO) {
             pTable->buf_start = READ_VREG(VLD_MEM_VIFIFO_START_PTR);
@@ -985,13 +997,15 @@ int pts_stop(u8 type)
         return -EINVAL;
     }
 
-#if HAS_HEVC_VDEC
-    if (type == PTS_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && (type == PTS_TYPE_HEVC)) {
         pTable = &pts_table[PTS_TYPE_VIDEO];
-    } else
+    } else 
 #endif
-    pTable = &pts_table[type];
-
+    {
+        pTable = &pts_table[type];
+    }
+    
     spin_lock_irqsave(&lock, flags);
 
     if (likely((pTable->status == PTS_RUNNING) ||

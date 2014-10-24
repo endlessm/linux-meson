@@ -54,18 +54,23 @@ BEGIN{
 #c_stb_define.h
     }else if(index(FILENAME,"c_stb_define")!=0){
         BASE="CBUS_REG_ADDR";
-#m6tv_mmc.h
-    }else if(index(FILENAME,"m6tv_mmc")!=0) {
+#ddr3_reg.h
+    }else if(index(FILENAME,"ddr3_reg")!=0) {
     		ADDR="0x"substr(ADDR,7,10);
         BASE="MMC_REG_ADDR";
         if(REGNAME ~ /^P_/)
         	REGNAME=substr(REGNAME,3,99);
+#dmc_reg.h
+    }else if(index(FILENAME,"dmc_reg")!=0) {
+    		ADDR="0x"substr(ADDR,7,10);
+    	print $1,"S_" REGNAME,ADDR
+        next
 #hdmi.h
-		}else if(index(FILENAME,"hdmi")!=0){
-				ADDR="0x"substr(ADDR,6,10);
+    }else if(index(FILENAME,"hdmi")!=0){
+	ADDR="0x"substr(ADDR,6,10);
         BASE="APB_REG_ADDR";
 
-		}else{
+	}else{
 				next
 		}
     
@@ -100,7 +105,7 @@ BEGIN{
 					
 				print $1,REGNAME,ADDR,"\t///" FILENAME ":" FNR
 #m6tv_mmc.h
-    }else if(index(FILENAME,"m6tv_mmc")!=0) {
+    }else if(index(FILENAME,"ddr3_reg")!=0) {
 #  #define P_DDR0_PUB_DX7BDLR4         0xc8001000 + (0x18B << 2) 
 				if(!(ADDR ~ /^0x/))
 					next
@@ -110,7 +115,18 @@ BEGIN{
         	REGNAME=substr(REGNAME,3,99);
         	
         print $1,REGNAME,"("ADDR,$4,$5,$6,$7")","\t///" FILENAME ":" FNR
-    }else
+#dmc_reg.h
+    }else if(index(FILENAME,"dmc_reg")!=0) {
+#  #define P_DMC_DDR_CTRL         DMC_REG_BASE + (0x10  << 2)
+				if(!(ADDR ~ /^DMC_REG_BASE/))
+					next
+    	ADDR="S_DMC_REG_BASE";
+        BASE="MMC_REG_ADDR";
+        if(REGNAME ~ /^P_/)
+        	REGNAME=substr(REGNAME,3,99);
+        	
+        print $1,REGNAME,"("ADDR,$4,$5,$6,$7")","\t///" FILENAME ":" FNR
+    }else 
     	next
     
 		print $1,"P_" REGNAME , "\t\t" BASE "(" REGNAME ")" 
@@ -123,7 +139,7 @@ BEGIN{
     ADDR=$3
 				
 #m6tv_mmc.h
-    if(index(FILENAME,"m6tv_mmc")!=0) {
+    if(index(FILENAME,"ddr3_reg")!=0) {
 #  #define P_MMC_CHAN_CTRL4            0xc8006000 + (0x7b << 2 ) 
     		ADDR="0x"substr(ADDR,7,10);
         BASE="MMC_REG_ADDR";

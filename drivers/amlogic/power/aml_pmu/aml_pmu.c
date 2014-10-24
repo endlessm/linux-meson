@@ -262,7 +262,7 @@ static int aml1218_get_voltage(uint32_t id, uint32_t *uV)
 {
     int dcdc = aml_1218_convert_id_to_dcdc(id);
 
-    if (dcdc >= 1 && dcdc <= 3) {
+    if (dcdc >= 1 && dcdc <= 4) {
         return aml1218_get_dcdc_voltage(dcdc, uV);    
     }
 

@@ -57,9 +57,7 @@ static s32 _stbuf_alloc(stream_buf_t *buf)
         }
 
         printk("%s stbuf alloced at 0x%x, size = %d\n",
-#if HAS_HEVC_VDEC
                (buf->type == BUF_TYPE_HEVC) ? "HEVC" :
-#endif
                (buf->type == BUF_TYPE_VIDEO) ? "Video" :
                (buf->type == BUF_TYPE_AUDIO) ? "Audio" :
                 "Subtitle",
@@ -171,20 +169,22 @@ static void _stbuf_timer_func(unsigned long arg)
 
 u32 stbuf_level(struct stream_buf_s *buf)
 {
-    return 
-#if HAS_HEVC_VDEC
-    (buf->type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_LEVEL) :
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC)
+        return (buf->type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_LEVEL) : _READ_ST_REG(LEVEL);
+    else
 #endif
-    _READ_ST_REG(LEVEL);
+        return _READ_ST_REG(LEVEL);
 }
 
 u32 stbuf_rp(struct stream_buf_s *buf)
 {
-    return
-#if HAS_HEVC_VDEC
-    (buf->type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_RD_PTR) :
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC)
+        return (buf->type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_RD_PTR) : _READ_ST_REG(RP);
+    else
 #endif
-    _READ_ST_REG(RP);
+        return _READ_ST_REG(RP);
 }
 
 u32 stbuf_space(struct stream_buf_s *buf)
@@ -192,12 +192,12 @@ u32 stbuf_space(struct stream_buf_s *buf)
     /* reserved space for safe write, the parser fifo size is 1024byts, so reserve it */
     int size;
 
-#if HAS_HEVC_VDEC
-    if (buf->type == BUF_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && buf->type == BUF_TYPE_HEVC)
         size = buf->canusebuf_size - READ_VREG(HEVC_STREAM_LEVEL);
-    } else
+    else 
 #endif
-    size = (buf->canusebuf_size - _READ_ST_REG(LEVEL)) ;
+        size = (buf->canusebuf_size - _READ_ST_REG(LEVEL)) ;
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
     if ((buf->type == BUF_TYPE_VIDEO) && (vdec_on(VDEC_2))) {
@@ -212,11 +212,7 @@ u32 stbuf_space(struct stream_buf_s *buf)
     if(buf->canusebuf_size>=buf->buf_size/2)
         size=size-6*1024;//old reversed value,tobe full, reversed only...
 
-#if HAS_HEVC_VDEC
-    if ((buf->type == BUF_TYPE_VIDEO) || (buf->type == BUF_TYPE_HEVC)) {
-#else
-    if (buf->type == BUF_TYPE_VIDEO) {
-#endif
+    if ((buf->type == BUF_TYPE_VIDEO) || (HAS_HEVC_VDEC && buf->type == BUF_TYPE_HEVC)) {
         size -= READ_MPEG_REG(PARSER_VIDEO_HOLE);
     }
 
@@ -251,8 +247,8 @@ s32 stbuf_init(struct stream_buf_s *buf)
 
     init_waitqueue_head(&buf->wq);
 
-#if HAS_HEVC_VDEC
-    if (buf->type == BUF_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && buf->type == BUF_TYPE_HEVC) {
         CLEAR_VREG_MASK(HEVC_STREAM_CONTROL, 1);
         WRITE_VREG(HEVC_STREAM_START_ADDR, phy_addr);
         WRITE_VREG(HEVC_STREAM_END_ADDR, phy_addr + buf->buf_size);

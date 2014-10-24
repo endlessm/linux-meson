@@ -30,13 +30,11 @@
 #include <linux/dma-mapping.h>
 #include <mach/io.h>
 
-#ifdef CONFIG_MESON_TRUSTZONE
 #include <mach/meson-secure.h>
-#endif
 #include <linux/sched.h>
 
 #define MESON_SECURE_DEBUG 0
-#ifdef MESON_SECURE_DEBUG
+#if MESON_SECURE_DEBUG
 #define TZDBG(fmt, args...) printk("meson-secure: " fmt, ## args);
 #else
 #define TZDBG(fmt, args...)
@@ -66,7 +64,7 @@ int meson_secure_memblock(unsigned startaddr, unsigned endaddr, struct secure_me
 }
 */
 
-struct memconfig memsecure[MEMCONFIG_NUM] = {0};
+struct memconfig memsecure[MEMCONFIG_NUM];
 int meson_trustzone_memconfig(void)
 {
 	int ret;
@@ -75,17 +73,11 @@ int meson_trustzone_memconfig(void)
 	arg.memconfigbuf_phy_addr = __pa(memsecure);
 	arg.memconfigbuf_count = MEMCONFIG_NUM;
 
-	__cpuc_flush_dcache_area(memsecure, sizeof(memsecure));
-	outer_clean_range(__pa(memsecure), (__pa(memsecure + MEMCONFIG_NUM)));
-	__cpuc_flush_dcache_area(&arg, sizeof(arg));
-	outer_clean_range(__pa(&arg), __pa(((struct memconfig_hal_api_arg*)&arg)) + 1);
+	set_cpus_allowed_ptr(current, cpumask_of(0));
 
 	ret = meson_smc_hal_api(TRUSTZONE_HAL_API_MEMCONFIG, __pa(&arg));
 
-	outer_inv_range(__pa(&arg), __pa(((struct memconfig_hal_api_arg*)&arg)) + 1);
-	dmac_unmap_area(&arg, sizeof(arg), DMA_FROM_DEVICE);
-	outer_inv_range(__pa(memsecure), __pa(memsecure + MEMCONFIG_NUM));
-	dmac_unmap_area(memsecure, sizeof(memsecure), DMA_FROM_DEVICE);
+	set_cpus_allowed_ptr(current, cpu_all_mask);
 
 	return ret;
 }
@@ -129,27 +121,14 @@ int meson_trustzone_efuse(struct efuse_hal_api_arg* arg)
 		return -1;
 	}
 	set_cpus_allowed_ptr(current, cpumask_of(0));
-	__cpuc_flush_dcache_area(__va(arg->buffer_phy), arg->size);
-	outer_clean_range((arg->buffer_phy), (arg->buffer_phy + arg->size));
-
-	__cpuc_flush_dcache_area(__va(arg->retcnt_phy), sizeof(unsigned int));
-	outer_clean_range(arg->retcnt_phy, (arg->retcnt_phy + sizeof(unsigned int)));
-
-	__cpuc_flush_dcache_area((void*)arg, sizeof(struct efuse_hal_api_arg));
-	outer_clean_range(__pa(arg), __pa(arg + 1));
 
 	ret = meson_smc_hal_api(TRUSTZONE_HAL_API_EFUSE, __pa(arg));
 
-	if (arg->cmd == EFUSE_HAL_API_READ) {
-		outer_inv_range((arg->buffer_phy), (arg->buffer_phy + arg->size));
-		dmac_unmap_area(__va(arg->buffer_phy), arg->size, DMA_FROM_DEVICE);
-	}
-	outer_inv_range((arg->retcnt_phy), (arg->retcnt_phy + sizeof(unsigned int)));
-	dmac_unmap_area(__va(arg->buffer_phy), arg->size, DMA_FROM_DEVICE);
 	set_cpus_allowed_ptr(current, cpu_all_mask);
 
 	return ret;
 }
+EXPORT_SYMBOL(meson_trustzone_efuse);
 
 uint32_t meson_secure_reg_read(uint32_t addr)
 {
@@ -164,7 +143,6 @@ uint32_t meson_secure_reg_read(uint32_t addr)
 
 	return ret;
 }
-EXPORT_SYMBOL(meson_secure_reg_read);
 
 uint32_t meson_secure_reg_write(uint32_t addr, uint32_t val)
 {
@@ -179,14 +157,34 @@ uint32_t meson_secure_reg_write(uint32_t addr, uint32_t val)
 
 	return ret;
 }
-EXPORT_SYMBOL(meson_secure_reg_write);
 
-uint32_t meson_secure_mem_size(void)
+uint32_t meson_secure_mem_base_start(void)
 {
-	return MESON_TRUSTZONE_MEM_SIZE;
+	return meson_smc1(TRUSTZONE_MON_MEM_BASE, 0);
 }
 
-uint32_t meson_secure_mem_end(void)
+uint32_t meson_secure_mem_total_size(void)
 {
-	return (MESON_TRUSTZONE_MEM_START + MESON_TRUSTZONE_MEM_SIZE);
+	return meson_smc1(TRUSTZONE_MON_MEM_TOTAL_SIZE, 0);
+}
+
+uint32_t meson_secure_mem_flash_start(void)
+{
+	return meson_smc1(TRUSTZONE_MON_MEM_FLASH, 0);
+}
+
+uint32_t meson_secure_mem_flash_size(void)
+{
+	return meson_smc1(TRUSTZONE_MON_MEM_FLASH_SIZE, 0);
+}
+
+int32_t meson_secure_mem_ge2d_access(uint32_t msec)
+{
+	int ret = -1;
+
+	set_cpus_allowed_ptr(current, cpumask_of(0));
+	ret = meson_smc_hal_api(TRUSTZONE_HAL_API_MEMCONFIG_GE2D, msec);
+	set_cpus_allowed_ptr(current, cpu_all_mask);
+
+	return ret;
 }

@@ -107,10 +107,8 @@ int aml_mdio_register(struct net_device *ndev)
 			}
 			if (phydev->phy_id  != 0) {
 				//priv->phydev->addr = addr;
-				if ((phydev->phy_id  == 0x001cc916)&& (addr == 0)) 
+				if (!((phydev->phy_id  == 0x001cc916)&& (addr == 0))) 
 				{
-					NULL;
-				}else{
 					priv->phy_addr = addr;
 					phydev->irq = PHY_POLL;
 					irqlist[addr] = PHY_POLL;

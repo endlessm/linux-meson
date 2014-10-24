@@ -76,7 +76,7 @@ unsigned dsp_debug_flag;
 
 extern struct audio_info * get_audio_info(void);
 extern void	aml_alsa_hw_reprepare(void);
-extern void dsp_get_debug_interface(void);
+extern void dsp_get_debug_interface(int flag);
 void audiodsp_moniter(unsigned long);
 static struct audiodsp_priv *audiodsp_p;
 #define  DSP_DRIVER_NAME	"audiodsp"
@@ -148,6 +148,13 @@ int audiodsp_start(void)
 	dsp_stop(priv);
 	ret=dsp_start(priv,pmcode);
 	if(ret==0){
+#ifndef CONFIG_MESON_TRUSTZONE    
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+		if(priv->stream_fmt == MCODEC_FMT_DTS || priv->stream_fmt == MCODEC_FMT_AC3 || priv->stream_fmt == MCODEC_FMT_EAC3){
+			dsp_get_debug_interface(1);
+		}
+#endif
+#endif		
  		start_audiodsp_monitor(priv);
 
 #ifdef CONFIG_AM_VDEC_REAL
@@ -265,8 +272,7 @@ static long audiodsp_ioctl(struct file *file, unsigned int cmd,
 	unsigned long pts;
 	int ret=0;
 	unsigned long drop_size;
-	unsigned long *val=(unsigned long *)args;
-	static int wait_format_times=0;	
+	static int wait_format_times=0;
 	switch(cmd)
 		{
 		case AUDIODSP_SET_FMT:						
@@ -307,10 +313,19 @@ static long audiodsp_ioctl(struct file *file, unsigned int cmd,
 				}
 			else
 				{
+#ifndef CONFIG_MESON_TRUSTZONE    
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+                               if(priv->stream_fmt == MCODEC_FMT_DTS || priv->stream_fmt == MCODEC_FMT_AC3 || priv->stream_fmt == MCODEC_FMT_EAC3)
+                                       dsp_get_debug_interface(0);    
+#endif
+#endif					
 				ret=audiodsp_start();
 				}
 			break;
 		case AUDIODSP_STOP:
+			/* restore aiu958 setting to pcm */
+			if(IEC958_mode_codec_last)
+				aml_alsa_hw_reprepare();
 			IEC958_mode_codec = 0;
 			//DSP_PRNT("audiodsp command stop\n");
 			stop_audiodsp_monitor(priv);
@@ -369,46 +384,46 @@ static long audiodsp_ioctl(struct file *file, unsigned int cmd,
 			  audiodsp_microcode_free(priv);
 			break;
 		case AUDIODSP_GET_CHANNELS_NUM: 
-			*val=-1;/*mask data is not valid*/
+			put_user(-1,(__s32 __user *)args);/*mask data is not valid*/
 			if(priv->frame_format.valid & CHANNEL_VALID)
-				{
-				*val=priv->frame_format.channel_num; 
+				{ 
+				put_user(priv->frame_format.channel_num,(__s32 __user *)args);
 				}
 			break;
 		case AUDIODSP_GET_SAMPLERATE: 
-			*val=-1;/*mask data is not valid*/
+			put_user(-1,(__s32 __user *)args);/*mask data is not valid*/
 			if(priv->frame_format.valid & SAMPLE_RATE_VALID)
-				{
-				*val=priv->frame_format.sample_rate; 
+				{ 
+				put_user(priv->frame_format.sample_rate,(__s32 __user *)args);
 				} 
 			break;
 		case AUDIODSP_GET_DECODED_NB_FRAMES: 			
-				*val=priv->decoded_nb_frames;					
+				put_user(priv->decoded_nb_frames,(__s32 __user *)args);
 			break;
 		case AUDIODSP_GET_BITS_PER_SAMPLE: 
-			*val=-1;/*mask data is not valid*/
+			put_user(-1,(__s32 __user *)args);/*mask data is not valid*/
 			if(priv->frame_format.valid & DATA_WIDTH_VALID)
 				{
-				*val=priv->frame_format.data_width; 
+				put_user(priv->frame_format.data_width,(__s32 __user *)args);
 				} 
 			break;
 		case AUDIODSP_GET_PTS:
 			/*val=-1 is not valid*/
-			*val=dsp_codec_get_current_pts(priv);
+			put_user(dsp_codec_get_current_pts(priv),(__u32 __user *)args);
 			break;
-                case AUDIODSP_LOOKUP_APTS:
-                    	{
-                        	u32 pts, offset;
-                        	offset=*val;
-                        	pts_lookup_offset(PTS_TYPE_AUDIO, offset, &pts, 300);
-                        	*val=pts;
-                    	}
-                        break;
+		case AUDIODSP_LOOKUP_APTS:
+			{
+				u32 pts, offset;
+				get_user(offset,(__u32 __user *)args);
+				pts_lookup_offset(PTS_TYPE_AUDIO, offset, &pts, 300);
+				put_user(pts,(__u32 __user *)args);
+			}
+			break;
 		case AUDIODSP_GET_FIRST_PTS_FLAG:
 			if(priv->stream_fmt == MCODEC_FMT_COOK || priv->stream_fmt == MCODEC_FMT_RAAC)
-				*val = 1;
+				put_user(1,(__s32 __user *)args);
 			else
-				*val = first_pts_checkin_complete(PTS_TYPE_AUDIO);
+				put_user(first_pts_checkin_complete(PTS_TYPE_AUDIO),(__s32 __user *)args);
 			break;
 			
 		case AUDIODSP_SYNC_AUDIO_START:
@@ -779,17 +794,10 @@ static ssize_t digital_raw_store(struct class* class, struct class_attribute* at
   printk("IEC958_mode_raw=%d\n", IEC958_mode_raw);
   return count;
 }
+#define SUPPORT_TYPE_NUM  8
+static unsigned char *codec_str[SUPPORT_TYPE_NUM] = {"2 CH PCM","DTS RAW Mode","Dolby Digital","DTS","DD+","DTSHD","8 CH PCM","TrueHD"};
 static ssize_t digital_codec_show(struct class*cla, struct class_attribute* attr, char* buf)
 {
-  static char* codec_format[] = {
-	"0-pcm",
-    "1-old_dts",
-    "2-dd",
-    "3-dts",
-    "4-dd+",
-    "5-dtshd"
-    "6-8chpcm"
-  };
   char* pbuf = buf;
 
   //printk("IEC958_mode_codec/%d Digital codec type: %s\n",IEC958_mode_codec, codec_format[IEC958_mode_codec]);
@@ -799,23 +807,17 @@ static ssize_t digital_codec_show(struct class*cla, struct class_attribute* attr
 static ssize_t digital_codec_store(struct class* class, struct class_attribute* attr,
    const char* buf, size_t count )
 {
-  printk("buf=%s\n", buf);
-  if(buf[0] == '0'){
-      IEC958_mode_codec = 0;  //pcm
-  }else if(buf[0] == '1'){
-      IEC958_mode_codec = 1;  //dts
-  }else if(buf[0] == '2'){
-      IEC958_mode_codec = 2;  // dd
-  }else if(buf[0] == '3'){
-      IEC958_mode_codec= 3;   //dts
-  }else if(buf[0] == '4'){    
-      IEC958_mode_codec=4;   //dd+
-  }else if(buf[0] == '5'){
-      IEC958_mode_codec=5;   //dtshd 
-  }else if(buf[0] == '6'){
-      IEC958_mode_codec=6;   //pcm 8Ch output
-  }
-  printk("IEC958_mode_codec=%d\n", IEC958_mode_codec);
+	int digital_codec  = 0;
+	if(buf){
+  		digital_codec = simple_strtoul(buf, NULL, 10);
+		if(digital_codec < SUPPORT_TYPE_NUM){
+			IEC958_mode_codec = digital_codec;
+			printk("IEC958_mode_codec= %d,IEC958 type %s \n",digital_codec,codec_str[digital_codec]);
+		}
+		else{
+			printk("IEC958 type set exceed supported range \n");
+		}
+	}		
   return count;
 }
 static ssize_t print_flag_show(struct class*cla, struct class_attribute* attr, char* buf)
@@ -1145,7 +1147,7 @@ int audiodsp_probe(void )
     memset((void*)DSP_REG_OFFSET,0,REG_MEM_SIZE);
 #ifndef CONFIG_MESON_TRUSTZONE    
 #if ((MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)||(MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV))
-    dsp_get_debug_interface();    
+    dsp_get_debug_interface(0);    
 #elif MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
 	// to do
 #endif

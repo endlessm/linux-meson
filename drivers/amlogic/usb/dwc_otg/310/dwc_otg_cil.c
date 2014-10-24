@@ -204,13 +204,13 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr, int host_onl
 		gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
 		gusbcfg.b.force_host_mode = 1;
 		DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
-		dwc_mdelay(100); 
+		dwc_mdelay(USB_ID_CHANGE_TIME); 
 		core_if->hptxfsiz.d32 =
 		DWC_READ_REG32(&core_if->core_global_regs->hptxfsiz);
 		gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
 		gusbcfg.b.force_host_mode = 0;
 		DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
-		dwc_mdelay(100); 
+		//dwc_mdelay(100); 
 	}
 
 	DWC_DEBUGPL(DBG_CILV, "hwcfg1=%08x\n", core_if->hwcfg1.d32);
@@ -5209,7 +5209,7 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 	while (greset.b.csftrst == 1);
 
 	/* Wait for 3 PHY Clocks */
-	dwc_mdelay(200);	//merge from kernel2.6,here is delay 200ms
+	dwc_mdelay(USB_CORE_RESET_TIME);	//merge from kernel2.6,here is delay 200ms
 
 	count = 0;
 	/* Wait for AHB master IDLE state. */
@@ -5499,7 +5499,7 @@ static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if)
 			gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
 			gusbcfg.b.force_dev_mode = 1;
 			DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
-			dwc_mdelay(100);
+			dwc_mdelay(USB_ID_CHANGE_TIME);
 			for (i = 0; i < 15; i++) {
 			dwc_otg_set_param_dev_perio_tx_fifo_size(core_if,
 								 dwc_param_dev_perio_tx_fifo_size_default, i);
@@ -5511,7 +5511,7 @@ static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if)
 			gusbcfg.d32 =  DWC_READ_REG32(&core_if->core_global_regs->gusbcfg);
 			gusbcfg.b.force_dev_mode = 0;
 			DWC_WRITE_REG32(&core_if->core_global_regs->gusbcfg, gusbcfg.d32);
-			dwc_mdelay(100);
+			dwc_mdelay(USB_ID_CHANGE_TIME);
 		}
 	} else {
 		for (i = 0; i < 15; i++) {

@@ -1,7 +1,7 @@
-if ARCH_MESON8
+if ARCH_MESON8 || ARCH_MESON8M2
 
 config MACH_MESON8_COMMON_BOARD
-	depends on ARCH_MESON8
+	depends on ARCH_MESON8 || ARCH_MESON8M2
 	bool "Meson8 common board"
 	default y 
 	help

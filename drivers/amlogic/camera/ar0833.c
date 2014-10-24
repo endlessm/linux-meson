@@ -33,6 +33,7 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <linux/wakelock.h>
+#include <linux/vmalloc.h>
 
 #include <linux/i2c.h>
 #include <media/v4l2-chip-ident.h>
@@ -72,7 +73,7 @@
 #define AR0833_CAMERA_VERSION \
 	KERNEL_VERSION(AR0833_CAMERA_MAJOR_VERSION, AR0833_CAMERA_MINOR_VERSION, AR0833_CAMERA_RELEASE)
 
-
+#define AR0833_DRIVER_VERSION "AR0833-COMMON-01-140717"
 
 MODULE_DESCRIPTION("ar0833 On Board");
 MODULE_AUTHOR("amlogic-sh");
@@ -5039,7 +5040,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct ar0833_fh  *fh = priv;
 
 	int ret = videobuf_querybuf(&fh->vb_vidq, p);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	if(ret == 0){
 		p->reserved  = convert_canvas_index(fh->fmt->fourcc, AR0833_RES0_CANVAS_INDEX+p->index*3);
 	}else{
@@ -5464,7 +5465,7 @@ static int ar0833_open(struct file *file)
     aml_cam_init(&dev->cam_info);
     printk("config path:%s\n",(dev->cam_info).config);
     if((dev->cam_info).config != NULL){
-        if((dev->configure = kmalloc(sizeof(configure_t),0)) != NULL){
+        if((dev->configure = vmalloc(sizeof(configure_t))) != NULL){
             if(parse_config((dev->cam_info).config,dev->configure) == 0){
                 printk("parse successfully");
             }else{
@@ -5620,11 +5621,12 @@ static int ar0833_close(struct file *file)
             for(i = 0; i < dev->configure->aet.sum; i++){
                 kfree(dev->configure->aet.aet[i].info);
                 dev->configure->aet.aet[i].info = NULL;
-                kfree(dev->configure->aet.aet[i].aet_table);
+                vfree(dev->configure->aet.aet[i].aet_table);
                 dev->configure->aet.aet[i].aet_table = NULL;
             }
         }
-        kfree(cf);
+        vfree(dev->configure);
+        dev->configure = NULL;
     }
     if(dev->cam_para != NULL ){
         free_para(dev->cam_para);
@@ -5867,7 +5869,12 @@ static int ar0833_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
-   printk("register device\n");	
+	
+	t->cam_info.version = AR0833_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+	
+	printk("register device\n");	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
 		video_device_release(t->vdev);
@@ -5886,6 +5893,7 @@ static int ar0833_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

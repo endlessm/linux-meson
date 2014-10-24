@@ -40,7 +40,6 @@
 //#include <linux/time.h>
 
 //#define CONFIG_GRAVITY_STK8312
-//#define CONFIG_GRAVITY_STK8313
 
 //#define STK_ALLWINNER_PLATFORM
 //#define STK_ALLWINNER_A13
@@ -64,25 +63,19 @@
 #define STK_ZG_FILTER
 #ifdef CONFIG_GRAVITY_STK8312
 	#define STK_ZG_COUNT	1
-#elif defined (CONFIG_GRAVITY_STK8313)
-	#define STK_ZG_COUNT	4
 #endif
 
 #define STK_TUNE
 #ifdef CONFIG_GRAVITY_STK8312
-	#define STK_TUNE_XYOFFSET 3
-	#define STK_TUNE_ZOFFSET 6
-	#define STK_TUNE_NOISE 5
-#elif defined (CONFIG_GRAVITY_STK8313)
-	#define STK_TUNE_XYOFFSET 35
-	#define STK_TUNE_ZOFFSET 75
-	#define STK_TUNE_NOISE 20	
+	#define STK_TUNE_XYOFFSET 4
+	#define STK_TUNE_ZOFFSET 11
+	#define STK_TUNE_NOISE 5	
 #endif
 #define STK_TUNE_NUM 125
 #define STK_TUNE_DELAY 125
 
 #ifndef STK_ALLWINNER_PLATFORM
-	#ifdef CONFIG_GRAVITY_STK8313
+	#ifdef CONFIG_STK8313
 		#include <linux/sensor/stk8313.h>
 	#elif defined CONFIG_GRAVITY_STK8312
 		#include <linux/sensor/stk8312.h>
@@ -90,13 +83,9 @@
 		#error "What's your stk accelerometer?"
 	#endif
 #else
-	#ifdef CONFIG_GRAVITY_STK8313
-		#include "stk8313.h"
-	#elif defined CONFIG_GRAVITY_STK8312
+
 		#include "stk8312.h"
-	#else
-		#error "What's your stk accelerometer?"
-	#endif
+
 #endif	/* #ifndef STK_ALLWINNER_PLATFORM */
 
 #ifdef STK_ALLWINNER_PLATFORM
@@ -145,18 +134,7 @@ struct stk831x_data
 #endif 		
 };
 
-#ifdef CONFIG_GRAVITY_STK8313
-struct stk831x_range {
-    char rng;               // RNG[1:0]
-    int range;             // g*2
-    int resolution;      // bit data output
-}stk8313_range[4] = {
-    {0,  2*2,   10},
-    {1,  4*2,   11},
-    {2,  8*2,   12},
-    {3,  16*2, 12},
-};
-#elif defined(CONFIG_GRAVITY_STK8312)
+
 struct stk831x_range {
     char rng;
     int range;
@@ -166,9 +144,8 @@ struct stk831x_range {
     {1,  6*2,    8},
     {2,  16*2,  8},
 };
-#endif
 
-//#define STK831X_HOLD_ODR
+#define STK831X_HOLD_ODR
 #define STK831X_INIT_ODR		2		//2:100Hz, 3:50Hz, 4:25Hz
 #define STK831X_SAMPLE_TIME_MIN_NO		2
 #define STK831X_SAMPLE_TIME_NO		5
@@ -476,11 +453,13 @@ static int STK831X_SetVD(struct stk831x_data *stk)
 {
 	int result;
 	char buffer[2] = "";
+
 	char reg24;
-	
+
 	msleep(2);
 	result = STK831x_ReadByteOTP(0x70, &reg24);
-	if(result < 0)
+	
+ 	if(result < 0)
 	{
 		printk(KERN_ERR "%s: read back error, result=%d\n", __func__, result);
 		return result;
@@ -516,6 +495,7 @@ static int STK831X_SetVD(struct stk831x_data *stk)
 		printk(KERN_ERR "%s: error, reg24=0x%x, read=0x%x\n", __func__, reg24, buffer[0]);
 		return -1;
 	}
+
 	printk(KERN_INFO "%s: successfully", __func__);
 	return 0;
 }
@@ -771,7 +751,7 @@ static int STK831x_ReadSensorData(struct stk831x_data *stk)
 	return 0;	
 }
 
-#elif defined CONFIG_GRAVITY_STK8313
+#elif defined CONFIG_STK8313
 static int STK831x_CheckReading(int acc[], bool clear)
 {
 	static int check_result = 0;
@@ -1625,11 +1605,7 @@ static int STK831X_VerifyCali(struct stk831x_data *stk, unsigned char en_dis, ui
 	unsigned char axis, state;	
 	int acc_ave[3] = {0, 0, 0};
 	const unsigned char verify_sample_no = 3;		
-#ifdef CONFIG_GRAVITY_STK8313
-	const unsigned char verify_diff = 25;	
-#elif defined CONFIG_GRAVITY_STK8312
-	const unsigned char verify_diff = 2;		
-#endif		
+	const unsigned char verify_diff = 2;			
 	int result;
 	char buffer[2] = "";
 	int ret = 0;
@@ -1924,10 +1900,7 @@ static int STK831x_SetCali(struct stk831x_data *stk, char sstate)
 	else if(store_location >= 2)
 	{
 		for(axis=0; axis<3; axis++)
-		{
-#ifdef CONFIG_GRAVITY_STK8313
-			new_offset[axis]>>=2;
-#endif				
+		{			
 			char_offset[axis] = (char)new_offset[axis];
 			if( (char_offset[axis]>>7)==0)
 			{
@@ -2068,7 +2041,7 @@ static int STK831x_Init(struct stk831x_data *stk, struct i2c_client *client)
 
 #ifdef CONFIG_GRAVITY_STK8312
 	printk(KERN_INFO "%s: Initialize stk8312\n", __func__);
-#elif defined CONFIG_GRAVITY_STK8313
+#elif defined CONFIG_STK8313
 	printk(KERN_INFO "%s: Initialize stk8313\n", __func__);
 #endif		
 	
@@ -2113,14 +2086,10 @@ static int STK831x_Init(struct stk831x_data *stk, struct i2c_client *client)
 		return result;
 	}	
 #endif 
-	buffer[0] = STK831X_STH;
-#ifdef CONFIG_GRAVITY_STK8312	
+	buffer[0] = STK831X_STH;	
 	/* +- 6g mode */
 	buffer[1] = 0x42;
-#elif defined CONFIG_GRAVITY_STK8313
-	/* +- 8g mode */
-	buffer[1] = 0x82;
-#endif	
+
 	result = STK_i2c_Tx(buffer, 2);
 	if (result < 0) 
 	{
@@ -2922,7 +2891,7 @@ static ssize_t stk831x_allreg_show(struct device *dev,
 			case 0x5:	
 			case STK831X_INTSU:	
 			case STK831X_MODE:	
-			case STK831X_SR:	
+			case STK831X_SR:
 			case STK831X_OFSX:	
 			case STK831X_OFSY:	
 			case STK831X_OFSZ:	
@@ -3066,21 +3035,12 @@ static ssize_t stk831x_range_show(struct device *dev,
 	char grange = 0;
        int range = 0;
 
-#ifdef CONFIG_GRAVITY_STK8313
-       range = stk8313_range[2].range;
-       if(!STK831x_GetRange(&grange)) {
-            if(grange <= 0x3)
-                range = stk8313_range[(int)grange].range;
-       }
-	return sprintf(buf, "%d\n", range);
-#elif defined(CONFIG_GRAVITY_STK8312)
        range = stk8312_range[1].range;
        if(!STK831x_GetRange(&grange)) {
             if(grange <= 0x2)
                 range= stk8312_range[(int)grange].range;
        }
        return sprintf(buf, "%d\n", range);
-#endif
 }
 
 static ssize_t stk831x_resolution_show(struct device *dev,
@@ -3089,19 +3049,12 @@ static ssize_t stk831x_resolution_show(struct device *dev,
 	char grange = 0;
        int resolution = 0;
 	
-#ifdef CONFIG_GRAVITY_STK8313
-       resolution = stk8313_range[2].resolution;
-       if(!STK831x_GetRange(&grange)) {
-            if(grange <= 0x3)
-                resolution = stk8313_range[(int)grange].resolution;
-       }
-#elif defined(CONFIG_GRAVITY_STK8312)
+
        resolution = stk8312_range[1].resolution;
        if(!STK831x_GetRange(&grange)) {
             if(grange <= 0x2)
                 resolution = stk8312_range[(int)grange].resolution;
        }
-#endif
 
 	return sprintf(buf, "%d\n", resolution);
 }
@@ -3212,15 +3165,10 @@ static int stk831x_probe(struct i2c_client *client, const struct i2c_device_id *
 	
 	stk->input_dev->name = STK831X_I2C_NAME;
 	set_bit(EV_ABS, stk->input_dev->evbit);	
-#ifdef CONFIG_GRAVITY_STK8312
 	input_set_abs_params(stk->input_dev, ABS_X, -128, 127, 0, 0);
 	input_set_abs_params(stk->input_dev, ABS_Y, -128, 127, 0, 0);
 	input_set_abs_params(stk->input_dev, ABS_Z, -128, 127, 0, 0);
-#elif defined CONFIG_GRAVITY_STK8313
-	input_set_abs_params(stk->input_dev, ABS_X, -512, 511, 0, 0);
-	input_set_abs_params(stk->input_dev, ABS_Y, -512, 511, 0, 0);
-	input_set_abs_params(stk->input_dev, ABS_Z, -512, 511, 0, 0);	
-#endif
+
 
 	error = input_register_device(stk->input_dev);
 	if (error) 
@@ -3420,25 +3368,8 @@ static int __init stk831x_init(void)
 {
 	int ret;
 	printk("%s\n", __func__);
-#ifdef STK_ALLWINNER_PLATFORM	
-	#ifdef CONFIG_GRAVITY_STK8312
-		printk("======stk831x(8312) init======\n");
-		u_i2c_addr.dirty_addr_buf[0] = 0x3d;
-	#elif defined CONFIG_GRAVITY_STK8313
-		printk("======stk831x(8313) init======\n");
-		u_i2c_addr.dirty_addr_buf[0] = 0x22;
-	#endif	
-	
-	u_i2c_addr.dirty_addr_buf[1] = I2C_CLIENT_END;
-	stk831x_driver.detect = gsensor_detect;	
-#endif	/* #ifdef STK_ALLWINNER_PLATFORM */
 
-#ifdef STK_ALLWINNER_PLATFORM	
-	if(gsensor_fetch_sysconfig_para()){
-		printk("%s:gsensor_fetch_sysconfig_para  err.\n", __func__);
-		return -1;
-	}
-#endif
+
 	ret = i2c_add_driver(&stk831x_driver);
 	if (ret!=0)
 	{
@@ -3451,9 +3382,6 @@ static int __init stk831x_init(void)
 	if(IS_ERR(STKPermissionThread))
 		STKPermissionThread = NULL;
 #endif // STK_PERMISSION_THREAD	
-#ifdef STK_ALLWINNER_PLATFORM
-	printk("======stk831x init ok======\n");	
-#endif	/* #ifdef STK_ALLWINNER_PLATFORM */	
 	return ret; 
 }
 

@@ -23,9 +23,9 @@ source "drivers/amlogic/securitykeys/Kconfig"
 source "drivers/amlogic/keymanage/Kconfig"
 source "drivers/amlogic/efuse/Kconfig"
 source "drivers/amlogic/smartcard/Kconfig"
-source "drivers/amlogic/boot_monitor/Kconfig"
 source "drivers/amlogic/thermal/Kconfig"
 source "drivers/amlogic/watchdog/Kconfig"
+source "drivers/amlogic/spi/Kconfig"
 
 #
 #	Block devices
@@ -53,6 +53,9 @@ isource "../hardware/wifi/realtek/drivers/8192du/rtl8xxx_DU/Kconfig"
 isource "../hardware/wifi/realtek/drivers/8192eu/rtl8192EU/Kconfig"
 isource "../hardware/wifi/realtek/drivers/8189es/rtl8189ES/Kconfig"
 isource "../hardware/wifi/realtek/drivers/8723bs/rtl8723BS/Kconfig"
+isource "../hardware/wifi/realtek/drivers/8723au/rtl8723AU/Kconfig"
+isource "../hardware/wifi/realtek/drivers/8811au/rtl8811AU/Kconfig"
+
 source "drivers/amlogic/bluetooth/Kconfig"
 source "drivers/amlogic/nfc/Kconfig"
 
@@ -103,4 +106,5 @@ source "drivers/amlogic/crypto/Kconfig"
 
 source "drivers/amlogic/mhl/Kconfig"
 isource "../hardware/amlogic/pmu/Kconfig"
+isource "../hardware/amlogic/touch/Kconfig"
 endmenu

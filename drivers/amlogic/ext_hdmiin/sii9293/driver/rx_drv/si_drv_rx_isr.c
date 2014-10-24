@@ -390,11 +390,28 @@ static void hdcp_error_handler(bool_t v_sync_mode)
  *
  *****************************************************************************/
 extern void sii5293_output_mode_trigger(unsigned int flag);
+static uint8_t signal_status = 0;
+
+void sii_signal_notify(unsigned int status)
+{
+	printk("sii9293, [%s] status = %d, signal_status = %d\n", __FUNCTION__, status, signal_status);
+    // signal detection for vdin utility.
+    if( (status==1) && (signal_status==0) )
+    {
+    	signal_status = status;
+        sii5293_output_mode_trigger(1);
+    }
+    else if( (status==0) && (signal_status==1) )
+    {
+    	signal_status = status;
+    	sii5293_output_mode_trigger(0);
+    }
+
+    return ;
+}
 
 void SiiRxInterruptHandler(void)
 {
-	static uint8_t current_scdt = 0;
-
     uint8_t interrupts[NMB_OF_RX_INTERRUPTS];
    
     //DEBUG_PRINT(MSG_STAT, ("RX Interrupt detected!\n"));
@@ -439,32 +456,29 @@ void SiiRxInterruptHandler(void)
         switch_hdcp_failure_check_with_v_sync_rate(OFF);
         SiiDrvRxMuteVideo(ON);
         rx_isr.bVidStableChgEvent = true;
+
         if(SiiDrvRxIsSyncDetected())
         {
+        	// SCDT detection for vdin utility.
+        	printk("sii9293 irq got SCDT!\n");
+
             rx_isr.bScdtState = true;
 #if defined(__KERNEL__)
             SiiConnectionStateNotify(true);
 #endif  
-            // SCDT detection for vdin utility.
-	        if( current_scdt == 0 )
-	        {
-	            sii5293_output_mode_trigger(1);
-	            current_scdt = 1;
-	        }
         }
         else
         {
+        	// SCDT detection for vdin utility.
+			printk("sii9293 irq lost SCDT!\n");
+			sii_signal_notify(0);
+
             rx_isr.bScdtState = false;
             SiiDrvSoftwareReset(RX_M__SRST__SRST);
             VMD_ResetTimingData();
             DEBUG_PRINT(MSG_STAT, ("RX: IDLE!\n"));
 
-            // SCDT detection for vdin utility.
-	        if( current_scdt == 1 )
-	        {
-	            sii5293_output_mode_trigger(0);
-	            current_scdt = 0;
-	        }
+
         }
 
     }

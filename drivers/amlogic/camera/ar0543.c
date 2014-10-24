@@ -73,7 +73,7 @@ static int capture_proc = 0;
 #define AR0543_CAMERA_VERSION \
 	KERNEL_VERSION(AR0543_CAMERA_MAJOR_VERSION, AR0543_CAMERA_MINOR_VERSION, AR0543_CAMERA_RELEASE)
 
-
+#define AR0543_DRIVER_VERSION "AR0543-COMMON-01-140717"
 
 MODULE_DESCRIPTION("ar0543 On Board");
 MODULE_AUTHOR("amlogic-sh");
@@ -118,8 +118,7 @@ static int t_index = -1;
 static int dest_hactive = 640;
 static int dest_vactive = 480;
 static bool bDoingAutoFocusMode = false;
-static configure_t *cf = NULL;
-static cam_parameter_t *g_cp = NULL;
+static configure_t *cf;
 /* supported controls */
 static struct v4l2_queryctrl ar0543_qctrl[] = {
 	{
@@ -2610,21 +2609,21 @@ static resolution_param_t  debug_prev_resolution_array[] = {
 	}, {
 		.frmsize			= {1280, 960},
 		.active_frmsize		= {2592, 1944},
-		.active_fps			= 7.5,
+		.active_fps			= 15,
 		.size_type			= SIZE_1280X960,
 		.reg_script[0]		= AR0543_preview_960P_script,
 		.reg_script[1]		= AR0543_5M_script_mipi,
 	}, {
 		.frmsize			= {1920, 1080},
 		.active_frmsize		= {1920, 1080},
-		.active_fps			= 15,
+		.active_fps			= 30,
 		.size_type			= SIZE_1920X1080,
 		.reg_script[0]		= AR0543_preview_1080P_script,
 		.reg_script[1]		= AR0543_1080P_script_mipi,
 	},{
 		.frmsize			= {2592, 1944},
 		.active_frmsize		= {2592, 1944},
-		.active_fps			= 7.5,
+		.active_fps			= 15,
 		.size_type			= SIZE_2592X1944,
 		.reg_script[0]		= AR0543_capture_5M_script,
 		.reg_script[1]		= AR0543_5M_script_mipi,
@@ -2635,7 +2634,7 @@ static resolution_param_t  capture_resolution_array[] = {
 	{
 		.frmsize			= {2592, 1944},
 		.active_frmsize		= {2592, 1944},
-		.active_fps			= 7.5,
+		.active_fps			= 15,
 		.size_type			= SIZE_2592X1944,
 		.reg_script[0]			= AR0543_capture_5M_script,
 		.reg_script[1]			= AR0543_5M_script_mipi,
@@ -4172,7 +4171,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct ar0543_fh  *fh = priv;
 
 	int ret = videobuf_querybuf(&fh->vb_vidq, p);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	if(ret == 0){
 		p->reserved  = convert_canvas_index(fh->fmt->fourcc, AR0543_RES0_CANVAS_INDEX+p->index*3);
 	}else{
@@ -4625,10 +4624,7 @@ static int ar0543_open(struct file *file)
     aml_cam_init(&dev->cam_info);
     printk("config path:%s\n",(dev->cam_info).config);
     if((dev->cam_info).config != NULL){
-		if(cf != NULL){
-			dev->configure = cf ;
-			printk("dgt, has a configure:%p. usi it\n", cf);
-		}else if((dev->configure = vmalloc(sizeof(configure_t))) != NULL){
+        if((dev->configure = vmalloc(sizeof(configure_t))) != NULL){
             if(parse_config((dev->cam_info).config,dev->configure) == 0){
                 printk("parse successfully, pointer:%p\n", dev->configure);
             }else{
@@ -4640,10 +4636,7 @@ static int ar0543_open(struct file *file)
             return -ENOMEM;
         }      
     }
-	if(g_cp != NULL){
-		printk("dgt, has a cam_para:%p,use it\n", g_cp);
-		dev->cam_para = g_cp;
-	}else{ 
+ 
 		if((dev->cam_para = vmalloc(sizeof(cam_parameter_t))) == NULL){
 			printk("memalloc failed\n");
 			return -ENOMEM;
@@ -4654,13 +4647,13 @@ static int ar0543_open(struct file *file)
 			vfree(dev->cam_para);
 			return -EINVAL;
 		}
-	}
+	
     dev->cam_para->cam_function.set_aet_new_step = AR0543_set_aet_new_step;
     dev->cam_para->cam_function.check_mains_freq = AR0543_check_mains_freq;
     dev->cam_para->cam_function.set_af_new_step = AR0543_set_af_new_step;
     dev->camera_priv_data.configure = dev->configure;
     dev->cam_para->cam_function.priv_data = (void *)&dev->camera_priv_data;  
-	g_cp = dev->cam_para;
+
     dev->ae_on = false;
     AR0543_init_regs(dev);
     msleep(40);
@@ -4788,9 +4781,24 @@ static int ar0543_close(struct file *file)
     videobuf_mmap_free(&fh->vb_vidq);
 
     kfree(fh);
-
-	dev->configure = NULL;
-    dev->cam_para = NULL;
+    if(dev->configure != NULL){
+        if(dev->configure->aet_valid){
+            for(i = 0; i < dev->configure->aet.sum; i++){
+                kfree(dev->configure->aet.aet[i].info);
+                dev->configure->aet.aet[i].info = NULL;
+                vfree(dev->configure->aet.aet[i].aet_table);
+                dev->configure->aet.aet[i].aet_table = NULL;
+            }
+        }
+        vfree(dev->configure);
+        dev->configure = NULL;
+    }
+    cf = NULL;
+    if(dev->cam_para != NULL ){
+        free_para(dev->cam_para);
+        kfree(dev->cam_para);
+        dev->cam_para = NULL;
+    }
 	dev->camera_priv_data.sensor_aet_table = NULL;
 	dev->camera_priv_data.sensor_aet_info = NULL;
     mutex_lock(&dev->mutex);
@@ -5031,6 +5039,11 @@ static int ar0543_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
+	
+	t->cam_info.version = AR0543_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+		
 	printk("register device\n");	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
@@ -5040,8 +5053,6 @@ static int ar0543_probe(struct i2c_client *client,
 	}
 	device_create_file( &t->vdev->dev, &dev_attr_cam_info);
 
-	cf = NULL;
-	g_cp = NULL;
 
 	return 0;
 }
@@ -5054,25 +5065,8 @@ static int ar0543_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
-	if(cf){
-		if(cf->aet_valid){
-			int i =0;
-            for(i = 0; i < cf->aet.sum; i++){
-                vfree(cf->aet.aet[i].info);
-                cf->aet.aet[i].info = NULL;
-                vfree(cf->aet.aet[i].aet_table);
-                cf->aet.aet[i].aet_table = NULL;
-            }
-        }
-        vfree(cf);
-        cf = NULL;
-	}
-	if(g_cp){
-        free_para(g_cp);
-		vfree(g_cp);
-		g_cp = NULL;
-	}
 	return 0;
 }
 

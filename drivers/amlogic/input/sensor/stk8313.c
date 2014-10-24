@@ -58,7 +58,7 @@
 #define STK_RESUME_RE_INIT	
 //#define STK_DEBUG_PRINT
 //#define STK_DEBUG_RAWDATA
-#define STK_FIR_LEN	1
+#define STK_FIR_LEN	8
 #define STK_ZG_FILTER
 
 #define STK_ZG_COUNT	4
@@ -1752,7 +1752,7 @@ err_i2c_rw:
 static int STK831x_GetCali(struct stk831x_data *stk)
 {
 	char r_buf[STK_ACC_CALI_FILE_SIZE] = {0};
-	char offset[3], mode;	
+	char  mode;	
 	int cnt, result;
 	int i_offset[3] = {0};
 
@@ -2555,8 +2555,8 @@ static ssize_t stk831x_delay_store(struct device *dev,
 {
 	unsigned long data;
 	int error;
-	struct stk831x_data *stk = i2c_get_clientdata(this_client);
-	char restore_state = 0;
+	//struct stk831x_data *stk = i2c_get_clientdata(this_client);
+//	char restore_state = 0;
 	
 	error = strict_strtoul(buf, 10, &data);
 	if (error)

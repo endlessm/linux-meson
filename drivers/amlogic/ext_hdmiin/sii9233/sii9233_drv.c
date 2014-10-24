@@ -372,8 +372,7 @@ static ssize_t sii9233a_debug_store(struct class *class, struct class_attribute 
 	}
 	else if( cmd == 5 ) // tt, for loop test of 9293 i2c
 	{
-		unsigned int type = 255, count = 0, i = 0, v1 = 0, v2 = 0;
-		unsigned int err1 = 0, err2 = 0, sum = 0, sum_failed = 0;
+		unsigned int type = 255, count = 0;
 
 		type = (unsigned int )simple_strtoul(argv[1], NULL, 10);
 		count = (unsigned int)simple_strtoul(argv[2], NULL, 10);
@@ -383,7 +382,7 @@ static ssize_t sii9233a_debug_store(struct class *class, struct class_attribute 
 		if( type == 0 ) // 0x2/0x3 = 3392
 		{
 			unsigned int i = 0, v1 = 0, v2 = 0;
-			unsigned int err1 = 0, err2 = 0, sum_failed = 0;
+			unsigned int err1 = 0, err2 = 0;
 			for( i=0; i<count; i++ )
 			{
 				msleep(2);
@@ -465,7 +464,7 @@ static ssize_t sii9233a_enable_store(struct class *class, struct class_attribute
 {
 	int argn;
 	char *p=NULL, *para=NULL, *argv[5] = {NULL,NULL,NULL,NULL,NULL};
-	unsigned int mode = 0, enable=0, height = 0, width = 0, frame_rate = 0, field_flag = 0;
+	unsigned int mode = 0, enable=0;
 	char *vmode[10] = {"480i\n","480p\n","576i\n","576p\n","720p50\n","720p\n","1080i\n","1080p\n","1080i50\n","1080p50\n"};
 	int i = 0;
 
@@ -828,7 +827,7 @@ static struct platform_driver sii9233a_driver = {
 };
 static int __init sii9233a_drv_init(void)
 {
-	int ret = 0;
+//	int ret = 0;
 
     printk("[%s] Ver: %s\n", __FUNCTION__, SII9233A_DRV_VER);
 

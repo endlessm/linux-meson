@@ -9,6 +9,7 @@
 #include <linux/fs.h>
 #include <linux/interrupt.h>
 #include <linux/amlogic/amports/amstream.h>
+#include <linux/uaccess.h>
 
 #include <linux/amlogic/amlog.h>
 MODULE_AMLOG(AMLOG_DEFAULT_LEVEL, 0, LOG_DEFAULT_LEVEL_DESC, LOG_DEFAULT_MASK_DESC);
@@ -482,8 +483,10 @@ static long amsubtitle_ioctl(struct file *file,
 {
     switch (cmd) {
     case AMSTREAM_IOC_GET_SUBTITLE_INFO: {
-            subinfo_para_t *states = (void *)arg;
-			
+            subinfo_para_t Vstates;
+            subinfo_para_t *states = &Vstates;
+            if(copy_from_user((void*)states,(void *)arg,sizeof(Vstates)))
+                return -EFAULT;
             switch(states->subinfo_type) {
             case SUB_ENABLE:
                 states->subtitle_info = subtitle_enable;
@@ -533,11 +536,16 @@ static long amsubtitle_ioctl(struct file *file,
             default:
 		        break;
             }
+            if(copy_to_user((void*)arg,(void *)states,sizeof(Vstates)))
+                return -EFAULT;
         }
 
 		break;
 	case AMSTREAM_IOC_SET_SUBTITLE_INFO: {
-            subinfo_para_t *states = (void *)arg;
+            subinfo_para_t Vstates;
+            subinfo_para_t *states = &Vstates;
+            if(copy_from_user((void*)states,(void *)arg,sizeof(Vstates)))
+                return -EFAULT;
             switch(states->subinfo_type) {
             case SUB_ENABLE:
                 subtitle_enable = states->subtitle_info;
@@ -595,6 +603,7 @@ static long amsubtitle_ioctl(struct file *file,
             default:
 		        break;
             }
+			
         }
 
         break;

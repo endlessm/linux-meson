@@ -432,7 +432,7 @@ static void __init meson_timer_setup(struct clock_event_device *evt, struct meso
     		|(TIMER_RESOLUTION_1us << clk->bit_resolution)) );
     aml_write_reg32(clk->reg, 9999);
     meson_timer_init_device(&clk->clockevent);
-    printk(KERN_ERR"Global timer: %s (%p) initialized\n",clk->clockevent.name,clk);
+    printk(KERN_DEBUG "Global timer: %s (%p) initialized\n",clk->clockevent.name,clk);
 
     clk->irq.dev_id=&clk->clockevent;
     clk->clockevent.private = (void *)clk;

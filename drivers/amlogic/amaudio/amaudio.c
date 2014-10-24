@@ -1585,7 +1585,7 @@ static long amaudio_utils_ioctl(struct file *file,
             break;
 #endif			
         case AMAUDIO_IOC_GET_RESAMPLE_ENA:
-            *((u32 *)arg) = enable_resample_flag;
+            put_user(enable_resample_flag,(__u32 __user *)arg);
             break;
         case AMAUDIO_IOC_SET_RESAMPLE_ENA:
             enable_resample_flag = arg;
@@ -1597,8 +1597,8 @@ static long amaudio_utils_ioctl(struct file *file,
 			resample_delta=arg;
             break;
         case AMAUDIO_IOC_GET_RESAMPLE_DELTA:
-            *((u32 *)arg) = resample_delta;
-			printk("set resample_delta=%d\n ",resample_delta);
+            put_user(resample_delta,(__s32 __user *)arg);
+            printk("set resample_delta=%d\n ",resample_delta);
             break;
         default:
         	break;
@@ -1993,7 +1993,7 @@ static struct class_attribute amaudio_attrs[]={
   __ATTR(dac_mute_const, S_IRUGO | S_IWUSR, dac_mute_const_show, dac_mute_const_store),
   __ATTR_RO(output_enable),
   __ATTR(record_type, S_IRUGO | S_IWUSR, record_type_show, record_type_store),  
-   __ATTR(debug, S_IRUGO | S_IWUSR, show_debug, store_debug),
+   __ATTR(debug, S_IRUGO | S_IWUSR | S_IWGRP, show_debug, store_debug),
   __ATTR_NULL
 };
 

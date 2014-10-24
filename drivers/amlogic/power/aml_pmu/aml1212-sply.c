@@ -54,7 +54,7 @@ static struct wake_lock aml1212_lock;
 #define MAX_BUF         100
 #define CHECK_DRIVER()      \
     if (!g_aml1212_client) {    \
-        AML_PMU_DBG("driver is not ready right now, wait...\n");   \
+        AML_PMU_INFO("driver is not ready right now, wait...\n");   \
         dump_stack();       \
         return -ENODEV;     \
     }
@@ -104,7 +104,7 @@ int aml_pmu_write(int add, uint8_t val)
     buf[2] = val & 0xff;
     ret = i2c_transfer(pdev->adapter, msg, 1);
     if (ret < 0) {
-        AML_PMU_DBG("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
+        AML_PMU_ERR("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
         return ret;
     }
     return 0;
@@ -134,7 +134,7 @@ int aml_pmu_write16(int add, uint16_t val)
     buf[3] = (val >> 8) & 0xff;
     ret = i2c_transfer(pdev->adapter, msg, 1);
     if (ret < 0) {
-        AML_PMU_DBG("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
+        AML_PMU_ERR("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
         return ret;
     }
     return 0;
@@ -163,7 +163,7 @@ int aml_pmu_writes(int add, uint8_t *buff, int len)
     memcpy(buf + 2, buff, len > MAX_BUF ? MAX_BUF : len);
     ret = i2c_transfer(pdev->adapter, msg, 1);
     if (ret < 0) {
-        AML_PMU_DBG("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
+        AML_PMU_ERR("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
         return ret;
     }
     return 0;
@@ -197,7 +197,7 @@ int aml_pmu_read(int add, uint8_t *val)
     buf[1] = (add >> 8) & 0x0f;
     ret = i2c_transfer(pdev->adapter, msg, 2);
     if (ret < 0) {
-        AML_PMU_DBG("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
+        AML_PMU_ERR("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
         return ret;
     }
     return 0;
@@ -231,7 +231,7 @@ int aml_pmu_read16(int add, uint16_t *val)
     buf[1] = (add >> 8) & 0x0f;
     ret = i2c_transfer(pdev->adapter, msg, 2);
     if (ret < 0) {
-        AML_PMU_DBG("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
+        AML_PMU_ERR("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
         return ret;
     }
     return 0;
@@ -265,7 +265,7 @@ int aml_pmu_reads(int add, uint8_t *buff, int len)
     buf[1] = (add >> 8) & 0x0f;
     ret = i2c_transfer(pdev->adapter, msg, 2);
     if (ret < 0) {
-        AML_PMU_DBG("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
+        AML_PMU_ERR("%s: i2c transfer failed, ret:%d\n", __FUNCTION__, ret);
         return ret;
     }
     return 0;
@@ -306,7 +306,7 @@ int aml_pmu_set_gpio(int pin, int val)
     uint32_t data;
 
     if (pin <= 0 || pin > 4 || val > 1 || val < 0) {
-        AML_PMU_DBG("ERROR, invalid input value, pin = %d, val= %d\n", pin, val);
+        AML_PMU_ERR("ERROR, invalid input value, pin = %d, val= %d\n", pin, val);
         return -EINVAL;
     }
     data = (1 << (pin + 11));
@@ -324,7 +324,7 @@ int aml_pmu_get_gpio(int pin, int *val)
     uint8_t data;
 
     if (pin <= 0 || pin > 4 || !val) { 
-        AML_PMU_DBG("ERROR, invalid input value, pin = %d, val= %p\n", pin, val);
+        AML_PMU_ERR("ERROR, invalid input value, pin = %d, val= %p\n", pin, val);
         return -EINVAL;
     }
     ret = aml_pmu_read(AML1212_GPIO_INPUT_STATUS, &data);
@@ -534,10 +534,10 @@ void aml_pmu_poweroff(void)
     if (pmu_version == 0x03) {
         aml_pmu_set_bits(0x004a, 0x00, 0x08);                   // close clock of charger for REVD
     }
-    AML_PMU_DBG("software goto OFF state\n");
+    AML_PMU_INFO("software goto OFF state\n");
     mdelay(10);
     aml_pmu_write(AML1212_GEN_CNTL1, buf);    
-    AML_PMU_DBG("power off PMU failed\n");
+    AML_PMU_ERR("power off PMU failed\n");
     while (1) {
             
     }
@@ -814,7 +814,7 @@ int aml_pmu_set_usb_current_limit(int curr, int bc_mode)
     if (bc_mode > 0) {
        g1212_supply->usb_connect_type = bc_mode;
     }
-    AML_PMU_DBG("usb connet mode:%d, current limit to:%dmA\n", bc_mode, curr);
+    AML_PMU_INFO("usb connet mode:%d, current limit to:%dmA\n", bc_mode, curr);
     switch (curr) {
     case 0:
         val |= 0x30;                                    // disable limit
@@ -833,7 +833,7 @@ int aml_pmu_set_usb_current_limit(int curr, int bc_mode)
         break;
 
     default:
-        AML_PMU_DBG("%s, wrong usb current limit:%d\n", __func__, curr);
+        AML_PMU_ERR("%s, wrong usb current limit:%d\n", __func__, curr);
         return -1; 
     }
     return aml_pmu_write(AML1212_CHG_CTRL3, val);
@@ -867,7 +867,7 @@ int aml_pmu_set_charge_current(int chg_cur)
         break;
 
     default:
-        AML_PMU_DBG("%s, Wrong charge current:%d\n", __func__, chg_cur);
+        AML_PMU_ERR("%s, Wrong charge current:%d\n", __func__, chg_cur);
         return -1;
     }
     aml_pmu_write(AML1212_CHG_CTRL4, val);
@@ -882,7 +882,7 @@ int aml_pmu_set_charge_voltage(int voltage)
     uint8_t tmp;
     
     if (voltage > 4400000 || voltage < 4050000) {
-        AML_PMU_DBG("%s,Wrong charge voltage:%d\n", __func__, voltage);
+        AML_PMU_ERR("%s,Wrong charge voltage:%d\n", __func__, voltage);
         return -1;
     }
     tmp = ((voltage - 4050000) / 50000) & 0x07;
@@ -910,7 +910,7 @@ int aml_pmu_set_charge_end_rate(int rate)
         break;
 
     default:
-        AML_PMU_DBG("%s, Wrong charge end rate:%d\n", __func__, rate);
+        AML_PMU_ERR("%s, Wrong charge end rate:%d\n", __func__, rate);
         return -1;
     }
     aml_pmu_write(AML1212_CHG_CTRL4, val);
@@ -927,7 +927,7 @@ int aml_pmu_set_adc_freq(int freq)
     int32_t time_bit;
 
     if (freq > 1000 || freq < 10) {
-        AML_PMU_DBG("%s, Wrong adc freq:%d\n", __func__, freq);    
+        AML_PMU_ERR("%s, Wrong adc freq:%d\n", __func__, freq);    
         return -1;
     }
     time = 1000 / freq;
@@ -955,7 +955,7 @@ int aml_pmu_set_precharge_time(int minute)
     uint8_t val;
 
     if (minute > 80 || minute < 30) {
-        AML_PMU_DBG("%s, Wrong pre-charge time:%d\n", __func__, minute);
+        AML_PMU_ERR("%s, Wrong pre-charge time:%d\n", __func__, minute);
         return -1;
     }
     aml_pmu_read(AML1212_CHG_CTRL3, &val);
@@ -974,7 +974,7 @@ int aml_pmu_set_precharge_time(int minute)
         break;
     
     default:
-        AML_PMU_DBG("%s, Wrong pre-charge time:%d\n", __func__, minute);
+        AML_PMU_ERR("%s, Wrong pre-charge time:%d\n", __func__, minute);
         return -1;
     }
     aml_pmu_write(AML1212_CHG_CTRL3, val);
@@ -988,7 +988,7 @@ int aml_pmu_set_fastcharge_time(int minute)
     uint8_t val;
 
     if (minute < 360 || minute > 720) {
-        AML_PMU_DBG("%s, Wrong fast-charge time:%d\n", __func__, minute);
+        AML_PMU_ERR("%s, Wrong fast-charge time:%d\n", __func__, minute);
         return -1;
     }
     aml_pmu_read(AML1212_CHG_CTRL3, &val);
@@ -1007,7 +1007,7 @@ int aml_pmu_set_fastcharge_time(int minute)
         break;
 
     default:
-        AML_PMU_DBG("%s, Wrong pre-charge time:%d\n", __func__, minute);
+        AML_PMU_ERR("%s, Wrong pre-charge time:%d\n", __func__, minute);
         return -1;
     }
     aml_pmu_write(AML1212_CHG_CTRL3, val);
@@ -1041,7 +1041,7 @@ int aml_pmu_set_usb_voltage_limit(int voltage)
     uint8_t val;
 
     if (voltage > 4600 || voltage < 4300) {
-        AML_PMU_DBG("%s, Wrong usb voltage limit:%d\n", __func__, voltage);    
+        AML_PMU_ERR("%s, Wrong usb voltage limit:%d\n", __func__, voltage);    
     }
     aml_pmu_read(AML1212_CHG_CTRL4, &val);
     val &= ~(0xc0);
@@ -1063,7 +1063,7 @@ int aml_pmu_set_usb_voltage_limit(int voltage)
         break;
     
     default:
-        AML_PMU_DBG("%s, Wrong usb voltage limit:%d\n", __func__, voltage);
+        AML_PMU_ERR("%s, Wrong usb voltage limit:%d\n", __func__, voltage);
         return -1;
     }
     aml_pmu_write(AML1212_CHG_CTRL4, val);
@@ -1130,7 +1130,7 @@ static ssize_t aml_pmu_reg_base_store(struct device *dev, struct device_attribut
 {
     int tmp = simple_strtoul(buf, NULL, 16);
     if (tmp > 255) {
-        AML_PMU_DBG("Invalid input value\n");
+        AML_PMU_ERR("Invalid input value\n");
         return -1;
     }
     aml_pmu_regs_base = tmp;
@@ -1149,7 +1149,7 @@ static ssize_t aml_pmu_reg_store(struct device *dev, struct device_attribute *at
 {
     uint8_t data = simple_strtoul(buf, NULL, 16);
     if (data > 255) {
-        AML_PMU_DBG("Invalid input value\n");
+        AML_PMU_ERR("Invalid input value\n");
         return -1;
     }
     aml_pmu_write(aml_pmu_regs_base, data);
@@ -1160,7 +1160,7 @@ static ssize_t aml_pmu_reg_16bit_show(struct device *dev, struct device_attribut
 {
     uint16_t data;
     if (aml_pmu_regs_base & 1){
-        AML_PMU_DBG("Invalid reg base value\n");
+        AML_PMU_ERR("Invalid reg base value\n");
         return -1;
     }
     aml_pmu_read16(aml_pmu_regs_base, &data);
@@ -1171,11 +1171,11 @@ static ssize_t aml_pmu_reg_16bit_store(struct device *dev, struct device_attribu
 {
     uint16_t data = simple_strtoul(buf, NULL, 16);
     if (data > 0xffff) {
-        AML_PMU_DBG("Invalid input value\n");
+        AML_PMU_ERR("Invalid input value\n");
         return -1;
     }
     if (aml_pmu_regs_base & 1){
-        AML_PMU_DBG("Invalid reg base value\n");
+        AML_PMU_ERR("Invalid reg base value\n");
         return -1;
     }
     aml_pmu_write16(aml_pmu_regs_base, data);
@@ -1194,10 +1194,10 @@ static ssize_t aml_pmu_vddao_store(struct device *dev, struct device_attribute *
 {
     uint32_t data = simple_strtoul(buf, NULL, 10);
     if (data > 2000 || data < 740) {
-        AML_PMU_DBG("Invalid input value = %d\n", data);
+        AML_PMU_ERR("Invalid input value = %d\n", data);
         return -1;
     }
-    AML_PMU_DBG("Set VDD_AO to %4d mV\n", data);
+    AML_PMU_INFO("Set VDD_AO to %4d mV\n", data);
     aml_pmu_set_voltage(AML_PMU_DCDC1, data);
     return count; 
 }
@@ -1241,10 +1241,10 @@ static ssize_t charge_timeout_store(struct device *dev, struct device_attribute 
 { 
     uint32_t data = simple_strtoul(buf, NULL, 10);
     if (data > 720 || data < 360) {
-        AML_PMU_DBG("Invalid input value = %d\n", data);
+        AML_PMU_ERR("Invalid input value = %d\n", data);
         return -1;
     }
-    AML_PMU_DBG("Set charge timeout to %4d minutes\n", data);
+    AML_PMU_INFO("Set charge timeout to %4d minutes\n", data);
     aml_pmu_set_fastcharge_time(data); 
     return count; 
 }
@@ -1284,7 +1284,7 @@ succeed:
 #ifdef CONFIG_AMLOGIC_USB
 int aml1212_otg_change(struct notifier_block *nb, unsigned long value, void *pdata)
 {
-    AML_PMU_DBG("%s, val:%ld\n", __func__, value);
+    AML_PMU_INFO("%s, val:%ld\n", __func__, value);
     if (value) {        // open OTG
         if (aml1212_init->vbus_dcin_short_connect) {
             aml_pmu_set_dcin(0);                                            // Disable DCIN
@@ -1302,7 +1302,7 @@ int aml1212_otg_change(struct notifier_block *nb, unsigned long value, void *pda
 int aml1212_usb_charger(struct notifier_block *nb, unsigned long value, void *pdata)
 {
     if (!g1212_supply) {
-        AML_PMU_DBG("%s, driver is not ready, do it later\n", __func__);
+        AML_PMU_INFO("%s, driver is not ready, do it later\n", __func__);
         aml1212_late_job.flag  = 1;
         aml1212_late_job.value = value;
         return 0;
@@ -1376,7 +1376,7 @@ static int aml1212_update_status(struct aml_charger *charger)
     charger->fault = ((buff[0] <<  0) | (buff[1] <<  8) |
                       (buff[2] << 16) | (buff[3] << 24));
     if ((!(buff[3] & 0x02)) && !chg_gat_bat_lv) {                       // according David Wang
-        AML_PMU_DBG("CHG_GAT_BAT_LV is 0, limit usb current to 500mA\n");
+        AML_PMU_INFO("CHG_GAT_BAT_LV is 0, limit usb current to 500mA\n");
         aml_pmu_set_usb_current_limit(500, supply->usb_connect_type); 
         chg_gat_bat_lv = 1;
     } else if (buff[3] & 0x02 && chg_gat_bat_lv) {
@@ -1384,15 +1384,15 @@ static int aml1212_update_status(struct aml_charger *charger)
         if (supply->usb_connect_type == USB_BC_MODE_DCP || 
             supply->usb_connect_type == USB_BC_MODE_CDP) {              // reset to 900 when enough current supply
             aml_pmu_set_usb_current_limit(900, supply->usb_connect_type);    
-            AML_PMU_DBG("CHG_GAT_BAT_LV is 1, limit usb current to 900mA\n");
+            AML_PMU_INFO("CHG_GAT_BAT_LV is 1, limit usb current to 900mA\n");
         }
     }
     if (buff[1] & 0x40) {                                               // charge timeout detect
-        AML_PMU_DBG("Charge timeout deteceted\n");
+        AML_PMU_INFO("Charge timeout detected\n");
         if ((aml1212_init->charge_timeout_retry) &&
             (aml1212_init->charge_timeout_retry > re_charge_cnt)) {
             re_charge_cnt++;
-            AML_PMU_DBG("reset charger due to charge timeout occured, ocv :%d, retry:%d\n", 
+            AML_PMU_INFO("reset charger due to charge timeout occured, ocv :%d, retry:%d\n", 
                         charger->ocv, re_charge_cnt);
             aml_pmu_set_fastcharge_time(360);                           // only retry charge 6 hours, for safe problem
             aml_pmu_set_charge_enable(0);
@@ -1533,12 +1533,12 @@ static ssize_t report_delay_store(struct device *dev, struct device_attribute *a
     uint32_t tmp = simple_strtoul(buf, NULL, 10); 
 
     if (tmp > 200) {
-        AML_PMU_DBG("input too large, failed to set report_delay\n");    
+        AML_PMU_ERR("input too large, failed to set report_delay\n");    
     }    
     if (api && api->pmu_set_report_delay) {
         api->pmu_set_report_delay(tmp);
     } else {
-        AML_PMU_DBG("API not found\n");
+        AML_PMU_ERR("API not found\n");
     }
     return count;
 }
@@ -1580,7 +1580,7 @@ static void aml_pmu_charging_monitor(struct work_struct *work)
 
     if (charger->ocv > 5000) {
         // SAR ADC error, only occur when battery voltage is very low
-        AML_PMU_DBG(">> SAR ADC error, ocv:%d, vbat:%d, ibat:%d\n", 
+        AML_PMU_ERR(">> SAR ADC error, ocv:%d, vbat:%d, ibat:%d\n", 
                     charger->ocv, charger->vbat, charger->ibat);
         charger->rest_vol = 0;
     }
@@ -1592,7 +1592,7 @@ static void aml_pmu_charging_monitor(struct work_struct *work)
         aml_pmu_read(AML1212_SP_CHARGER_STATUS3, v);
         if (!(v[0] & 0x08)) {
             check_charge_flag = 1;
-            AML_PMU_DBG("CHG_END_DET = 0 find, close charger for 1 second\n");
+            AML_PMU_INFO("CHG_END_DET = 0 find, close charger for 1 second\n");
             aml_pmu_set_charge_enable(0);
             msleep(1000);
             aml_pmu_set_charge_enable(1);
@@ -1602,7 +1602,7 @@ static void aml_pmu_charging_monitor(struct work_struct *work)
     }
 
     if((charger->rest_vol - pre_rest_cap) || (pre_chg_status != charger->ext_valid) || charger->resume){
-        AML_PMU_DBG("battery vol change: %d->%d \n", pre_rest_cap, charger->rest_vol);
+        AML_PMU_INFO("battery vol change: %d->%d \n", pre_rest_cap, charger->rest_vol);
         if (unlikely(charger->resume)) {
             charger->resume = 0;
         }
@@ -1610,7 +1610,7 @@ static void aml_pmu_charging_monitor(struct work_struct *work)
     #ifdef CONFIG_HAS_EARLYSUSPEND
         if (in_early_suspend && (pre_chg_status != charger->ext_valid)) {
             wake_lock(&aml1212_lock);
-            AML_PMU_DBG("%s, usb power status changed in early suspend, wake up now\n", __func__);
+            AML_PMU_INFO("%s, usb power status changed in early suspend, wake up now\n", __func__);
             input_report_key(aml_pmu_power_key, KEY_POWER, 1);                        // assume power key pressed 
             input_sync(aml_pmu_power_key);
         }
@@ -1670,7 +1670,7 @@ static void aml_pmu_irq_work_func(struct work_struct *work)
                 irq_status[3], irq_status[4], irq_status[5]);
     aml_pmu_writes(AML1212_IRQ_STATUS_CLR_0, irq_status, sizeof(irq_status));       // clear IRQ status
     if (irq_status[5] & 0x08) {
-        AML_PMU_DBG("Over Temperature is occured, shutdown system\n");
+        AML_PMU_ERR("Over Temperature is occured, shutdown system\n");
         aml_pmu_poweroff();
     }
     enable_irq(supply->irq);
@@ -1683,11 +1683,11 @@ static void check_pmu_version(void)
     uint8_t val;
 
     aml_pmu_read(0x007e, &val);
-    AML_PMU_DBG("OTP VERSION: 0x%02x\n", val);
+    AML_PMU_INFO("OTP VERSION: 0x%02x\n", val);
     aml_pmu_read(0x007f, &val);
-    AML_PMU_DBG("PMU VERSION: 0x%02x\n", val);
+    AML_PMU_INFO("PMU VERSION: 0x%02x\n", val);
     if (val > 0x03 || val == 0x00) {
-        AML_PMU_DBG("#### ERROR: unknow pmu version:0x%02x ####\n", val);    
+        AML_PMU_ERR("#### ERROR: unknow pmu version:0x%02x ####\n", val);    
     } else {
         pmu_version = val;
     }
@@ -1786,7 +1786,7 @@ static int aml_pmu_battery_probe(struct platform_device *pdev)
 
     aml_pwr_key_work = create_singlethread_workqueue("aml_pwr_key");
     if (!aml_pwr_key_work) {
-        AML_PMU_DBG("%s, create workqueue failed\n", __func__);
+        AML_PMU_ERR("%s, create workqueue failed\n", __func__);
         return -ENOMEM;    
     }
     INIT_DELAYED_WORK(&pwr_key_work, pwr_key_work_func);
@@ -1919,7 +1919,7 @@ static int aml_pmu_battery_probe(struct platform_device *pdev)
     pmu_reboot_nb.notifier_call = aml_pmu_reboot_notifier;
     ret = register_reboot_notifier(&pmu_reboot_nb);
     if (ret) {
-        AML_PMU_DBG("%s, register reboot notifier failed, ret:%d\n", __func__, ret);
+        AML_PMU_ERR("%s, register reboot notifier failed, ret:%d\n", __func__, ret);
     }
 #endif
 	AML_PMU_DBG("call %s exit, ret:%d", __func__, ret);

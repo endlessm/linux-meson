@@ -104,6 +104,7 @@ static irqreturn_t cec_isr_handler(int irq, void *dev_instance);
 static struct early_suspend hdmitx_cec_early_suspend_handler;
 static void hdmitx_cec_early_suspend(struct early_suspend *h)
 {
+    hdmi_print(INF, CEC "early suspend!\n");
     if(!hdmitx_device->hpd_state) { //if none HDMI out,no CEC features.
         hdmi_print(INF, CEC "HPD low!\n");
         return;
@@ -120,16 +121,19 @@ static void hdmitx_cec_early_suspend(struct early_suspend *h)
             rc_long_press_pwr_key = 0;
         }
     }
+    cec_disable_irq();
 }
 
 static void hdmitx_cec_late_resume(struct early_suspend *h)
 {
+    cec_enable_irq();
     if(!hdmitx_device->hpd_state) { //if none HDMI out,no CEC features.
         hdmi_print(INF, CEC "HPD low!\n");
         return;
     }
-    cec_hw_reset();//for M8 CEC standby.
+    
     if(hdmitx_device->cec_func_config & (1 << CEC_FUNC_MSAK)) {
+        cec_hw_reset();//for M8 CEC standby.
         cec_imageview_on_smp();
         cec_active_source_smp();
         msleep(200);
@@ -210,14 +214,14 @@ void cec_node_init(hdmitx_dev_t* hdmitx_device)
         vendor_id = (vend_data->vendor_id ) & 0xffffff;
     }
 #endif
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
     aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 25, 1);
     // Clear CEC Int. state and set CEC Int. mask
     aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR) | (1 << 23));    // Clear the interrupt
     aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) | (1 << 23));            // Enable the hdmi cec interrupt
 
 #endif
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 #if 1           // Please match with H/W cec config
 // GPIOAO_12
     aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 0, 14, 1);       // bit[14]: AO_PWM_C pinmux                  //0xc8100014
@@ -274,10 +278,10 @@ void cec_node_init(hdmitx_dev_t* hdmitx_device)
             cec_global_info.cec_node_info[player_dev[i]].dev_type = cec_log_addr_to_dev_type(player_dev[i]);
             cec_global_info.cec_node_info[player_dev[i]].dev_type = cec_log_addr_to_dev_type(player_dev[i]);
             strcpy(cec_global_info.cec_node_info[player_dev[i]].osd_name, osd_name); //Max num: 14Bytes
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
             hdmi_wr_reg(CEC0_BASE_ADDR+CEC_LOGICAL_ADDR0, (0x1 << 4) | player_dev[i]);
 #endif
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
             aocec_wr_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | player_dev[i]);
 #endif
      		hdmi_print(INF, CEC "Set logical address: %d\n", player_dev[i]);
@@ -348,7 +352,7 @@ static int cec_task(void *data)
     hdmi_print(INF, CEC "CEC task process\n");
     if(hdmitx_device->cec_func_config & (1 << CEC_FUNC_MSAK)){
         msleep_interruptible(10000);
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
         cec_gpi_init();
 #endif
         cec_node_init(hdmitx_device);
@@ -648,8 +652,7 @@ static irqreturn_t cec_isr_handler(int irq, void *dev_instance)
     unsigned int intr_stat = 0;
 
     //cec_disable_irq();
-
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     intr_stat = aml_read_reg32(P_AO_CEC_INTR_STAT);
     hdmi_print(INF, CEC "aocec irq %x\n", intr_stat);
 
@@ -1565,7 +1568,7 @@ static int __init cec_init(void)
     cec_global_info.cec_flag.cec_fiq_flag = 0;
     cec_global_info.cec_flag.cec_init_flag = 0;
     
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
     hdmi_wr_reg(CEC0_BASE_ADDR+CEC_CLOCK_DIV_H, 0x00 );
     hdmi_wr_reg(CEC0_BASE_ADDR+CEC_CLOCK_DIV_L, 0xf0 );
 #endif
@@ -1580,7 +1583,7 @@ static int __init cec_init(void)
     cec_global_info.hdmitx_device = hdmitx_device;
     
     hdmitx_device->task_cec = kthread_run(cec_task, (void*)hdmitx_device, "kthread_cec");
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
     if(request_irq(INT_HDMI_CEC, &cec_isr_handler,
                 IRQF_SHARED, "amhdmitx-cec",
                 (void *)hdmitx_device)){
@@ -1588,7 +1591,7 @@ static int __init cec_init(void)
         return -EFAULT;
     }
 #endif
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     if(request_irq(INT_AO_CEC, &cec_isr_handler,
                 IRQF_SHARED, "amhdmitx-aocec",
                 (void *)hdmitx_device)){
@@ -1633,11 +1636,11 @@ static void __exit cec_uninit(void)
     hdmi_print(INF, CEC "cec uninit!\n");
     if (cec_global_info.cec_flag.cec_init_flag == 1) {
 
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
         aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) & ~(1 << 23));            // Disable the hdmi cec interrupt
         free_irq(INT_HDMI_CEC, (void *)hdmitx_device);
 #endif
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
         free_irq(INT_AO_CEC, (void *)hdmitx_device);
 #endif
     	kthread_stop(hdmitx_device->task_cec);
@@ -1719,7 +1722,7 @@ void cec_usrcmd_set_config(const char * buf, size_t count)
     if((0 == value) && (1 == (param[0] & 1))){
         hdmitx_device->cec_init_ready = 1;
         hdmitx_device->hpd_state = 1;
-#ifdef CONFIG_ARCH_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
         cec_gpi_init();
 #endif
         cec_node_init(hdmitx_device);
@@ -1730,7 +1733,7 @@ void cec_usrcmd_set_config(const char * buf, size_t count)
     if((1 == (param[0] & 1)) && (0x0 == (value & 0x2)) && (0x2 == (param[0] & 0x2))){
         cec_active_source_smp();
     }
-    hdmirx_cec_dbg_print("cec: cec_func_config:0x%x : 0x%x\n",hdmitx_device->cec_func_config, aml_read_reg32(P_AO_DEBUG_REG0));
+    hdmi_print(INF, CEC "cec_func_config:0x%x : 0x%x\n",hdmitx_device->cec_func_config, aml_read_reg32(P_AO_DEBUG_REG0));
 }
 
 
@@ -1765,7 +1768,7 @@ void cec_usrcmd_set_dispatch(const char * buf, size_t count)
             i ++;
     }
     param[j]=0;
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     if(strncmp(buf, "waocec", 6)==0){
         bit_set = simple_strtoul(buf+6, NULL, 16);
         time_set = simple_strtoul(buf+8, NULL, 16);

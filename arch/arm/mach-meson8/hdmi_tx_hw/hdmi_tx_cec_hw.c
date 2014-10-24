@@ -18,16 +18,19 @@
 
 static DEFINE_MUTEX(cec_mutex);
 
+unsigned int cec_int_disable_flag = 0;
 extern int cec_msg_dbg_en;
 void cec_disable_irq(void)
 {
     // disable all AO_CEC interrupt sources
     aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x0, 0, 3);
+    cec_int_disable_flag = 1;
     hdmi_print(INF, CEC "disable:int mask:0x%x\n", aml_read_reg32(P_AO_CEC_INTR_MASKN));
 }
 void cec_enable_irq(void)
 {
     aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
+    cec_int_disable_flag = 0;
     hdmi_print(INF, CEC "enable:int mask:0x%x\n", aml_read_reg32(P_AO_CEC_INTR_MASKN));
 }
 
@@ -45,7 +48,8 @@ void cec_hw_reset(void)
     aml_set_reg32_bits(P_AO_CEC_GEN_CNTL, 0, 0, 1);
 
     // Enable all AO_CEC interrupt sources
-    aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
+    if(!cec_int_disable_flag)
+        aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
 
     aocec_wr_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | cec_global_info.my_node_index);
 
@@ -120,7 +124,7 @@ static int cec_ll_tx_once(const unsigned char *msg, unsigned char len)
     unsigned int cnt = 30;
     int pos;
 
-    while(aocec_rd_reg(CEC_TX_MSG_STATUS) || aocec_rd_reg(CEC_RX_MSG_STATUS)){
+    while(aocec_rd_reg(CEC_TX_MSG_STATUS)){
         msleep(5);
         if(TX_ERROR == aocec_rd_reg(CEC_TX_MSG_STATUS)){
             //aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
@@ -132,6 +136,7 @@ static int cec_ll_tx_once(const unsigned char *msg, unsigned char len)
             hdmi_print(INF, CEC "tx busy time out.\n");
             aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
             aocec_wr_reg(CEC_TX_MSG_CMD, TX_NO_OP);
+            break;
         }
     }
     for (i = 0; i < len; i++)
@@ -163,6 +168,22 @@ int cec_ll_tx_polling(const unsigned char *msg, unsigned char len)
 	unsigned int j = 30;
     int pos;
 
+    while( aocec_rd_reg(CEC_TX_MSG_STATUS)){
+        if(TX_ERROR == aocec_rd_reg(CEC_TX_MSG_STATUS)){
+            //aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
+            aocec_wr_reg(CEC_TX_MSG_CMD, TX_NO_OP);
+            //cec_hw_reset();
+            break;
+        }
+        if(!(j--)){
+            hdmi_print(INF, CEC "tx busy time out.\n");
+            aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
+            aocec_wr_reg(CEC_TX_MSG_CMD, TX_NO_OP);
+            break;
+        }
+        msleep(5);
+    }
+
     aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x0, 1, 1);
     for (i = 0; i < len; i++)
     {
@@ -171,7 +192,10 @@ int cec_ll_tx_polling(const unsigned char *msg, unsigned char len)
     aocec_wr_reg(CEC_TX_MSG_LENGTH, len-1);
     aocec_wr_reg(CEC_TX_MSG_CMD, RX_ACK_CURRENT);
 
+    j = 30;
     while((TX_DONE != aocec_rd_reg(CEC_TX_MSG_STATUS)) && (j--)){
+        if(TX_ERROR == aocec_rd_reg(CEC_TX_MSG_STATUS))
+            break;
 		msleep(5);
 	}
 
@@ -223,7 +247,9 @@ void tx_irq_handle(void){
 int cec_ll_tx(const unsigned char *msg, unsigned char len)
 {
     int ret = 0;
-    
+    if(cec_int_disable_flag)
+        return;
+        
     mutex_lock(&cec_mutex);
     //aml_write_reg32(P_AO_CEC_INTR_MASKN, aml_read_reg32(P_AO_CEC_INTR_MASKN) & ~(1 << 2));
     cec_ll_tx_once(msg, len);
@@ -278,7 +304,7 @@ void ao_cec_init(void)
     aml_set_reg32_bits(P_AO_CEC_GEN_CNTL, 0, 0, 1);
 
     // Enable all AO_CEC interrupt sources
-    aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
+    cec_enable_irq();
 
     // Device 0 config
     aocec_wr_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | 0x4);

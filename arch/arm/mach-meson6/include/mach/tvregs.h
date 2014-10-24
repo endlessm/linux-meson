@@ -1267,11 +1267,15 @@ static const reg_t tvregs_xga_1024x768[] = {
 /* The sequence of register tables items must match the enum define in tvmode.h */
 static const reg_t *tvregsTab[] = {
     tvregs_480i,
+    tvregs_480i,        // For REPEAT MODE use, ENC setting is same
     tvregs_480cvbs,
     tvregs_480p,
+    tvregs_480p,        // For REPEAT MODE use, ENC setting is same
     tvregs_576i,
+    tvregs_576i,        // For REPEAT MODE use, ENC setting is same
     tvregs_576cvbs,
     tvregs_576p,
+    tvregs_576p,        // For REPEAT MODE use, ENC setting is same
     tvregs_720p,
     tvregs_1080i,       //Adjust tvregs_* sequences and match the enum define in tvmode.h
     tvregs_1080p,
@@ -1286,11 +1290,15 @@ static const reg_t *tvregsTab[] = {
 
 static const tvinfo_t tvinfoTab[] = {
     {.xres =  720, .yres =  480, .id = "480i"},
+    {.xres =  720, .yres =  480, .id = "480i_rpt"},
     {.xres =  720, .yres =  480, .id = "480cvbs"},
     {.xres =  720, .yres =  480, .id = "480p"},
+    {.xres =  720, .yres =  480, .id = "480p_rpt"},
     {.xres =  720, .yres =  576, .id = "576i"},
+    {.xres =  720, .yres =  576, .id = "576i_rpt"},
     {.xres =  720, .yres =  576, .id = "576cvbs"},
     {.xres =  720, .yres =  576, .id = "576p"},
+    {.xres =  720, .yres =  576, .id = "576p_prt"},
     {.xres = 1280, .yres =  720, .id = "720p"},
     {.xres = 1920, .yres = 1080, .id = "1080i"},
     {.xres = 1920, .yres = 1080, .id = "1080p"},

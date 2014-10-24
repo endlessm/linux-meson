@@ -64,6 +64,8 @@
 #define bf3720_CAMERA_VERSION \
 KERNEL_VERSION(bf3720_CAMERA_MAJOR_VERSION, bf3720_CAMERA_MINOR_VERSION, bf3720_CAMERA_RELEASE)
 
+#define BF3720_DRIVER_VERSION "BF3720-COMMON-01-140717"
+
 MODULE_DESCRIPTION("bf3720 On Board");
 MODULE_AUTHOR("amlogic-sh");
 MODULE_LICENSE("GPL v2");
@@ -1260,8 +1262,6 @@ void bf3720_set_param_effect(struct bf3720_device *dev,enum camera_effect_flip_e
 *************************************************************************/
 void bf3720_set_night_mode(struct bf3720_device *dev,enum  camera_night_mode_flip_e enable)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-    unsigned char buf[2];
 /*
 	if (enable) {
 		buf[0]=0x86;
@@ -1330,14 +1330,14 @@ static int set_flip(struct bf3720_device *dev)
 	return 0;
 }
 
-static unsigned int shutter_l = 0;
-static unsigned int shutter_h = 0;
+//static unsigned int shutter_l = 0;
+//static unsigned int shutter_h = 0;
 
 void bf3720_set_resolution(struct bf3720_device *dev,int height,int width)
 {
 	unsigned char buf[2];
-	unsigned  int value;
-	unsigned   int pid=0,shutter;
+//	unsigned  int value;
+//	unsigned   int pid=0,shutter;
 //	static unsigned int shutter_l = 0;
 //	static unsigned int shutter_h = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
@@ -2127,12 +2127,12 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct bf3720_fh  *fh = priv;
 
         int ret = videobuf_querybuf(&fh->vb_vidq, p);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
-                if(ret == 0){
-                            p->reserved  = convert_canvas_index(fh->fmt->fourcc, BF3720_RES0_CANVAS_INDEX + p->index*3);
-                        }else{
-                                    p->reserved = 0;
-                                }
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+        if(ret == 0){
+        	p->reserved  = convert_canvas_index(fh->fmt->fourcc, BF3720_RES0_CANVAS_INDEX + p->index*3);
+        }else{
+        	p->reserved = 0;
+        }
 #endif
         return ret;
 }
@@ -2633,6 +2633,10 @@ static int bf3720_probe(struct i2c_client *client,
 		kfree(t);
 		return -1;
 	}
+	
+	t->cam_info.version = BF3720_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
 		
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
@@ -2652,6 +2656,7 @@ static int bf3720_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

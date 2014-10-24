@@ -1,21 +1,26 @@
 /*
+ * arch/arm/plat-meson/include/plat/bt_device.h
  *
- * arch/arm/mach-meson/bcm-bt.c
+ * Copyright (C) 2010-2014 Amlogic, Inc.
  *
- *  Copyright (C) 2010 AMLOGIC, INC.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
- * License terms: GNU General Public License (GPL) version 2
- * Platform machine definition.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
-#ifndef __BT_DEVICE_H
-#define __BT_DEVICE_H
+#ifndef __PLAT_MESON_BT_DEVICE_H
+#define __PLAT_MESON_BT_DEVICE_H
 
 struct bt_dev_data {
-    int gpio_reset;
-    int gpio_en;
-    int gpio_host_wake;
-    int gpio_wake;
+	int gpio_reset;
+	int gpio_en;
+	int gpio_host_wake;
+	int gpio_wake;
 };
 
-#endif  
+#endif

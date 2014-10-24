@@ -25,36 +25,35 @@ endif
 ifeq ($(CONFIG_ARCH_MESON8),y)
 obj-y = m8/
 endif
-
 ifeq ($(CONFIG_ARCH_MESON8B),y)
-obj-y = m8/
+obj-y = m8b/
 endif
 
 obj-$(CONFIG_AM_STREAMING) += amports.o
 
-AMPROT_OBJS = amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o tsync_pcr.o
+AMPORTS_OBJS = amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o tsync_pcr.o
 
 ifeq ($(CONFIG_ARCH_MESON8B),y)
 amports-y    := amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o  tsync_pcr.o
 else
 ifeq ($(CONFIG_ARCH_MESON8),y)
-amports-objs := $(AMPROT_OBJS)
-amports-y    := $(AMPROT_OBJS)
+amports-objs := $(AMPORTS_OBJS)
+amports-y    := $(AMPORTS_OBJS)
 else
 ifeq ($(CONFIG_ARCH_MESON6),y)
-amports-objs := $(AMPROT_OBJS)
-amports-y    := $(AMPROT_OBJS)
+amports-objs := $(AMPORTS_OBJS)
+amports-y    := $(AMPORTS_OBJS)
 else
 ifeq ($(CONFIG_ARCH_MESON6TV),y)
-amports-objs := $(AMPROT_OBJS)
-amports-y    := $(AMPROT_OBJS)
+amports-objs := $(AMPORTS_OBJS)
+amports-y    := $(AMPORTS_OBJS)
 else
 ifeq ($(CONFIG_ARCH_MESON6TVD),y)
-amports-objs := $(AMPROT_OBJS)
-amports-y    := $(AMPROT_OBJS)
+amports-objs := $(AMPORTS_OBJS)
+amports-y    := $(AMPORTS_OBJS)
 else
-amports-objs := $(AMPROT_OBJS) amve.o amcm.o
-amports-y    := $(AMPROT_OBJS) amve.o amcm.o
+amports-objs := $(AMPORTS_OBJS) amve.o amcm.o
+amports-y    := $(AMPORTS_OBJS) amve.o amcm.o
 endif
 endif
 endif

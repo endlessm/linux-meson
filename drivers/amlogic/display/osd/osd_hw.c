@@ -68,116 +68,126 @@ static int  g_vf_height;
 static int  g_rotation_width;
 static int  g_rotation_height;
 
-static unsigned int filt_coef0[] =   //bicubic
-{
-	0x00800000,
-	0x007f0100,
-	0xff7f0200,
-	0xfe7f0300,
-	0xfd7e0500,
-	0xfc7e0600,
-	0xfb7d0800,
-	0xfb7c0900,
-	0xfa7b0b00,
-	0xfa7a0dff,
-	0xf9790fff,
-	0xf97711ff,
-	0xf87613ff,
-	0xf87416fe,
-	0xf87218fe,
-	0xf8701afe,
-	0xf76f1dfd,
-	0xf76d1ffd,
-	0xf76b21fd,
-	0xf76824fd,
-	0xf76627fc,
-	0xf76429fc,
-	0xf7612cfc,
-	0xf75f2ffb,
-	0xf75d31fb,
-	0xf75a34fb,
-	0xf75837fa,
-	0xf7553afa,
-	0xf8523cfa,
-	0xf8503ff9,
-	0xf84d42f9,
-	0xf84a45f9,
-	0xf84848f8
+static int osd_h_filter_mode = 7;
+static int osd_v_filter_mode = 7;
+
+static unsigned int osd_filter_coefs_bicubic_sharp[] = {
+    0x01fa008c, 0x01fa0100, 0xff7f0200, 0xfe7f0300,
+    0xfd7e0500, 0xfc7e0600, 0xfb7d0800, 0xfb7c0900,
+    0xfa7b0b00, 0xfa7a0dff, 0xf9790fff, 0xf97711ff,
+    0xf87613ff, 0xf87416fe, 0xf87218fe, 0xf8701afe,
+    0xf76f1dfd, 0xf76d1ffd, 0xf76b21fd, 0xf76824fd,
+    0xf76627fc, 0xf76429fc, 0xf7612cfc, 0xf75f2ffb,
+    0xf75d31fb, 0xf75a34fb, 0xf75837fa, 0xf7553afa,
+    0xf8523cfa, 0xf8503ff9, 0xf84d42f9, 0xf84a45f9,
+    0xf84848f8
 };
 
-static unsigned int filt_coef1[] =  //2 point bilinear
+static unsigned int osd_filter_coefs_bicubic[] =   //bicubic	coef0
 {
-	0x00800000,
-	0x007e0200,
-	0x007c0400,
-	0x007a0600,
-	0x00780800,
-	0x00760a00,
-	0x00740c00,
-	0x00720e00,
-	0x00701000,
-	0x006e1200,
-	0x006c1400,
-	0x006a1600,
-	0x00681800,
-	0x00661a00,
-	0x00641c00,
-	0x00621e00,
-	0x00602000,
-	0x005e2200,
-	0x005c2400,
-	0x005a2600,
-	0x00582800,
-	0x00562a00,
-	0x00542c00,
-	0x00522e00,
-	0x00503000,
-	0x004e3200,
-	0x004c3400,
-	0x004a3600,
-	0x00483800,
-	0x00463a00,
-	0x00443c00,
-	0x00423e00,
-	0x00404000
+    0x00800000, 0x007f0100, 0xff7f0200, 0xfe7f0300, 0xfd7e0500, 0xfc7e0600,
+    0xfb7d0800, 0xfb7c0900, 0xfa7b0b00, 0xfa7a0dff, 0xf9790fff, 0xf97711ff,
+    0xf87613ff, 0xf87416fe, 0xf87218fe, 0xf8701afe, 0xf76f1dfd, 0xf76d1ffd,
+    0xf76b21fd, 0xf76824fd, 0xf76627fc, 0xf76429fc, 0xf7612cfc, 0xf75f2ffb,
+    0xf75d31fb, 0xf75a34fb, 0xf75837fa, 0xf7553afa, 0xf8523cfa, 0xf8503ff9,
+    0xf84d42f9, 0xf84a45f9, 0xf84848f8
 };
 
-static unsigned int filt_coef2[] =  //2 point bilinear, bank_length == 2
+static unsigned int osd_filter_coefs_bilinear[] =  //2 point bilinear	coef1
 {
-	0x80000000,
-	0x7e020000,
-	0x7c040000,
-	0x7a060000,
-	0x78080000,
-	0x760a0000,
-	0x740c0000,
-	0x720e0000,
-	0x70100000,
-	0x6e120000,
-	0x6c140000,
-	0x6a160000,
-	0x68180000,
-	0x661a0000,
-	0x641c0000,
-	0x621e0000,
-	0x60200000,
-	0x5e220000,
-	0x5c240000,
-	0x5a260000,
-	0x58280000,
-	0x562a0000,
-	0x542c0000,
-	0x522e0000,
-	0x50300000,
-	0x4e320000,
-	0x4c340000,
-	0x4a360000,
-	0x48380000,
-	0x463a0000,
-	0x443c0000,
-	0x423e0000,
-	0x40400000
+    0x00800000, 0x007e0200, 0x007c0400, 0x007a0600, 0x00780800, 0x00760a00,
+    0x00740c00, 0x00720e00, 0x00701000, 0x006e1200, 0x006c1400, 0x006a1600,
+    0x00681800, 0x00661a00, 0x00641c00, 0x00621e00, 0x00602000, 0x005e2200,
+    0x005c2400, 0x005a2600, 0x00582800, 0x00562a00, 0x00542c00, 0x00522e00,
+    0x00503000, 0x004e3200, 0x004c3400, 0x004a3600, 0x00483800, 0x00463a00,
+    0x00443c00, 0x00423e00, 0x00404000
 };
+
+static unsigned int osd_filter_coefs_2point_binilear[] =  //2 point bilinear, bank_length == 2	coef2
+{
+    0x80000000, 0x7e020000, 0x7c040000, 0x7a060000, 0x78080000, 0x760a0000,
+    0x740c0000, 0x720e0000, 0x70100000, 0x6e120000, 0x6c140000, 0x6a160000,
+    0x68180000, 0x661a0000, 0x641c0000, 0x621e0000, 0x60200000, 0x5e220000,
+    0x5c240000, 0x5a260000, 0x58280000, 0x562a0000, 0x542c0000, 0x522e0000,
+    0x50300000, 0x4e320000, 0x4c340000, 0x4a360000, 0x48380000, 0x463a0000,
+    0x443c0000, 0x423e0000, 0x40400000
+};
+
+//filt_triangle, point_num =3, filt_len =2.6, group_num = 64
+static unsigned int osd_filter_coefs_3point_triangle_sharp[] = {
+    0x40400000, 0x3e420000, 0x3d430000, 0x3b450000,
+    0x3a460000, 0x38480000, 0x37490000, 0x354b0000,
+    0x344c0000, 0x324e0000, 0x314f0000, 0x2f510000,
+    0x2e520000, 0x2c540000, 0x2b550000, 0x29570000,
+    0x28580000, 0x265a0000, 0x245c0000, 0x235d0000,
+    0x215f0000, 0x20600000, 0x1e620000, 0x1d620100,
+    0x1b620300, 0x19630400, 0x17630600, 0x15640700,
+    0x14640800, 0x12640a00, 0x11640b00, 0x0f650c00,
+    0x0d660d00
+};
+
+static unsigned int osd_filter_coefs_3point_triangle[] = {
+    0x40400000, 0x3f400100, 0x3d410200, 0x3c410300,
+    0x3a420400, 0x39420500, 0x37430600, 0x36430700,
+    0x35430800, 0x33450800, 0x32450900, 0x31450a00,
+    0x30450b00, 0x2e460c00, 0x2d460d00, 0x2c470d00,
+    0x2b470e00, 0x29480f00, 0x28481000, 0x27481100,
+    0x26491100, 0x25491200, 0x24491300, 0x234a1300,
+    0x224a1400, 0x214a1500, 0x204a1600, 0x1f4b1600,
+    0x1e4b1700, 0x1d4b1800, 0x1c4c1800, 0x1b4c1900,
+    0x1a4c1a00
+};
+
+static unsigned int osd_filter_coefs_4point_triangle[] = {
+    0x20402000, 0x20402000, 0x1f3f2101, 0x1f3f2101,
+    0x1e3e2202, 0x1e3e2202, 0x1d3d2303, 0x1d3d2303,
+    0x1c3c2404, 0x1c3c2404, 0x1b3b2505, 0x1b3b2505,
+    0x1a3a2606, 0x1a3a2606, 0x19392707, 0x19392707,
+    0x18382808, 0x18382808, 0x17372909, 0x17372909,
+    0x16362a0a, 0x16362a0a, 0x15352b0b, 0x15352b0b,
+    0x14342c0c, 0x14342c0c, 0x13332d0d, 0x13332d0d,
+    0x12322e0e, 0x12322e0e, 0x11312f0f, 0x11312f0f,
+    0x10303010
+};
+
+// 4th order (cubic) b-spline
+//filt_cubic point_num =4, filt_len =4, group_num = 64
+static unsigned int vpp_filter_coefs_4point_bspline[] = {
+    0x15561500, 0x14561600, 0x13561700, 0x12561800,
+    0x11551a00, 0x11541b00, 0x10541c00, 0x0f541d00,
+    0x0f531e00, 0x0e531f00, 0x0d522100, 0x0c522200,
+    0x0b522300, 0x0b512400, 0x0a502600, 0x0a4f2700,
+    0x094e2900, 0x084e2a00, 0x084d2b00, 0x074c2c01,
+    0x074b2d01, 0x064a2f01, 0x06493001, 0x05483201,
+    0x05473301, 0x05463401, 0x04453601, 0x04433702,
+    0x04423802, 0x03413a02, 0x03403b02, 0x033f3c02,
+    0x033d3d03
+};
+
+//filt_quadratic, point_num =3, filt_len =3, group_num = 64
+static unsigned int osd_filter_coefs_3point_bspline[] = {
+    0x40400000, 0x3e420000, 0x3c440000, 0x3a460000,
+    0x38480000, 0x364a0000, 0x344b0100, 0x334c0100,
+    0x314e0100, 0x304f0100, 0x2e500200, 0x2c520200,
+    0x2a540200, 0x29540300, 0x27560300, 0x26570300,
+    0x24580400, 0x23590400, 0x215a0500, 0x205b0500,
+    0x1e5c0600, 0x1d5c0700, 0x1c5d0700, 0x1a5e0800,
+    0x195e0900, 0x185e0a00, 0x175f0a00, 0x15600b00,
+    0x14600c00, 0x13600d00, 0x12600e00, 0x11600f00,
+    0x10601000
+};
+
+ static unsigned int *filter_table[] = {
+     osd_filter_coefs_bicubic_sharp,
+     osd_filter_coefs_bicubic,
+     osd_filter_coefs_bilinear,
+     osd_filter_coefs_2point_binilear,
+     osd_filter_coefs_3point_triangle_sharp,
+     osd_filter_coefs_3point_triangle,
+     osd_filter_coefs_4point_triangle,
+     vpp_filter_coefs_4point_bspline,
+     osd_filter_coefs_3point_bspline
+ };
 
 #define OSD_TYPE_TOP_FIELD 0
 #define OSD_TYPE_BOT_FIELD 1
@@ -1076,6 +1086,13 @@ void osd_set_window_axis_hw(u32 index, s32 x0, s32 y0, s32 x1, s32 y1)
 	osd_hw.free_dst_data[index].y_start = y0;
 	osd_hw.free_dst_data[index].y_end = y1/2;
 #endif
+
+#if defined(CONFIG_FB_OSD2_CURSOR)
+	osd_hw.cursor_dispdata[index].x_start = x0;
+	osd_hw.cursor_dispdata[index].x_end = x1;
+	osd_hw.cursor_dispdata[index].y_start = y0;
+	osd_hw.cursor_dispdata[index].y_end = y1;
+#endif
 }
 
 
@@ -1231,14 +1248,22 @@ void osd_set_osd_rotate_on_hw(u32 index, u32 on_off)
 	}
 	else
 	{
-#ifdef CONFIG_ARCH_MESON8
-		VSYNCOSD_SET_MPEG_REG_MASK(VPU_SW_RESET, 1<<8);
-		VSYNCOSD_CLR_MPEG_REG_MASK(VPU_SW_RESET, 1<<8);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+	{
+		if(IS_MESON_M8_CPU){
+			VSYNCOSD_SET_MPEG_REG_MASK(VPU_SW_RESET, 1<<8);
+			VSYNCOSD_CLR_MPEG_REG_MASK(VPU_SW_RESET, 1<<8);
+		}
+	}
 #endif
 		if(index == OSD1){
-#ifdef CONFIG_ARCH_MESON8
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+	{
+		if(IS_MESON_M8_CPU){
 			VSYNCOSD_SET_MPEG_REG_MASK(VIU_SW_RESET, 1<<0);
 			VSYNCOSD_CLR_MPEG_REG_MASK(VIU_SW_RESET, 1<<0);
+		}
+	}
 #endif
 			VSYNCOSD_SET_MPEG_REG_MASK(VIU_OSD1_FIFO_CTRL_STAT, 1<<0);
 			//memcpy(&osd_hw.dispdata[index],&save_disp_data,sizeof(dispdata_t));
@@ -1271,7 +1296,7 @@ void osd_set_osd_antiflicker_hw(u32 index, u32 vmode, u32 yres)
 		case VMODE_576CVBS:
 		case VMODE_1080I:
 		case VMODE_1080I_50HZ:
-			osd_need_antiflicker = true;
+			osd_need_antiflicker = false;
 		break;
 		default:
 		break;
@@ -1526,7 +1551,7 @@ static  void  osd1_update_disp_freescale_enable(void)
 	int dst_w, dst_h;
 	int bot_ini_phase;
 	int vsc_ini_rcv_num, vsc_ini_rpt_p0_num;
-	int vsc_bot_rcv_num, vsc_bot_rpt_p0_num;
+	int vsc_bot_rcv_num=0, vsc_bot_rpt_p0_num=0;
 	int hsc_ini_rcv_num, hsc_ini_rpt_p0_num;
 
 	int hf_bank_len = 4;
@@ -1637,26 +1662,16 @@ static  void  osd1_update_disp_freescale_enable(void)
 static void osd1_update_coef(void)
 {
 	int i;
-	int hf_coef_idx = 0;
 	int hf_coef_wren = 1;
-
-	int vf_coef_idx = 0;
 	int vf_coef_wren = 1;
+
 	int *hf_coef, *vf_coef;
 
 	if(osd_hw.scale_workaround){
-		vf_coef_idx = 2;
+		osd_v_filter_mode = 3;
 	}
 
-	if (vf_coef_idx == 0){
-		vf_coef = filt_coef0;
-	}else if (vf_coef_idx == 1){
-		vf_coef = filt_coef1;
-	}else if (vf_coef_idx == 2){
-		vf_coef = filt_coef2;
-	}else{
-		vf_coef = filt_coef0;
-	}
+	vf_coef = filter_table[osd_v_filter_mode];
 
 	if (vf_coef_wren) {
 		VSYNCOSD_WR_MPEG_REG_BITS (VPP_OSD_SCALE_COEF_IDX, 0x0000, 0, 9);
@@ -1666,15 +1681,7 @@ static void osd1_update_coef(void)
 		}
 	}
 
-	if (hf_coef_idx == 0){
-		hf_coef = filt_coef0;
-	}else if (hf_coef_idx == 1){
-		hf_coef = filt_coef1;
-	}else if (hf_coef_idx == 2){
-		hf_coef = filt_coef2;
-	}else{
-		hf_coef = filt_coef0;
-	}
+	hf_coef = filter_table[osd_h_filter_mode];
 
 	if (hf_coef_wren) {
 		VSYNCOSD_WR_MPEG_REG_BITS (VPP_OSD_SCALE_COEF_IDX, 0x0100, 0, 9);
@@ -1795,22 +1802,16 @@ static  void  osd2_update_disp_freescale_enable(void)
 static void osd2_update_coef(void)
 {
 	int i;
-	int hf_coef_idx = 0;
 	int hf_coef_wren = 1;
 
-	int vf_coef_idx = 0;
 	int vf_coef_wren = 1;
 	int *hf_coef, *vf_coef;
 
-	if (vf_coef_idx == 0){
-		vf_coef = filt_coef0;
-	}else if (vf_coef_idx == 1){
-		vf_coef = filt_coef1;
-	}else if (vf_coef_idx == 2){
-		vf_coef = filt_coef2;
-	}else{
-		vf_coef = filt_coef0;
+	if(osd_hw.scale_workaround){
+		osd_v_filter_mode = 3;
 	}
+
+	vf_coef = filter_table[osd_v_filter_mode];
 
 	if (vf_coef_wren) {
 		VSYNCOSD_WR_MPEG_REG_BITS (VPP_OSD_SCALE_COEF_IDX, 0x0000, 0, 9);
@@ -1820,15 +1821,7 @@ static void osd2_update_coef(void)
 		}
 	}
 
-	if (hf_coef_idx == 0){
-		hf_coef = filt_coef0;
-	}else if (hf_coef_idx == 1){
-		hf_coef = filt_coef1;
-	}else if (hf_coef_idx == 2){
-		hf_coef = filt_coef2;
-	}else{
-		hf_coef = filt_coef0;
-	}
+	hf_coef = filter_table[osd_h_filter_mode];
 
 	if (hf_coef_wren) {
 		VSYNCOSD_WR_MPEG_REG_BITS (VPP_OSD_SCALE_COEF_IDX, 0x0100, 0, 9);
@@ -1894,7 +1887,7 @@ static   void  osd1_update_enable(void)
         }
         spin_unlock_irqrestore(&osd_onoff_lock, flags);
     }else{
-        u32  video_enable;
+        u32  video_enable=0;
         spin_lock_irqsave(&osd_onoff_lock, flags);
         video_enable |=aml_read_reg32(P_VPP_MISC)&VPP_VD1_PREBLEND;
 
@@ -1944,7 +1937,9 @@ static   void  osd2_update_enable(void)
                 aml_set_reg32_mask(P_VPP_MISC,VPP_OSD1_POSTBLEND);
                 aml_set_reg32_mask(P_VPP_MISC,VPP_POSTBLEND_EN);
             }else{
+				#ifndef CONFIG_FB_OSD2_CURSOR
                 aml_clr_reg32_mask(P_VPP_MISC,VPP_OSD1_POSTBLEND);
+				#endif
                 aml_set_reg32_mask(P_VPP_MISC,VPP_OSD2_POSTBLEND);
                 aml_set_reg32_mask(P_VPP_MISC,VPP_POSTBLEND_EN);
             }
@@ -1957,7 +1952,7 @@ static   void  osd2_update_enable(void)
         }
         spin_unlock_irqrestore(&osd_onoff_lock, flags);
     }else{
-        u32  video_enable;
+        u32  video_enable=0;
         video_enable |=VSYNCOSD_RD_MPEG_REG(VPP_MISC)&VPP_VD1_PREBLEND;
         spin_lock_irqsave(&osd_onoff_lock, flags);
         if(osd_hw.enable[OSD2]==ENABLE)
@@ -2058,32 +2053,36 @@ static void osd1_update_disp_osd_rotate(void)
 	y_end = osd_hw.rotation_pandata[OSD1].y_end;
 	y_len_m1 = y_end-y_start;
 
-#ifdef CONFIG_ARCH_MESON8
-	osd_set_prot(
-                x_rev,
-                y_rev,
-                (bpp>>3)-1,				//unsigned char   bytes_per_pixel,
-                0,				//unsigned char   conv_422to444,
-                OSD_DATA_LITTLE_ENDIAN,		//unsigned char   little_endian,
-                HOLD_LINES,			//unsigned int    hold_lines,
-                x_start,
-                x_end,
-                y_start,
-                y_end,
-                y_len_m1,
-                Y_STEP,
-                PAT_START_PTR,
-                PAT_END_PTR,
-                PAT_VAL,
-                osd_hw.fb_gem[OSD1].canvas_idx,
-                CID_VALUE,
-                CID_MODE,
-                CUGT,				//urgent bit
-                REQ_ONOFF_EN,
-                REQ_ON_MAX,
-                REQ_OFF_MIN,
-                OSD1,
-                osd_hw.rotate[OSD1].on_off);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+	{
+		if(IS_MESON_M8_CPU){
+			osd_set_prot(
+				x_rev,
+				y_rev,
+				(bpp>>3)-1,				//unsigned char   bytes_per_pixel,
+				0,				//unsigned char   conv_422to444,
+				OSD_DATA_LITTLE_ENDIAN,		//unsigned char   little_endian,
+				HOLD_LINES,			//unsigned int    hold_lines,
+				x_start,
+				x_end,
+				y_start,
+				y_end,
+				y_len_m1,
+				Y_STEP,
+				PAT_START_PTR,
+				PAT_END_PTR,
+				PAT_VAL,
+				osd_hw.fb_gem[OSD1].canvas_idx,
+				CID_VALUE,
+				CID_MODE,
+				CUGT,				//urgent bit
+				REQ_ONOFF_EN,
+				REQ_ON_MAX,
+				REQ_OFF_MIN,
+				OSD1,
+				osd_hw.rotate[OSD1].on_off);
+		}
+	}
 #endif
 	remove_from_update_list(OSD1, DISP_OSD_ROTATE);
 }
@@ -2130,32 +2129,36 @@ static void osd2_update_disp_osd_rotate(void)
 	y_end = osd_hw.rotation_pandata[OSD2].y_end;
 	y_len_m1 = y_end-y_start;
 
-#ifdef CONFIG_ARCH_MESON8
-	osd_set_prot(
-                x_rev,
-                y_rev,
-                (bpp>>3)-1,				//unsigned char   bytes_per_pixel,
-                0,				//unsigned char   conv_422to444,
-                OSD_DATA_LITTLE_ENDIAN,		//unsigned char   little_endian,
-                HOLD_LINES,			//unsigned int    hold_lines,
-                x_start,
-                x_end,
-                y_start,
-                y_end,
-                y_len_m1,
-                Y_STEP,
-                PAT_START_PTR,
-                PAT_END_PTR,
-                PAT_VAL,
-                osd_hw.fb_gem[OSD2].canvas_idx,
-                CID_VALUE,
-                CID_MODE,
-                CUGT,				//urgent bit
-                REQ_ONOFF_EN,
-                REQ_ON_MAX,
-                REQ_OFF_MIN,
-                OSD2,
-                osd_hw.rotate[OSD2].on_off);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+	{
+		if(IS_MESON_M8_CPU){
+			osd_set_prot(
+				x_rev,
+				y_rev,
+				(bpp>>3)-1,				//unsigned char   bytes_per_pixel,
+				0,				//unsigned char   conv_422to444,
+				OSD_DATA_LITTLE_ENDIAN,		//unsigned char   little_endian,
+				HOLD_LINES,			//unsigned int    hold_lines,
+				x_start,
+				x_end,
+				y_start,
+				y_end,
+				y_len_m1,
+				Y_STEP,
+				PAT_START_PTR,
+				PAT_END_PTR,
+				PAT_VAL,
+				osd_hw.fb_gem[OSD2].canvas_idx,
+				CID_VALUE,
+				CID_MODE,
+				CUGT,				//urgent bit
+				REQ_ONOFF_EN,
+				REQ_ON_MAX,
+				REQ_OFF_MIN,
+				OSD2,
+				osd_hw.rotate[OSD2].on_off);
+		}
+	}
 #endif
     remove_from_update_list(OSD2, DISP_OSD_ROTATE);
 }
@@ -2432,8 +2435,12 @@ static void osd1_update_disp_geometry(void)
 			data32 = ((osd_hw.rotation_pandata[OSD1].y_start + osd_hw.pandata[OSD1].y_start) & 0x1fff)
 					| ((osd_hw.rotation_pandata[OSD1].y_end  + osd_hw.pandata[OSD1].y_start) & 0x1fff) << 16 ;
 			VSYNCOSD_WR_MPEG_REG(VIU_OSD1_BLK0_CFG_W2,data32);
-#ifdef CONFIG_ARCH_MESON8
-			VSYNCOSD_WR_MPEG_REG(VPU_PROT1_Y_START_END,data32);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+			{
+				if(IS_MESON_M8_CPU){
+					VSYNCOSD_WR_MPEG_REG(VPU_PROT1_Y_START_END,data32);
+				}
+			}
 #endif
 		}else if (osd_hw.rotate[OSD1].on_off
 				&& osd_hw.rotate[OSD1].angle > 0){
@@ -2443,8 +2450,12 @@ static void osd1_update_disp_geometry(void)
 			data32 = ((osd_hw.rotation_pandata[OSD1].y_start + osd_hw.pandata[OSD1].y_start) & 0x1fff)
 					| ((osd_hw.rotation_pandata[OSD1].y_end  + osd_hw.pandata[OSD1].y_start) & 0x1fff) << 16 ;
 			VSYNCOSD_WR_MPEG_REG(VIU_OSD1_BLK0_CFG_W2,data32);
-#ifdef CONFIG_ARCH_MESON8
-			VSYNCOSD_WR_MPEG_REG(VPU_PROT1_Y_START_END,data32);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+			{
+				if(IS_MESON_M8_CPU){
+					VSYNCOSD_WR_MPEG_REG(VPU_PROT1_Y_START_END,data32);
+				}
+			}
 #endif
 		}else {
 			/* norma/l mode */
@@ -2693,7 +2704,16 @@ void osd_cursor_hw(s16 x, s16 y, s16 xstart, s16 ystart, u32 osd_w, u32 osd_h, i
 	if (index != 1)
 		return;
 
-	memcpy(&disp_tmp, &osd_hw.dispdata[OSD1], sizeof(dispdata_t));
+	if(osd_hw.free_scale_mode[OSD1]){
+		if(osd_hw.free_scale_enable[OSD1]){
+			memcpy(&disp_tmp, &osd_hw.cursor_dispdata[OSD1], sizeof(dispdata_t));
+		}else{
+			memcpy(&disp_tmp, &osd_hw.dispdata[OSD1], sizeof(dispdata_t));
+		}
+	}else{
+		memcpy(&disp_tmp, &osd_hw.dispdata[OSD1], sizeof(dispdata_t));
+	}
+	
 	if (osd_hw.scale[OSD2].h_enable && (osd_hw.scaledata[OSD2].x_start > 0)
 			&& (osd_hw.scaledata[OSD2].x_end > 0)) {
 		x = x * osd_hw.scaledata[OSD2].x_end / osd_hw.scaledata[OSD2].x_start;
@@ -2779,4 +2799,10 @@ void osd_resume_hw(void)
 
 	return ;
 }
+
+MODULE_PARM_DESC(osd_h_filter_mode, "\n osd_h_filter_mode \n");
+module_param(osd_h_filter_mode, int, 0664);
+
+MODULE_PARM_DESC(osd_v_filter_mode, "\n osd_v_filter_mode \n");
+module_param(osd_v_filter_mode, int, 0664);
 

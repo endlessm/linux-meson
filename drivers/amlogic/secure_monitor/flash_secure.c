@@ -18,6 +18,7 @@
 #include <asm/uaccess.h>
 #include <linux/kthread.h>
 #include <asm/irqflags.h>
+#include <mach/meson-secure.h>
 
 #define SECURE_MONITOR_MODULE_NAME "secure_monitor"
 #define SECURE_MONITOR_DRIVER_NAME  "secure_monitor"
@@ -30,11 +31,6 @@
   * communicate Head lock mutex location: the last 4B of HEAD; inited by secureOS
   * Data: 128KB
 */
-#if defined(CONFIG_ARCH_MESON6)
-#define SHARE_MEM_PHY_START   0x3c100000-0x20400
-#elif defined(CONFIG_ARCH_MESON8)
-#define SHARE_MEM_PHY_START   0x061dfc00
-#endif
 #define SHARE_MEM_HEAD_OFFSET 0x0
 #define SHARE_MEM_DATA_OFFSET 0x400
 #define SHARE_MEM_PHY_SIZE 0x20400
@@ -77,7 +73,7 @@ static int secure_monitor_start(void)
 		ret = -ENOMEM;
 		goto flash_monitor_probe_exit;		
 	}
-	secure_monitor_buf.psbuf = ioremap_cached(SHARE_MEM_PHY_START, SHARE_MEM_PHY_SIZE);
+	secure_monitor_buf.psbuf = ioremap_cached(meson_secure_mem_flash_start(), meson_secure_mem_flash_size());
 	if(!secure_monitor_buf.psbuf){
 		printk("ioremap share memory fail \n");
 		ret = -ENOMEM;

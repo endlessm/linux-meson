@@ -181,7 +181,7 @@ static dev_t di_id;
 static struct class *di_class;
 
 #define INIT_FLAG_NOT_LOAD 0x80
-static char version_s[] = "2014-05-29a";
+static char version_s[] = "2014-08-4a";//bypass di for vscale skip
 static unsigned char boot_init_flag=0;
 static int receiver_is_amvideo = 1;
 
@@ -235,9 +235,13 @@ static int post_ready_empty_count = 0;
 static int force_width = 0;
 static int force_height = 0;
 #ifdef NEW_DI_V1
-int di_vscale_skip_enable = 3;
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+static int di_vscale_skip_enable = 4;
 #else
-int di_vscale_skip_enable = 1;
+static int di_vscale_skip_enable = 3;
+#endif
+#else
+static int di_vscale_skip_enable = 1;
 #endif
 
 #ifdef RUN_DI_PROCESS_IN_IRQ
@@ -295,13 +299,14 @@ static bool use_2_interlace_buff = false;
 
         bit[5]:
          when two field buffers are used for decoder (bit[4] is 0): 0, use process_count; 1, handle prog frame as two interlace frames
+        bit[6]:(bit[4] is 0,bit[5] is 0,use_2_interlace_buff is 0): 0, process progress frame as field,blend by post; 
+                                                                    1, process progress frame as field,process by normal di
 
     */
 static int prog_proc_config = (1<<1)|1; /*
                                             for source include both progressive and interlace pictures,
                                             always use post_di module for blending
                                          */
-
 #define is_handle_prog_frame_as_interlace(vframe)  (((prog_proc_config&0x30)==0x20)&&((vframe->type & VIDTYPE_VIU_422)==0))
 
 static int pulldown_detect = 0x10;
@@ -309,7 +314,7 @@ static int skip_wrong_field = 1;
 static int frame_count = 0;
 static int provider_vframe_level = 0;
 static int disp_frame_count = 0;
-static int start_frame_drop_count = 1;
+static int start_frame_drop_count = 2;
 //static int start_frame_hold_count = 0;
 
 static int force_trig_cnt = 0;
@@ -317,7 +322,7 @@ static int di_process_cnt = 0;
 static int video_peek_cnt = 0;
 static int force_bob_flag = 0;
 int di_vscale_skip_count = 0;
-int di_vscale_skip_count_real = 0;
+static int di_vscale_skip_count_real = 0;
 #ifdef D2D3_SUPPORT
 static int d2d3_enable = 1;
 #endif
@@ -328,7 +333,7 @@ static unsigned int det3d_mode = 0;
 #endif
 
 
-int force_duration_0 = 0;
+static int force_duration_0 = 0;
 
 #ifdef NEW_DI_V1
 static unsigned int di_new_mode_mask = 0xffff;
@@ -381,7 +386,7 @@ static int used_post_buf_index = -1;
 
 static int di_receiver_event_fun(int type, void* data, void* arg);
 static void di_uninit_buf(void);
-static unsigned char is_bypass(void);
+static unsigned char is_bypass(vframe_t *vf_in);
 static void log_buffer_state(unsigned char* tag);
 u32 get_blackout_policy(void);
 //static void put_get_disp_buf(void);
@@ -1282,7 +1287,7 @@ static void queue_init(int local_buffer_num)
 static di_buf_t* get_di_buf(int queue_idx, int* start_pos)
 {
     queue_t* q = &(queue[queue_idx]);
-    int idx;
+    int idx=0;
     unsigned int pool_idx, di_buf_idx;
     di_buf_t* di_buf = NULL;
     int start_pos_init = *start_pos;
@@ -1612,7 +1617,7 @@ static bool queue_empty(int queue_idx)
 static bool is_in_queue(di_buf_t* di_buf, int queue_idx)
 {
     bool ret = 0;
-    di_buf_t *p = NULL, *ptmp;
+    di_buf_t *p = NULL;
     int itmp;
     queue_for_each_entry(p, ptmp, queue_idx, list) {
         if(p==di_buf){
@@ -2275,7 +2280,7 @@ static unsigned char is_vframe_type_change(vframe_t* vframe)
 }
 */
 static int trick_mode;
-static unsigned char is_bypass(void)
+static unsigned char is_bypass(vframe_t *vf_in)
 {
     if(di_debug_flag&0x10000){ //for debugging
         return (di_debug_flag>>17)&0x1;
@@ -2334,7 +2339,14 @@ static unsigned char is_bypass(void)
 /*prot is conflict with di post*/
     if(di_pre_stru.orientation)
 	return 1;
-#endif
+
+    if((di_vscale_skip_enable & 0x4)&& vf_in){
+	di_vscale_skip_count = get_current_vscale_skip_count(vf_in);
+	if(di_vscale_skip_count > 0 && di_pre_stru.cur_prog_flag)
+            return 1;
+	return 0;
+    }
+    #endif
     return 0;
 
 }
@@ -2458,8 +2470,8 @@ static int di_init_buf(int width, int height, unsigned char prog_flag)
     int i, local_buf_num_available, local_buf_num_valid;
     int canvas_height = height + 8;
 #ifdef D2D3_SUPPORT
-    unsigned dp_buf_size;
-    unsigned dp_mem_start;
+    unsigned dp_buf_size = 0;
+    unsigned dp_mem_start = 0;
 #endif
     frame_count = 0;
     disp_frame_count = 0;
@@ -2651,14 +2663,15 @@ static void di_uninit_buf(void)
     int itmp;
 
     //vframe_t* cur_vf = get_cur_dispbuf();
-
-    for(i=0; i<USED_LOCAL_BUF_MAX; i++){
-    	used_local_buf_index[i] = -1;
+    if(!queue_empty(QUEUE_DISPLAY)){
+        for(i=0; i<USED_LOCAL_BUF_MAX; i++){
+    	    used_local_buf_index[i] = -1;
+        }
+        used_post_buf_index = -1;
     }
-    used_post_buf_index = -1;
 
     queue_for_each_entry(p, ptmp, QUEUE_DISPLAY, list) {
-        if(p->di_buf[0]->type!=VFRAME_TYPE_IN){
+        if(p->di_buf[0]->type!=VFRAME_TYPE_IN && p->process_fun_index != PROCESS_FUN_NULL){
 #if 1
 	    if(p->index == di_post_stru.cur_disp_index){
 	        used_post_buf_index = p->index;
@@ -2690,9 +2703,6 @@ static void di_uninit_buf(void)
                         }
 	        }
 #endif
-	        printk("%s keep cur di_buf %d (%d %d %d)\n",
-	                __func__, used_post_buf_index, used_local_buf_index[0],
-	                used_local_buf_index[1],used_local_buf_index[2]);
 	        break;
 	    }
 	}
@@ -2700,7 +2710,11 @@ static void di_uninit_buf(void)
 	    break;
 	}
     }
-
+    if(used_post_buf_index != -1){
+        printk("%s keep cur di_buf %d (%d %d %d)\n",
+               __func__, used_post_buf_index, used_local_buf_index[0],
+                     used_local_buf_index[1],used_local_buf_index[2]);
+    }
 #ifdef USE_LIST
     list_for_each_entry_safe(p, ptmp, &local_free_list_head, list) {
         list_del(&p->list);
@@ -2990,7 +3004,7 @@ static void dump_state(void)
     int i;
     dump_state_flag = 1;
     printk("version %s, provider vframe level %d, init_flag %d, is_bypass %d, receiver_is_amvideo %d\n",
-        version_s, provider_vframe_level, init_flag, is_bypass(), receiver_is_amvideo);
+        version_s, provider_vframe_level, init_flag, is_bypass(NULL), receiver_is_amvideo);
     printk("recovery_flag = %d, recovery_log_reason=%d, recovery_log_queue_idx=%d, recovery_log_di_buf=0x%p\n",
         recovery_flag, recovery_log_reason, recovery_log_queue_idx, recovery_log_di_buf);
 
@@ -3538,7 +3552,7 @@ static void pre_de_done_buf_config(void)
                 di_pre_stru.di_wr_buf->new_format_flag = 1;
                 bypass_state = 0;
 //#ifdef DI_DEBUG
-     		di_print("%s:bypass_state change to 0, is_bypass() %d trick_mode %d bypass_all %d\n", __func__, is_bypass(), trick_mode, bypass_all);
+     		di_print("%s:bypass_state change to 0, is_bypass() %d trick_mode %d bypass_all %d\n", __func__, is_bypass(NULL), trick_mode, bypass_all);
 //#endif
             }
 #ifdef CONFIG_VSYNC_RDMA
@@ -3598,7 +3612,7 @@ static void pre_de_done_buf_config(void)
                 di_pre_stru.di_wr_buf->new_format_flag = 1;
                 bypass_state = 0;
 //#ifdef DI_DEBUG
-        						di_print("%s:bypass_state change to 0, is_bypass() %d trick_mode %d bypass_all %d\n", __func__, is_bypass(), trick_mode, bypass_all);
+        						di_print("%s:bypass_state change to 0, is_bypass() %d trick_mode %d bypass_all %d\n", __func__, is_bypass(NULL), trick_mode, bypass_all);
 //#endif
             }
 #ifdef CONFIG_VSYNC_RDMA
@@ -3735,7 +3749,7 @@ static void recycle_vframe_type_pre(di_buf_t* di_buf)
 */
 static int peek_free_linked_buf(void)
 {
-    di_buf_t *p = NULL, *p_linked = NULL,*ptmp;
+    di_buf_t *p = NULL;
     int itmp, p_index = -2;
 
     if(list_count(QUEUE_LOCAL_FREE) < 2)
@@ -3756,8 +3770,8 @@ static int peek_free_linked_buf(void)
 */
 static di_buf_t *get_free_linked_buf(int idx)
 {
-    di_buf_t *di_buf=NULL, *di_buf_linked=NULL, *di_buf_tmp;
-    int i = 0, pool_idx = 0, di_buf_idx = 0;
+    di_buf_t *di_buf=NULL, *di_buf_linked=NULL;
+    int pool_idx = 0, di_buf_idx = 0;
 
     queue_t *q = &(queue[QUEUE_LOCAL_FREE]);
     if(list_count(QUEUE_LOCAL_FREE)<2)
@@ -3796,7 +3810,7 @@ static unsigned char pre_de_buf_config(void)
         return 0;
     }
 
-    if(is_bypass()){ //some provider has problem if receiver get all buffers of provider
+    if(is_bypass(NULL)){ //some provider has problem if receiver get all buffers of provider
         int in_buf_num = 0;
         for(i=0; i<MAX_IN_BUF_NUM; i++){
             if(vframe_in[i]!=NULL){
@@ -4008,7 +4022,7 @@ static unsigned char pre_de_buf_config(void)
             di_pre_stru.cur_inp_type = di_buf->vframe->type;
         }
 
-            if(is_bypass()){
+            if(is_bypass(di_buf->vframe)){
                 // bypass progressive
                 di_buf->seq = di_pre_stru.pre_ready_seq++;
                 di_buf->post_ref_count = 0;
@@ -4050,7 +4064,7 @@ static unsigned char pre_de_buf_config(void)
                         }
 #endif
 //#ifdef DI_DEBUG
-        		di_print("%s:bypass_state change to 1, is_bypass() %d trick_mode %d bypass_all %d\n", __func__, is_bypass(), trick_mode, bypass_all);
+        		di_print("%s:bypass_state change to 1, is_bypass() %d trick_mode %d bypass_all %d\n", __func__, is_bypass(NULL), trick_mode, bypass_all);
 //#endif
                 }
 
@@ -4101,6 +4115,8 @@ static unsigned char pre_de_buf_config(void)
                 else{
                     //n
                     di_buf->post_proc_flag = 0;
+                    if(prog_proc_config & 0x40)
+                    	di_buf->post_proc_flag = 1;
                     di_pre_stru.di_inp_buf = di_buf;
                     if(di_pre_stru.prog_proc_type == 0){
                         di_pre_stru.process_count = 1;
@@ -4442,7 +4458,7 @@ di post process
 */
 static void inc_post_ref_count(di_buf_t* di_buf)
 {
-    int post_blend_mode;
+//    int post_blend_mode;
 
     if(di_buf == NULL){
 #ifdef DI_DEBUG
@@ -4631,7 +4647,7 @@ static int de_post_process(void* arg, unsigned zoom_start_x_lines,
     di_buf_t* di_buf = (di_buf_t*)arg;
     int di_width, di_height, di_start_x, di_end_x, di_start_y, di_end_y;
     int hold_line = post_hold_line;
-   	int post_blend_en, post_blend_mode, blend_mtn_en, ei_en;
+   	int post_blend_en=0, post_blend_mode=0, blend_mtn_en=0, ei_en;
 
     if(di_get_power_control(1)==0){
         return 0;
@@ -6097,8 +6113,10 @@ static void di_reg_process(void)
             di_set_power_control(1,1);
 
 /* add for di Reg re-init */
-#if defined(NEW_DI_TV)
+#ifdef NEW_DI_TV
 di_set_para_by_tvinfo(vframe);
+#else
+di_load_nr_setting();
 #endif
             if(di_printk_flag&2){
                 di_printk_flag=1;
@@ -6494,7 +6512,7 @@ light_unreg:
 #ifdef RUN_DI_PROCESS_IN_IRQ
 #define INPUT2PRE_2_BYPASS_SKIP_COUNT   4
         if(active_flag && vdin_source_flag){
-            if(is_bypass()){
+            if(is_bypass(NULL)){
                 if(di_pre_stru.pre_de_busy == 0){
                     Wr_reg_bits(VDIN_WR_CTRL, 0x3, 24, 3);
                     di_pre_stru.vdin2nr = 0;
@@ -6612,7 +6630,7 @@ static void fast_process(void)
 {
 	int i;
 	ulong flags=0, fiq_flag=0, irq_flag2=0;
-	if(active_flag&& is_bypass()&&(bypass_get_buf_threshold<=1)&&(init_flag)&&(recovery_flag == 0)&&(dump_state_flag==0)){
+	if(active_flag&& is_bypass(NULL)&&(bypass_get_buf_threshold<=1)&&(init_flag)&&(recovery_flag == 0)&&(dump_state_flag==0)){
         if(vf_peek(VFM_NAME)==NULL){
        	    return;
        	}
@@ -6669,7 +6687,7 @@ static vframe_t *di_vf_peek(void* arg)
 
     fast_process();
 #ifdef SUPPORT_START_FRAME_HOLD
-    if((disp_frame_count==0)&&(is_bypass()==0)){
+    if((disp_frame_count==0)&&(is_bypass(NULL)==0)){
         int ready_count = list_count(QUEUE_POST_READY);
         if(ready_count>start_frame_hold_count){
            di_buf = get_di_buf_head(QUEUE_POST_READY);
@@ -6736,7 +6754,7 @@ static vframe_t *di_vf_get(void* arg)
         return NULL;
 
 #ifdef SUPPORT_START_FRAME_HOLD
-    if((disp_frame_count==0)&&(is_bypass()==0)){
+    if((disp_frame_count==0)&&(is_bypass(NULL)==0)){
         int ready_count = list_count(QUEUE_POST_READY);
         if(ready_count>start_frame_hold_count){
             goto get_vframe;
@@ -6790,8 +6808,8 @@ static void di_vf_put(vframe_t *vf, void* arg)
 {
     di_buf_t* di_buf = (di_buf_t*)vf->private_data;
     ulong irq_flag2=0, fiq_flag=0;
-    di_buf_t *p = NULL, *ptmp = NULL;
-    int itmp = 0;
+    //di_buf_t *p = NULL;
+    //int itmp = 0;
     if((init_flag == 0)||recovery_flag){
 #ifdef DI_DEBUG
         di_print("%s: %x\n", __func__, vf);

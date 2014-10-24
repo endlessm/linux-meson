@@ -58,6 +58,8 @@
 #define DRV_NAME "aml_snd_m8"
 #define HP_DET                  1
 extern int ext_codec;
+extern struct device *spdif_dev;
+
 static void aml_set_clock(int enable)
 {
     /* set clock gating */
@@ -160,7 +162,7 @@ static void aml_asoc_work_func(struct work_struct *work)
 {
     struct aml_audio_private_data *p_aml_audio = NULL;
     struct snd_soc_card *card = NULL;
-    int jack_type = 0;
+  //  int jack_type = 0;
     int flag = -1;
 	int status = SND_JACK_HEADPHONE;
     p_aml_audio = container_of(work, struct aml_audio_private_data, work);
@@ -286,6 +288,8 @@ static struct snd_soc_ops aml_asoc_ops = {
 struct aml_audio_private_data *p_audio;
 
 static int aml_m8_spk_enabled;
+static bool aml_audio_i2s_mute_flag = 0;
+static bool aml_audio_spdif_mute_flag = 0;
 
 static int aml_m8_set_spk(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
@@ -310,6 +314,49 @@ static int aml_m8_get_spk(struct snd_kcontrol *kcontrol,
     return 0;
 }
 
+static int aml_audio_set_i2s_mute(struct snd_kcontrol *kcontrol,
+    struct snd_ctl_elem_value *ucontrol)
+{
+    aml_audio_i2s_mute_flag = ucontrol->value.integer.value[0];
+    printk(KERN_INFO "aml_audio_i2s_mute_flag: flag=%d\n",aml_audio_i2s_mute_flag);
+    if(aml_audio_i2s_mute_flag){
+        aml_audio_i2s_mute();
+    }else{
+        aml_audio_i2s_unmute();
+    }
+    return 0;
+}
+
+static int aml_audio_get_i2s_mute(struct snd_kcontrol *kcontrol,
+    struct snd_ctl_elem_value *ucontrol)
+{
+    ucontrol->value.integer.value[0] = aml_audio_i2s_mute_flag;
+    return 0;
+}
+
+
+static bool spdif_mute_flag;
+
+static int aml_audio_set_spdif_mute(struct snd_kcontrol *kcontrol,
+    struct snd_ctl_elem_value *ucontrol)
+{
+    
+    aml_audio_spdif_mute_flag = ucontrol->value.integer.value[0];
+    printk(KERN_INFO "aml_audio_set_spdif_mute: flag=%d\n",aml_audio_spdif_mute_flag);
+    if(aml_audio_spdif_mute_flag){
+        aml_spdif_pinmux_deinit(spdif_dev);
+    }else{
+        aml_spdif_pinmux_init(spdif_dev);
+    }
+    return 0;
+}
+
+static int aml_audio_get_spdif_mute(struct snd_kcontrol *kcontrol,
+    struct snd_ctl_elem_value *ucontrol)
+{
+    ucontrol->value.integer.value[0] = aml_audio_spdif_mute_flag;
+    return 0;
+}
 static int aml_set_bias_level(struct snd_soc_card *card,
         struct snd_soc_dapm_context *dapm, enum snd_soc_bias_level level)
 {
@@ -411,6 +458,8 @@ static int i2s_gpio_set(struct snd_soc_card *card)
         amlogic_gpio_request_one(p_aml_audio->gpio_i2s_o,GPIOF_OUT_INIT_LOW,"low_odata");
         amlogic_set_value(p_aml_audio->gpio_i2s_o, 0, "low_odata");
     }
+    //mute spk
+    amlogic_set_value(p_aml_audio->gpio_mute, 0, "mute_spk");
     return 0;
 }
 static int aml_suspend_post(struct snd_soc_card *card)
@@ -488,6 +537,13 @@ static struct snd_soc_jack_pin jack_pins[] = {
 static const struct snd_kcontrol_new aml_m8_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Ext Spk"),
 
+    SOC_SINGLE_BOOL_EXT("aml audio i2s mute", 0,
+        aml_audio_get_i2s_mute,
+        aml_audio_set_i2s_mute),
+        
+    SOC_SINGLE_BOOL_EXT("aml audio spdif mute", 0,
+        aml_audio_get_spdif_mute,
+        aml_audio_set_spdif_mute),
 
 	SOC_SINGLE_BOOL_EXT("Amp Spk enable", 0,
 		aml_m8_get_spk,
@@ -649,7 +705,7 @@ static void aml_m8_pinmux_init(struct snd_soc_card *card)
     
     p_audio = p_aml_audio;
 //#if USE_EXTERNAL_DAC
-    if(ext_codec){
+  //  if(ext_codec){
 #ifndef CONFIG_MESON_TRUSTZONE
     //aml_write_reg32(P_AO_SECURE_REG1,0x00000000);
         aml_clr_reg32_mask(P_AO_SECURE_REG1, ((1<<8) | (1<<1)));
@@ -658,7 +714,7 @@ static void aml_m8_pinmux_init(struct snd_soc_card *card)
     //meson_secure_reg_write(P_AO_SECURE_REG1, 0x00000000);
 	meson_secure_reg_write(P_AO_SECURE_REG1, meson_secure_reg_read(P_AO_SECURE_REG1) & (~((1<<8) | (1<<1))));
 #endif /* CONFIG_MESON_TRUSTZONE */
-    }
+//    }
 //#endif
 	ret = of_property_read_string(card->dev->of_node, "mute_gpio", &str);
 	if (ret < 0) {
@@ -687,7 +743,7 @@ static void aml_m8_pinmux_deinit(struct snd_soc_card *card)
 }
 static int aml_m8_audio_probe(struct platform_device *pdev)
 {
-    struct device_node *np;
+//    struct device_node *np;
     struct snd_soc_card *card = &aml_snd_soc_card;
     struct aml_audio_private_data *p_aml_audio;
 	char tmp[NAME_SIZE];

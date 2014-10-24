@@ -595,7 +595,7 @@ early_param("storage",get_storage_device);
  */
  static int spi_nor_probe(struct spi_device *spi)
 {
-	struct flash_platform_data	*data;
+	struct flash_platform_data	*data=NULL;
 	struct spi_nor			*spi_nor;
 	struct flash_info		*info;
 	unsigned			i;

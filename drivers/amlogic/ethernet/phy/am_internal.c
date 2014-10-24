@@ -243,34 +243,32 @@ static int internal_read_status(struct phy_device *phydev)
 	if(phydev->speed == SPEED_100){
 		init_internal_phy_100B(phydev);
 	}
-	if (AUTONEG_ENABLE == phydev->autoneg){
-		NULL;
+	if (!(AUTONEG_ENABLE == phydev->autoneg)){
+		if (!phydev->link) {
+			/* Disable EDPD to wake up PHY */
+			int rc = phy_read(phydev, MII_INTERNAL_CTRL_STATUS);
+			if (rc < 0)
+				return rc;
+
+			rc = phy_write(phydev, MII_INTERNAL_CTRL_STATUS,
+					rc & ~MII_INTERNAL_EDPWRDOWN);
+			if (rc < 0)
+				return rc;
+
+			/* Sleep 64 ms to allow ~5 link test pulses to be sent */
+			msleep(64);
+
+			/* Re-enable EDPD */
+			rc = phy_read(phydev, MII_INTERNAL_CTRL_STATUS);
+			if (rc < 0)
+				return rc;
+
+			rc = phy_write(phydev, MII_INTERNAL_CTRL_STATUS,
+					rc | MII_INTERNAL_EDPWRDOWN);
+			if (rc < 0)
+				return rc;
+		}
 	}
-	else if (!phydev->link) {
-		/* Disable EDPD to wake up PHY */
-		int rc = phy_read(phydev, MII_INTERNAL_CTRL_STATUS);
-		if (rc < 0)
-			return rc;
-
-		rc = phy_write(phydev, MII_INTERNAL_CTRL_STATUS,
-				rc & ~MII_INTERNAL_EDPWRDOWN);
-		if (rc < 0)
-			return rc;
-
-		/* Sleep 64 ms to allow ~5 link test pulses to be sent */
-		msleep(64);
-
-		/* Re-enable EDPD */
-		rc = phy_read(phydev, MII_INTERNAL_CTRL_STATUS);
-		if (rc < 0)
-			return rc;
-
-		rc = phy_write(phydev, MII_INTERNAL_CTRL_STATUS,
-				rc | MII_INTERNAL_EDPWRDOWN);
-		if (rc < 0)
-			return rc;
-	}
-
 	return err;
 }
 

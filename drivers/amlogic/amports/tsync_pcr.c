@@ -91,7 +91,6 @@ u32 tsync_pcr_vstream_delayed(void)
 
 void tsync_pcr_avevent_locked(avevent_t event, u32 param)
 {
-    u32 t;
 
     switch (event) {
     case VIDEO_START:        
@@ -138,9 +137,9 @@ void tsync_pcr_avevent_locked(avevent_t event, u32 param)
     	{		    	
 		unsigned oldpts=timestamp_vpts_get();
 		if((abs(param-oldpts)>AV_DISCONTINUE_THREDHOLD_MIN) && (!get_vsync_pts_inc_mode())){
+	    	u32 tsdemux_pcr = tsdemux_pcrscr_get();
+	    	u32 ref_pcr = param;
 			printk("[tsync_pcr_avevent_locked] video discontinue happen.param=%x,discontinue=%d\n",param,tsync_pcr_tsdemuxpcr_discontinue);
-		    	u32 tsdemux_pcr = tsdemux_pcrscr_get();
-		    	u32 ref_pcr = param;
 		    	//if(ref_pcr == 0)
 		    	//	ref_pcr=tsdemux_pcr-tsync_pcr_vstream_delayed();
 			timestamp_pcrscr_set(ref_pcr);

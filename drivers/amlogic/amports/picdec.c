@@ -108,7 +108,6 @@ static int task_running = 0;
 /*same as tvin pool*/
 static int PICDEC_POOL_SIZE = 2 ;
 static int VF_POOL_SIZE = 2;
-static int PICDEC_CANVAS_ID = 24;
 /*same as tvin pool*/
 
 
@@ -159,7 +158,7 @@ static wait_queue_head_t frame_ready;
 
 
 static int render_frame(ge2d_context_t *context,config_para_ex_t* ge2d_config);
-static void post_frame();
+static void post_frame(void);
 
 /************************************************
 *
@@ -170,11 +169,13 @@ static void post_frame();
 static int picdec_canvas_table[2];
 static inline u32 index2canvas(u32 index)
 {
-	int i;
 	return picdec_canvas_table[index];
 }
 
-
+static vframe_t *picdec_vf_peek(void*);
+static int picdec_vf_states(vframe_states_t *states, void* op_arg);
+static vframe_t *picdec_vf_get(void*);
+static void picdec_vf_put(vframe_t *vf, void*);
 static int picdec_vf_states(vframe_states_t *states, void* op_arg)
 {
 	int i;
@@ -189,14 +190,14 @@ static int picdec_vf_states(vframe_states_t *states, void* op_arg)
 	return 0;
 }
 
-static vframe_t *picdec_vf_peek(void)
+static vframe_t *picdec_vf_peek(void* op_arg)
 {
 	if (get_ptr == fill_ptr)
 		return NULL;
 	return &vfpool[get_ptr];
 }
 
-static vframe_t *picdec_vf_get(void)
+static vframe_t *picdec_vf_get(void* op_arg)
 {
 	vframe_t *vf;
 
@@ -207,7 +208,7 @@ static vframe_t *picdec_vf_get(void)
 	return vf;
 }
 
-static void picdec_vf_put(vframe_t *vf)
+static void picdec_vf_put(vframe_t *vf, void* op_arg)
 {
 	int i;
 	int  canvas_addr;
@@ -282,16 +283,16 @@ static int render_frame(ge2d_context_t *context,config_para_ex_t* ge2d_config)
 }
 
 
-static int render_frame_block()
+static int render_frame_block(void)
 {
 	vframe_t* new_vf;
 	int index;
 	struct timeval start;
 	struct timeval end;
 	unsigned long time_use=0;
-	do_gettimeofday(&start);	
+	config_para_ex_t ge2d_config;		
 	ge2d_context_t *context=picdec_device.context;
-	config_para_ex_t ge2d_config;
+	do_gettimeofday(&start);
 	memset(&ge2d_config,0,sizeof(config_para_ex_t));
 	index = get_unused_picdec_index();
 	if(index < 0){
@@ -325,7 +326,7 @@ static int render_frame_block()
 	return 0;
 }
 
-void post_frame()
+static void post_frame(void)
 {
 	vfbuf_use[picdec_device.cur_index]++;
 	INCPTR(fill_ptr);
@@ -381,7 +382,7 @@ static vframe_receiver_op_t* picdec_stop(void)
 }
 
 
-static int picdec_start( )
+static int picdec_start(void)
 {
     ulong flags;
 
@@ -402,7 +403,7 @@ static int picdec_start( )
     	printk("mapping failed!!!!!!!!!!!!\n");
     	return -1;
 	}else{
-		printk("mapping addr is %lx : %p , mapping size is %ld \n " ,map_start ,picdec_device.mapping , map_size );
+		printk("mapping addr is %x : %p , mapping size is %d \n " ,map_start ,picdec_device.mapping , map_size );
     }
     
 	vf_provider_init(&picdec_vf_prov, PROVIDER_NAME ,&picdec_vf_provider, NULL);	
@@ -440,17 +441,17 @@ MODULE_PARM_DESC(print_ifmt, "print input format\n");
 
 /* fill the RGB user buffer to physical buffer
 */
-int picdec_pre_process()
+int picdec_pre_process(void)
 {   
 	struct io_mapping *mapping_wc;
 	void __iomem * buffer_start;
 	int i,j;
-	resource_size_t offset = picdec_device.assit_buf_start - picdec_device.buffer_start;
-	unsigned src_addr_off =0 ;
+	//resource_size_t offset = picdec_device.assit_buf_start - picdec_device.buffer_start;
 	unsigned dst_addr_off =0 ;
 	char* p;
 	char* q;
 	char* ref;	
+	int ret =0;
 	int bp = ((picdec_input.frame_width + 0x1f)& ~0x1f)*3 ;
 	struct timeval start;
 	struct timeval end;
@@ -480,9 +481,9 @@ int picdec_pre_process()
 			case 0: 	//RGB
 			p = (char*)buffer_start;
 			q = (char*)picdec_input.input;
-			printk("RGB user space address is %lx################\n",(unsigned)q );
+			printk("RGB user space address is %x################\n",(unsigned)q );
 			for(j =0 ; j <picdec_input.frame_height; j++ ){
-				copy_from_user(p, (void __user *)q,picdec_input.frame_width*3);
+				ret = copy_from_user(p, (void __user *)q,picdec_input.frame_width*3);
 				q += picdec_input.frame_width*3 ;
 				p += bp; 	
 			}	
@@ -490,11 +491,11 @@ int picdec_pre_process()
 			case 1:        //RGBA
 			p = ref =  (char*)buffer_start;
 			q = (char*)picdec_input.input;
-			printk("RGBA user space address is %lx################\n",(unsigned)q );
+			printk("RGBA user space address is %x################\n",(unsigned)q );
 			for(j =0 ; j <picdec_input.frame_height; j++ ){	
 				p = ref;			
 				for(i = 0 ;i < picdec_input.frame_width ; i++){
-					copy_from_user(p, (void __user *)q,3);
+					ret = copy_from_user(p, (void __user *)q,3);
 					q +=4;
 					p +=3;	
 				}
@@ -505,11 +506,11 @@ int picdec_pre_process()
 			case 2:        //ARGB
 			p = ref = (char*)buffer_start;
 			q = (char*)picdec_input.input;
-			printk("ARGB user space address is %lx################\n",(unsigned)q );
+			printk("ARGB user space address is %x################\n",(unsigned)q );
 			for(j =0 ; j <picdec_input.frame_height; j++ ){			
 				p = ref;				
 				for(i = 0 ;i < picdec_input.frame_width ; i++){
-					copy_from_user(p, (void __user *)(q+1),3);
+					ret = copy_from_user(p, (void __user *)(q+1),3);
 					q +=4;
 					p +=3;	
 				}			
@@ -520,9 +521,9 @@ int picdec_pre_process()
 			default:
 			p = (char*)buffer_start;
 			q = (char*)picdec_input.input;
-			printk("user space address is %lx################\n",(unsigned)q );
+			printk("user space address is %x################\n",(unsigned)q );
 			for(j =0 ; j <picdec_input.frame_height; j++ ){
-				copy_from_user(p, (void __user *)q,picdec_input.frame_width*3);
+				ret = copy_from_user(p, (void __user *)q,picdec_input.frame_width*3);
 				q += picdec_input.frame_width*3 ;
 				p += bp; 	
 			}				
@@ -542,16 +543,16 @@ int picdec_pre_process()
 int fill_color(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* ge2d_config)
 {
 	struct io_mapping *mapping_wc;
-	void __iomem * buffer_start;
-	canvas_t cs0,cs1,cs2,cd;
-	int dst_top, dst_left ,dst_width , dst_height;
-	int i,j;
-	resource_size_t offset = picdec_device.assit_buf_start - picdec_device.buffer_start;
-	unsigned src_addr_off =0 ;
-	unsigned dst_addr_off =0 ;
+	//void __iomem * buffer_start;
+	canvas_t cs0,cs1,cs2;
+	//canvas_t cd;
+	//int dst_top, dst_left ,dst_width , dst_height;
+	//int i,j;
+	//resource_size_t offset = picdec_device.assit_buf_start - picdec_device.buffer_start;
 	struct timeval start;
 	struct timeval end;
 	unsigned long time_use=0;
+	void __iomem *p ;
 	do_gettimeofday(&start);	
 	get_picdec_buf_info(NULL, NULL, &mapping_wc);
 	if(!mapping_wc){
@@ -643,7 +644,7 @@ int fill_color(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* ge2d_conf
 	stretchblt_noalpha(context,0 ,0 ,640, 480,dst_left,dst_top,dst_width,dst_height);	
 	io_mapping_unmap_atomic( buffer_start );
 #else
- 	void __iomem *p ;
+ 	
 	canvas_read(vf->canvas0Addr&0xff,&cs0);
 	canvas_read((vf->canvas0Addr>>8)&0xff,&cs1);
 	canvas_read((vf->canvas0Addr>>16)&0xff,&cs2);		
@@ -787,7 +788,8 @@ static void rotate_adjust(int w_in ,int h_in , int* w_out, int* h_out, int angle
 
 int picdec_fill_buffer(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* ge2d_config)
 {
-	canvas_t cs0,cs1,cs2,cd;
+	canvas_t cs0,cs1,cs2;
+	int canvas_id = PIC_DEC_SOURCE_CANVAS;
 	int canvas_width =  (picdec_input.frame_width + 0x1f)& ~0x1f ;
 	int canvas_height = (picdec_input.frame_height + 0xf)& ~0xf	;
     int frame_width = picdec_input.frame_width ;
@@ -807,9 +809,9 @@ int picdec_fill_buffer(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* g
 	ge2d_config->src1_gb_alpha = 0;//0xff;
 	ge2d_config->dst_xy_swap = 0;
 
-	canvas_read(PIC_DEC_SOURCE_CANVAS&0xff,&cs0);
-	canvas_read((PIC_DEC_SOURCE_CANVAS>>8)&0xff,&cs1);
-	canvas_read((PIC_DEC_SOURCE_CANVAS>>16)&0xff,&cs2);
+	canvas_read((canvas_id & 0xff),&cs0);
+	canvas_read(((canvas_id >> 8) & 0xff),&cs1);
+	canvas_read(((canvas_id >> 16) & 0xff),&cs2);
 	ge2d_config->src_planes[0].addr = cs0.addr;
 	ge2d_config->src_planes[0].w = cs0.width;
 	ge2d_config->src_planes[0].h = cs0.height;
@@ -897,20 +899,18 @@ int picdec_fill_buffer(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* g
 	dst_top = (picdec_device.disp_height -dst_height) >>1;
 
 	stretchblt_noalpha(context,0 ,0 ,frame_width, frame_height,dst_left,dst_top,dst_width,dst_height);	
+	return 0;
 }
 
 
 static struct task_struct *task=NULL;
-static struct task_struct *simulate_task_fd=NULL;
+//static struct task_struct *simulate_task_fd=NULL;
 
 
 
 /* static int reset_frame = 1; */
 static int picdec_task(void *data) {
 	int ret = 0;
-	vframe_t *vf;
-	int src_canvas;
-	//picdec_device_t *devp = (picdec_device_t*) data;
 	struct sched_param param = {.sched_priority = MAX_RT_PRIO - 1 };
 	ge2d_context_t *context=create_ge2d_work_queue();
 	config_para_ex_t ge2d_config;
@@ -958,6 +958,8 @@ picdec_exit:
 	return ret;
 }
 
+#if 0
+
 /*simulate v4l2 device to request filling buffer,only for test use*/
 static int simulate_task(void *data)
 {
@@ -969,8 +971,10 @@ static int simulate_task(void *data)
 	return 0;
 }
 
+#endif
 /************************************************
 *
+
 *   init functions.
 *
 *************************************************/
@@ -981,8 +985,6 @@ int picdec_buffer_init(void)
 	u32 decbuf_size;
 	resource_size_t buf_start;
 	unsigned int buf_size;
-	int buf_num = 0;
-	int local_pool_size = 0;
     unsigned offset =0 ;
 
 	get_picdec_buf_info(&buf_start,&buf_size, NULL);
@@ -1044,7 +1046,7 @@ int start_picdec_task(void) {
     picdec_device.task_running = task_running;
 	return 0;
 }
-
+#if 0
 static int start_simulate_task(void)
 {
 	if(!simulate_task_fd) {
@@ -1057,6 +1059,7 @@ static int start_simulate_task(void)
 	}
 	return 0;
 }
+#endif
 
 
 void stop_picdec_task(void) {
@@ -1081,7 +1084,8 @@ void stop_picdec_task(void) {
 
 static int picdec_enable_flag=0;
 
-int get_picdec_status() {
+int get_picdec_status(void) 
+{
 	return picdec_enable_flag;
 }
 
@@ -1145,14 +1149,16 @@ static long picdec_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 	int  ret=0 ;
 	ge2d_context_t *context;
 	void  __user* argp;	
-	source_input_t* input;
+	//source_input_t* input;
 	context=(ge2d_context_t *)filp->private_data;
 	argp =(void __user*)args;
 	switch (cmd)
    	{
 	case PICDEC_IOC_FRAME_RENDER:
 		printk("PICDEC_IOC_FRAME_RENDER\n");
-	    copy_from_user(&picdec_input, (void *)argp, sizeof(source_input_t));
+	    if(copy_from_user(&picdec_input, (void *)argp, sizeof(source_input_t))){	    
+	       return -EFAULT;
+	    }
 #if 0
 		picdec_input.input = input->input;
 		picdec_input.frame_width     = input->frame_width;
@@ -1238,69 +1244,6 @@ static int parse_para(const char *para, int para_num, int *result)
     return count;
 }
 
-static ssize_t picdec_attr_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-        ssize_t len = 0;
-        picdec_device_t *devp;
-
-        devp = dev_get_drvdata(dev);
-        if (0 == devp->task_running){
-                len += sprintf(buf+len, "picdec does not start\n");
-                return len;
-        }
-
-        len += sprintf((char *)buf+len, "picdec parameters below\n");
-
-        return len;
-}
-
-static ssize_t picdec_attr_store(struct device *dev,struct device_attribute *attr,const char *buf, size_t len)
-{
-        picdec_device_t *devp;
-        unsigned int n=0;
-        char *buf_orig, *ps, *token;
-        char *parm[6] = {NULL};
-
-        if(!buf)
-                return len;
-
-        buf_orig = kstrdup(buf, GFP_KERNEL);
-        //printk(KERN_INFO "input cmd : %s",buf_orig);
-        devp = dev_get_drvdata(dev);
-        if (0 == devp->task_running){
-                len += sprintf((char *)buf+len, "picdec does not start\n");
-                return len;
-        }
-
-        ps = buf_orig;
-        while (1) {
-                if ( n >=ARRAY_SIZE(parm) ){
-                        printk("parm array overflow, n=%d, ARRAY_SIZE(parm)=%d\n", n, ARRAY_SIZE(parm));
-                        return len;
-                }
-                token = strsep(&ps, " \n");
-                if (token == NULL)
-                        break;
-                if (*token == '\0')
-                        continue;
-                parm[n++] = token;
-        }
-
-        if ( 0 == strcmp(parm[0],"before")){
-                devp->dump = 1;
-                devp->dump_path = parm[1];
-                printk("this not support\n");
-        } else if ( 0 == strcmp(parm[0],"after")){
-                devp->dump = 2;
-                devp->dump_path = parm[1];
-                printk("after ge2d processed, store to %s\n", parm[1]);
-        }
-
-        kfree(buf_orig);
-        return len;
-}
-
-static DEVICE_ATTR(dump, 0664, picdec_attr_show, picdec_attr_store);
 
 static ssize_t frame_render_read(struct class *cla,struct class_attribute *attr,char *buf)
 {
@@ -1406,7 +1349,7 @@ static struct class picdec_class = {
 	.class_attrs = picdec_class_attrs,
 };
 
-struct class* init_picdec_cls() {
+struct class* init_picdec_cls(void) {
 	int  ret=0;
 	ret = class_register(&picdec_class);
 	if(ret < 0)
@@ -1493,7 +1436,7 @@ static int picdec_driver_probe(struct platform_device *pdev)
 
 	char* buf_start;
 	unsigned int buf_size;
-	struct resource *mem;
+	//struct resource *mem;
 	struct device_node	*of_node = pdev->dev.of_node;
 	const void *name;
     int idx;
@@ -1532,17 +1475,17 @@ static int picdec_driver_probe(struct platform_device *pdev)
 			}
 			
 			
-			buf_start = (phys_addr_t)get_reserve_block_addr(idx)+offset;
+			buf_start = (char*)((phys_addr_t)get_reserve_block_addr(idx)+offset);
 			buf_size =  size;
 		}
 	}
 	else
 	{
-		 buf_start = (char *)get_reserve_block_addr(idx);
+		 buf_start = (char *)((phys_addr_t)get_reserve_block_addr(idx));
 		 buf_size = (unsigned int)get_reserve_block_size(idx);
 	}
 
-	set_picdec_buf_info(buf_start,buf_size);
+	set_picdec_buf_info((resource_size_t)buf_start,buf_size);
 	picdec_device.mapping = 0; 
 	picdec_device.pdev = pdev;
 	init_picdec_device();

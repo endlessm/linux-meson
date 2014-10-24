@@ -35,6 +35,7 @@
 #include <linux/amlogic/amports/vframe_receiver.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-contiguous.h>
+#include <linux/delay.h>
 
 #include <mach/am_regs.h>
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
@@ -44,6 +45,7 @@
 
 #include "vdec.h"
 #include "amvdec.h"
+
 #include "vh264_4k2k_mc.h"
 
 #if  MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD
@@ -56,6 +58,7 @@
 #define PUT_INTERVAL        (HZ/100)
 #define ERROR_RESET_COUNT   500
 
+#define H264_4K2K_SINGLE_CORE   IS_MESON_M8M2_CPU
 
 
 extern void amvenc_dos_top_reg_fix(void);
@@ -318,7 +321,11 @@ static int vh264_4k2k_event_cb(int type, void *data, void *private_data)
     if(type & VFRAME_EVENT_RECEIVER_RESET){
         unsigned long flags;
         amvdec_stop();
-        amvdec2_stop();
+
+        if (!H264_4K2K_SINGLE_CORE) {
+            amvdec2_stop();
+        }
+
 #ifndef CONFIG_POST_PROCESS_MANAGER
         vf_light_unreg_provider(&vh264_4k2k_vf_prov);
 #endif
@@ -330,7 +337,10 @@ static int vh264_4k2k_event_cb(int type, void *data, void *private_data)
         vf_reg_provider(&vh264_4k2k_vf_prov);
 #endif
         amvdec_start();
-        amvdec2_start();
+
+        if (!H264_4K2K_SINGLE_CORE) {
+            amvdec2_start();
+        }
     }
 
     return 0;
@@ -360,7 +370,9 @@ int init_canvas(int start_addr, long dpb_size, int dpb_number, int mb_width, int
     
     for (i=0; i<dpb_number; i++) {
         WRITE_VREG(canvas_addr++, index | ((index+1)<<8) | ((index+1)<<16));
-        WRITE_VREG(vdec2_canvas_addr++, index | ((index+1)<<8) | ((index+1)<<16));
+        if (!H264_4K2K_SINGLE_CORE) {
+            WRITE_VREG(vdec2_canvas_addr++, index | ((index+1)<<8) | ((index+1)<<16));
+        }
 
         if (((dpb_addr + (mb_total << 8) + (mb_total << 7)) >= decoder_buffer_end) && (!use_alloc)) {
             printk("start alloc for %d/%d\n", i, dpb_number);
@@ -600,7 +612,9 @@ static void do_alloc_work(struct work_struct *work)
         frame_height = mb_height<<4;
 
     WRITE_VREG(REF_START_VIEW_0, video_domain_addr(ref_start_addr));
-    WRITE_VREG(VDEC2_REF_START_VIEW_0, video_domain_addr(ref_start_addr));
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_REF_START_VIEW_0, video_domain_addr(ref_start_addr));
+    }
 
     WRITE_VREG(MAILBOX_DATA_0, (max_dec_frame_buffering << 8) | (total_dec_frame_buffering << 0));
     WRITE_VREG(MAILBOX_DATA_1, ref_size);
@@ -798,8 +812,11 @@ static void vh264_4k2k_put_timer_func(unsigned long arg)
         (state == RECEIVER_INACTIVE) &&                       // receiver has no buffer to recycle
         (kfifo_is_empty(&display_q)) &&                       // no buffer in display queue
         (kfifo_is_empty(&recycle_q)) &&                       // no buffer to recycle
-        (READ_VREG(MS_ID) & 0x100) &&
-        (READ_VREG(VDEC2_MS_ID) & 0x100)) {                   // with both decoder have started decoding
+        (READ_VREG(MS_ID) & 0x100)
+#ifdef CONFIG_H264_2K4K_SINGLE_CORE
+        && (READ_VREG(VDEC2_MS_ID) & 0x100)                   // with both decoder have started decoding
+#endif
+       ) {
         if (++error_watchdog_count == ERROR_RESET_COUNT) {    // and it lasts for a while
             printk("H264 4k2k decoder fatal error watchdog.\n");
             fatal_error = DECODER_FATAL_ERROR_UNKNOW;
@@ -995,13 +1012,17 @@ static void vh264_4k2k_prot_init(void)
 {
     /* clear mailbox interrupt */
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-    WRITE_VREG(VDEC2_ASSIST_MBOX0_CLR_REG, 1);
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_ASSIST_MBOX0_CLR_REG, 1);
+    }
 #endif
     WRITE_VREG(VDEC_ASSIST_MBOX1_CLR_REG, 1);
 
     /* enable mailbox interrupt */
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-    WRITE_VREG(VDEC2_ASSIST_MBOX0_MASK, 1);
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_ASSIST_MBOX0_MASK, 1);
+    }
 #endif
     WRITE_VREG(VDEC_ASSIST_MBOX1_MASK, 1);
 
@@ -1009,7 +1030,9 @@ static void vh264_4k2k_prot_init(void)
     WRITE_VREG(PSCALE_CTRL, 0);
 
     H264_DECODE_INIT();
-    H264_DECODE2_INIT();
+    if (!H264_4K2K_SINGLE_CORE) {
+        H264_DECODE2_INIT();
+    }
 
     WRITE_VREG(DOS_SW_RESET0, (1<<11));
     WRITE_VREG(DOS_SW_RESET0, 0);
@@ -1018,29 +1041,38 @@ static void vh264_4k2k_prot_init(void)
     READ_VREG(DOS_SW_RESET0);
     READ_VREG(DOS_SW_RESET0);
 
-    WRITE_VREG(DOS_SW_RESET2, (1<<11));
-    WRITE_VREG(DOS_SW_RESET2, 0);
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(DOS_SW_RESET2, (1<<11));
+        WRITE_VREG(DOS_SW_RESET2, 0);
 
-    READ_VREG(DOS_SW_RESET2);
-    READ_VREG(DOS_SW_RESET2);
-    READ_VREG(DOS_SW_RESET2);
+        READ_VREG(DOS_SW_RESET2);
+        READ_VREG(DOS_SW_RESET2);
+        READ_VREG(DOS_SW_RESET2);
+    }
 
     WRITE_VREG(MAILBOX_COMMAND, 0);
     WRITE_VREG(BUFFER_RECYCLE, 0);
 
-    WRITE_VREG(VDEC2_MAILBOX_COMMAND, 0);
-    WRITE_VREG(VDEC2_BUFFER_RECYCLE, 0);
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_MAILBOX_COMMAND, 0);
+        WRITE_VREG(VDEC2_BUFFER_RECYCLE, 0);
+    }
 
     CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1<<17);
-    CLEAR_VREG_MASK(VDEC2_MDEC_PIC_DC_CTRL, 1<<17);
+    if (!H264_4K2K_SINGLE_CORE) {
+        CLEAR_VREG_MASK(VDEC2_MDEC_PIC_DC_CTRL, 1<<17);
+    }
 
     /* set VDEC Master/ID 0 */
     WRITE_VREG(MS_ID, (1<<7)|(0<<0));
-    /* set VDEC2 Slave/ID 0 */
-    WRITE_VREG(VDEC2_MS_ID, (0<<7)|(1<<0));
-
+    if (!H264_4K2K_SINGLE_CORE) {
+        /* set VDEC2 Slave/ID 0 */
+        WRITE_VREG(VDEC2_MS_ID, (0<<7)|(1<<0));
+    }
     WRITE_VREG(DECODE_SKIP_PICTURE, 0);
-    WRITE_VREG(VDEC2_DECODE_SKIP_PICTURE, 0);
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_DECODE_SKIP_PICTURE, 0);
+    }
 
     WRITE_VREG(PRE_MASTER_UPDATE_TIMES, 0);
     WRITE_VREG(SLAVE_WAIT_DPB_UPDATE, 0);
@@ -1056,12 +1088,15 @@ static void vh264_4k2k_prot_init(void)
     WRITE_VREG(FATAL_ERROR, 0);
 
     SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1<<17);
-    SET_VREG_MASK(VDEC2_MDEC_PIC_DC_CTRL, 1<<17);
+    if (!H264_4K2K_SINGLE_CORE) {
+        SET_VREG_MASK(VDEC2_MDEC_PIC_DC_CTRL, 1<<17);
+    }
 
     WRITE_VREG(MDEC_PIC_DC_THRESH, 0x404038aa);
-    WRITE_VREG(VDEC2_MDEC_PIC_DC_THRESH, 0x404038aa);
-
-    amvenc_dos_top_reg_fix();
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_MDEC_PIC_DC_THRESH, 0x404038aa);
+        amvenc_dos_top_reg_fix();
+    }
 
 #ifdef DOUBLE_WRITE
     WRITE_VREG(MDEC_DOUBLEW_CFG0, (0   << 31) | // half y address
@@ -1079,22 +1114,23 @@ static void vh264_4k2k_prot_init(void)
                                   (0   <<  4) | // Pixel sel by horizontal, 0x:1/2 10:left 11:right
                                   (0   <<  1) | // Endian Control for Luma
                                   (1   <<  0)); // Double Write Enable
-
-    WRITE_VREG(VDEC2_MDEC_DOUBLEW_CFG0, (0   << 31) | // half y address
-                                  (1   << 30) | // 0:No Merge 1:Automatic Merge
-                                  (0   << 28) | // Field Picture, 0x:no skip 10:top only 11:bottom only
-                                  (0   << 27) | // Source from, 1:MCW 0:DBLK
-                                  (0   << 24) | // Endian Control for Chroma
-                                  (0   << 18) | // DMA ID
-                                  (0   << 12) | // DMA Burst Number
-                                  (0   << 11) | // DMA Urgent
-                                  (0   << 10) | // 1:Round 0:Truncation
-                                  (1   <<  9) | // Size by vertical,   0:original size 1: 1/2 shrunken size
-                                  (1   <<  8) | // Size by horizontal, 0:original size 1: 1/2 shrunken size
-                                  (0   <<  6) | // Pixel sel by vertical,   0x:1/2 10:up 11:down
-                                  (0   <<  4) | // Pixel sel by horizontal, 0x:1/2 10:left 11:right
-                                  (0   <<  1) | // Endian Control for Luma
-                                  (1   <<  0)); // Double Write Enable
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_MDEC_DOUBLEW_CFG0, (0   << 31) | // half y address
+                                      (1   << 30) | // 0:No Merge 1:Automatic Merge
+                                      (0   << 28) | // Field Picture, 0x:no skip 10:top only 11:bottom only
+                                      (0   << 27) | // Source from, 1:MCW 0:DBLK
+                                      (0   << 24) | // Endian Control for Chroma
+                                      (0   << 18) | // DMA ID
+                                      (0   << 12) | // DMA Burst Number
+                                      (0   << 11) | // DMA Urgent
+                                      (0   << 10) | // 1:Round 0:Truncation
+                                      (1   <<  9) | // Size by vertical,   0:original size 1: 1/2 shrunken size
+                                      (1   <<  8) | // Size by horizontal, 0:original size 1: 1/2 shrunken size
+                                      (0   <<  6) | // Pixel sel by vertical,   0x:1/2 10:up 11:down
+                                      (0   <<  4) | // Pixel sel by horizontal, 0x:1/2 10:left 11:right
+                                      (0   <<  1) | // Endian Control for Luma
+                                      (1   <<  0)); // Double Write Enable
+    }
 #endif
 }
 
@@ -1144,7 +1180,6 @@ static void vh264_4k2k_local_init(void)
 
 static s32 vh264_4k2k_init(void)
 {
-    int i;
     void __iomem *p = ioremap_nocache(work_space_adr, DECODER_WORK_SPACE_SIZE);
 
     if (!p) {
@@ -1162,29 +1197,50 @@ static s32 vh264_4k2k_init(void)
 
     amvdec_enable();
 
-    if (amvdec_loadmc(vh264_4k2k_mc) < 0) {
-        amvdec_disable();
-        iounmap(p);
-        return -EBUSY;
+    if (H264_4K2K_SINGLE_CORE) {
+        if (amvdec_loadmc(vh264_4k2k_mc_single) < 0) {
+            amvdec_disable();
+            iounmap(p);
+            return -EBUSY;
+        }
+    } else {
+        if (amvdec_loadmc(vh264_4k2k_mc) < 0) {
+            amvdec_disable();
+            iounmap(p);
+            return -EBUSY;
+        }
     }
 
-    amvdec2_enable();
+    if (!H264_4K2K_SINGLE_CORE) {
+        amvdec2_enable();
 
-    if (amvdec2_loadmc(vh264_4k2k_mc) < 0) {
-        amvdec_disable();
-        amvdec2_disable();
-        iounmap(p);
-        return -EBUSY;
+        if (amvdec2_loadmc(vh264_4k2k_mc) < 0) {
+            amvdec_disable();
+            amvdec2_disable();
+            iounmap(p);
+            return -EBUSY;
+        }
     }
 
-    memcpy(p,
-           vh264_4k2k_header_mc, sizeof(vh264_4k2k_header_mc));
+    if (H264_4K2K_SINGLE_CORE) {
+        memcpy(p,
+               vh264_4k2k_header_mc_single, sizeof(vh264_4k2k_header_mc_single));
 
-    memcpy((void *)((ulong)p + 0x1000),
-           vh264_4k2k_mmco_mc, sizeof(vh264_4k2k_mmco_mc));
+        memcpy((void *)((ulong)p + 0x1000),
+               vh264_4k2k_mmco_mc_single, sizeof(vh264_4k2k_mmco_mc_single));
 
-    memcpy((void *)((ulong)p + 0x3000),
-           vh264_4k2k_slice_mc, sizeof(vh264_4k2k_slice_mc));
+        memcpy((void *)((ulong)p + 0x3000),
+               vh264_4k2k_slice_mc_single, sizeof(vh264_4k2k_slice_mc_single));
+    } else {
+        memcpy(p,
+               vh264_4k2k_header_mc, sizeof(vh264_4k2k_header_mc));
+
+        memcpy((void *)((ulong)p + 0x1000),
+               vh264_4k2k_mmco_mc, sizeof(vh264_4k2k_mmco_mc));
+
+        memcpy((void *)((ulong)p + 0x3000),
+               vh264_4k2k_slice_mc, sizeof(vh264_4k2k_slice_mc));
+    }
 
     iounmap(p);
 
@@ -1197,18 +1253,23 @@ static s32 vh264_4k2k_init(void)
                     IRQF_SHARED, "vh264_4k2k-irq", (void *)vh264_4k2k_dec_id)) {
         printk("vh264_4k2k irq register error.\n");
         amvdec_disable();
-        amvdec2_disable();
+        if (!H264_4K2K_SINGLE_CORE) {
+            amvdec2_disable();
+        }
+        
         return -ENOENT;
     }
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-    if (request_irq(INT_VDEC2, vh264_4k2k_vdec2_isr,
-                    IRQF_SHARED, "vh264_4k2k-vdec2-irq", (void *)vh264_4k2k_dec_id2)) {
-        printk("vh264_4k2k irq register error.\n");
-        free_irq(INT_VDEC, (void *)vh264_4k2k_dec_id);
-        amvdec_disable();
-        amvdec2_disable();
-        return -ENOENT;
+    if (!H264_4K2K_SINGLE_CORE) {
+        if (request_irq(INT_VDEC2, vh264_4k2k_vdec2_isr,
+                        IRQF_SHARED, "vh264_4k2k-vdec2-irq", (void *)vh264_4k2k_dec_id2)) {
+            printk("vh264_4k2k irq register error.\n");
+            free_irq(INT_VDEC, (void *)vh264_4k2k_dec_id);
+            amvdec_disable();
+            amvdec2_disable();
+            return -ENOENT;
+        }
     }
 #endif
 
@@ -1229,7 +1290,9 @@ static s32 vh264_4k2k_init(void)
     stat |= STAT_TIMER_ARM;
 
     amvdec_start();
-    amvdec2_start();
+    if (!H264_4K2K_SINGLE_CORE) {
+        amvdec2_start();
+    }
 
     stat |= STAT_VDEC_RUN;
 
@@ -1247,16 +1310,23 @@ static int vh264_4k2k_stop(void)
 
     if (stat & STAT_VDEC_RUN) {
         amvdec_stop();
-        amvdec2_stop();
+        if (!H264_4K2K_SINGLE_CORE) {
+            amvdec2_stop();
+        }
         stat &= ~STAT_VDEC_RUN;
     }
 
     if (stat & STAT_ISR_REG) {
         WRITE_VREG(VDEC_ASSIST_MBOX1_MASK, 0);
-        WRITE_VREG(VDEC2_ASSIST_MBOX0_MASK, 0);
+        if (!H264_4K2K_SINGLE_CORE) {
+            WRITE_VREG(VDEC2_ASSIST_MBOX0_MASK, 0);
+        }
+
         free_irq(INT_VDEC, (void *)vh264_4k2k_dec_id);
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-        free_irq(INT_VDEC2, (void *)vh264_4k2k_dec_id2);
+        if (!H264_4K2K_SINGLE_CORE) {
+            free_irq(INT_VDEC2, (void *)vh264_4k2k_dec_id2);
+        }
 #endif
         stat &= ~STAT_ISR_REG;
     }
@@ -1273,11 +1343,15 @@ static int vh264_4k2k_stop(void)
 
 #ifdef DOUBLE_WRITE
     WRITE_VREG(MDEC_DOUBLEW_CFG0, 0);
-    WRITE_VREG(VDEC2_MDEC_DOUBLEW_CFG0, 0);
+    if (!H264_4K2K_SINGLE_CORE) {
+        WRITE_VREG(VDEC2_MDEC_DOUBLEW_CFG0, 0);
+    }
 #endif
 
     amvdec_disable();
-    amvdec2_disable();
+    if (!H264_4K2K_SINGLE_CORE) {
+        amvdec2_disable();
+    }
 
     canvas_read((READ_VCBUS_REG(VD1_IF0_CANVAS0) & 0xff), &cur_canvas);
     disp_addr = cur_canvas.addr;
@@ -1301,12 +1375,16 @@ static int vh264_4k2k_stop(void)
     return 0;
 }
 
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)&&(HAS_HDEC)
+extern void AbortEncodeWithVdec2(int abort);
+#endif
+
 static int amvdec_h264_4k2k_probe(struct platform_device *pdev)
 {
     struct resource *mem;
+    int count = 0;
 
     printk("amvdec_h264_4k2k probe start.\n");
-
     mutex_lock(&vh264_4k2k_mutex);
     
     fatal_error = 0;
@@ -1327,13 +1405,47 @@ static int amvdec_h264_4k2k_probe(struct platform_device *pdev)
 
     cma_dev = (struct device *)mem[2].start;
 
-    vdec_poweron(VDEC_2);
+    if (!H264_4K2K_SINGLE_CORE) {
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)&&(HAS_HDEC)
+        if(get_vdec2_usage() != USAGE_NONE)
+            AbortEncodeWithVdec2(1);
+        int count = 0;
+        while((get_vdec2_usage() != USAGE_NONE)&&(count < 10)){
+            msleep(50);
+            count++;
+        }
+  
+        if(get_vdec2_usage() != USAGE_NONE){
+            printk("\namvdec_h264_4k2k --- vdec2 is used by encode now.\n");
+            mutex_unlock(&vh264_4k2k_mutex);
+            return -EBUSY;
+        }
+#endif
+
+        if (vdec_on(VDEC_2)) {//++++
+            vdec_poweroff(VDEC_2);//++++
+            mdelay(10);
+        }
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)&&(HAS_HDEC)
+        set_vdec2_usage(USAGE_DEC_4K2K);
+        AbortEncodeWithVdec2(0);
+#endif
+        vdec_poweron(VDEC_2);
+    }
 
     vdec_power_mode(1);
-    vdec2_power_mode(1);
+    if (!H264_4K2K_SINGLE_CORE) {
+        vdec2_power_mode(1);
+    }
 
     if (vh264_4k2k_init() < 0) {
         printk("\namvdec_h264_4k2k init failed.\n");
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)&&(HAS_HDEC)
+        if (!H264_4K2K_SINGLE_CORE) {
+            set_vdec2_usage(USAGE_NONE);
+            AbortEncodeWithVdec2(0);
+        }
+#endif
         mutex_unlock(&vh264_4k2k_mutex);
         return -ENODEV;
     }
@@ -1358,7 +1470,12 @@ static int amvdec_h264_4k2k_remove(struct platform_device *pdev)
 
     vh264_4k2k_stop();
 
-    vdec_poweroff(VDEC_2);
+    if (!H264_4K2K_SINGLE_CORE) {
+        vdec_poweroff(VDEC_2);
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)&&(HAS_HDEC)
+        set_vdec2_usage(USAGE_NONE);
+#endif
+    }
 
 #ifdef DEBUG_PTS
     printk("pts missed %ld, pts hit %ld, duration %d\n",

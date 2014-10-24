@@ -32,6 +32,7 @@
 #include <mach/io.h>
 #include <linux/io.h>
 #include <plat/lm.h>
+#include <plat/cpu.h>
 #ifdef CONFIG_SMP
 #include <mach/smp.h>
 #endif
@@ -61,6 +62,8 @@ static void __init meson6tv_map_io(void)
 
 static void __init meson6tv_init_early(void)
 {
+
+	meson_cpu_version_init();
 	/*
 	 * Mali or some USB devices allocate their coherent buffers from atomic
 	 * context. Increase size of atomic coherent pool to make sure such
@@ -112,7 +115,7 @@ static const char __initdata *m6tv_common_boards_compat[] = {
 	NULL,
 };
 
-DT_MACHINE_START(AML8726_MX, "Amlogic Meson6TV platform")
+DT_MACHINE_START(AML8726_MX, "Amlogic Meson6TV")
 	.smp		= smp_ops(meson6tv_smp_ops),
 	.map_io		= meson6tv_map_io,	// dt - 1
 	.init_early	= meson6tv_init_early,	// dt - 2

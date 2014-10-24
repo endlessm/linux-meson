@@ -173,6 +173,7 @@ int amlsd_get_platform_data(struct platform_device* pdev,
 		SD_PARSE_U32_PROP(child, "power_level", prop, pdata->power_level);
 
 		SD_PARSE_GPIO_NUM_PROP(child, "gpio_cd", str, pdata->gpio_cd);
+		SD_PARSE_U32_PROP(child, "gpio_cd_level", prop, pdata->gpio_cd_level);
 		SD_PARSE_GPIO_NUM_PROP(child, "gpio_ro", str, pdata->gpio_ro);
 		SD_PARSE_GPIO_NUM_PROP(child, "gpio_power", str, pdata->gpio_power);
 

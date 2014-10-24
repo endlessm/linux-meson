@@ -27,11 +27,15 @@
 
 typedef enum {
     TVMODE_480I  = 0,
+    TVMODE_480I_RPT  ,
     TVMODE_480CVBS,
     TVMODE_480P  ,
+    TVMODE_480P_RPT  ,
     TVMODE_576I  ,
+    TVMODE_576I_RPT  ,
     TVMODE_576CVBS,
     TVMODE_576P  ,
+    TVMODE_576P_RPT  ,
     TVMODE_720P  ,
     TVMODE_1080I ,
     TVMODE_1080P ,

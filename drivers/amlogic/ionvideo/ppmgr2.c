@@ -343,12 +343,13 @@ int ppmgr2_process(struct vframe_s* vf, struct ppmgr2_device *ppd, int index) {
     }
     ret = ge2d_paint_dst(context, ge2d_config, dst_canvas_id, dst_pixel_format, src_position, dst_paint_position, dst_plane_position);
 
-    if ((src_vf->type & 0x1) == VIDTYPE_INTERLACE && ppd->interlaced_num == 0) {
-        ppd->interlaced_num++;
-        ret = -EAGAIN;
-    } else {
-        ppd->interlaced_num = 0;
+//#ifdef GE2D_DEINTERLACE
+    if (src_vf->type & VIDTYPE_INTERLACE) {
+        if ((ppd->bottom_first && src_vf->type & 0x2) || (ppd->bottom_first == 0 && (src_vf->type & 0x2) == 0)) {
+        	return -EAGAIN;
+        }
     }
+//#endif
     return ret;
 }
 

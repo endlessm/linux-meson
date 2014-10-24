@@ -89,7 +89,7 @@ struct kp {
 
 static struct kp *gp_kp=NULL;
 
-static int timer_count = 0;
+//static int timer_count = 0;
 
 static void kp_work(struct kp *kp)
 {
@@ -213,11 +213,11 @@ static int gpio_key_probe(struct platform_device *pdev)
 	const char* str;
     struct kp *kp;
     struct input_dev *input_dev;
-    int i, j, ret, key_size, name_len;
+    int i, ret, key_size;
     struct gpio_key *key;
     struct gpio_platform_data *pdata = NULL;
     int *key_param = NULL;
-	int state;
+	int state=-EINVAL;
 #ifdef USE_IRQ
     int irq_keyup;
     int irq_keydown;

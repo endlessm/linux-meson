@@ -278,8 +278,8 @@ static int cpufreq_apply_cooling(struct cpufreq_cooling_device *cpufreq_device,
 
 	pr_debug("cpufreq_device->cpufreq_state=%d,cooling_state=%ld\n",cpufreq_device->cpufreq_state,cooling_state);
 	/* Check if the old cooling action is same as new cooling action */
-	//if (cpufreq_device->cpufreq_state == cooling_state)
-		//return 0;
+	if (cpufreq_device->cpufreq_state == cooling_state)
+		return 0;
 
 	clip_freq = get_cpu_frequency(cpu, cooling_state);
 	if (!clip_freq)

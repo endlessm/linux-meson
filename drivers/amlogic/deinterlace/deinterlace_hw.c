@@ -73,7 +73,7 @@ uint post_ctrl__di_post_repeat;
 uint di_pre_ctrl__di_pre_repeat;
 
 uint noise_reduction_level = 2;
-static bool cue_enable = 0;
+static bool cue_enable = 1;
 
 uint field_32lvl;
 uint field_22lvl;
@@ -362,11 +362,7 @@ void di_hw_uninit(void)
 {
 }
 
-#ifdef NEW_DI_TV
 unsigned int nr2_en = 0x1;
-#else
-unsigned int nr2_en = 0;
-#endif
 module_param(nr2_en,uint,0644);
 MODULE_PARM_DESC(nr2_en,"\n nr2_en\n");
 
@@ -386,7 +382,10 @@ void enable_di_pre_aml (
    int nr_en, int mtn_en, int pd32_check_en, int pd22_check_en, int hist_check_en,
    int pre_field_num, int pre_viu_link, int hold_line, int urgent)
 {
-  	int hist_check_only;
+    int hist_check_only = 0;
+#ifdef NEW_DI_V1
+    int nr_w = 0,nr_h = 0;
+#endif
     pd32_check_en = 1; // for progressive luma detection
 
   	hist_check_only = hist_check_en && !nr_en && !mtn_en && !pd22_check_en && !pd32_check_en ;
@@ -401,6 +400,13 @@ void enable_di_pre_aml (
   	if ( pd22_check_en || hist_check_only )
   	{
        	set_di_chan2_mif(di_chan2_mif, urgent, hold_line);   	// set urgent 0.
+       	#ifdef NEW_DI_V1
+            Wr(DI_NR_CTRL0, nr_ctrl0 | (cue_enable << 26));
+	#else
+     	    Wr(DI_NR_CTRL0, nr_ctrl0);
+	#endif
+  	}else{
+            Wr(DI_NR_CTRL0, nr_ctrl0 | (0 << 26));
   	}
 
   	// set nr wr mif interface.
@@ -416,11 +422,6 @@ void enable_di_pre_aml (
      	                                                                    // urgent bit 8
 #endif
 #if !defined(CONFIG_ARCH_MESON)
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-     	Wr(DI_NR_CTRL0, nr_ctrl0 | (cue_enable << 26));
-#else
-     	Wr(DI_NR_CTRL0, nr_ctrl0);
-#endif
      	Wr(DI_NR_CTRL1, nr_ctrl1);
      	Wr(DI_NR_CTRL2, nr_ctrl2);
      	Wr(DI_NR_CTRL3, nr_ctrl3);
@@ -469,10 +470,19 @@ void enable_di_pre_aml (
     }
 
 #ifdef NEW_DI_V1
-        Wr(NR2_FRM_SIZE,((di_nrwr_mif->end_y - di_nrwr_mif->start_y + 1) <<16) |
-                                          (di_nrwr_mif->end_x - di_nrwr_mif->start_x + 1));
+	nr_w = (di_nrwr_mif->end_x - di_nrwr_mif->start_x + 1);
+	nr_h = (di_nrwr_mif->end_y - di_nrwr_mif->start_y + 1);
+        Wr(NR2_FRM_SIZE,(nr_h<<16)|nr_w);
 	/*gate for nr*/
+	#ifdef NEW_DI_TV
 	Wr_reg_bits(NR2_SW_EN,nr2_en,4,1);
+	#else
+	/*only process sd,avoid affecting sharp*/
+	if((nr_h<<1) >= 720 || nr_w >= 1280) 
+	    Wr_reg_bits(NR2_SW_EN,0,4,1);
+	else
+	    Wr_reg_bits(NR2_SW_EN,1,4,1);
+	#endif
 	/*enable noise meter*/
 	Wr_reg_bits(NR2_SW_EN,1,17,1);
 #endif
@@ -1515,6 +1525,9 @@ void initial_di_pre_aml ( int hsize_pre, int vsize_pre, int hold_line )
 void initial_di_post_2 ( int hsize_post, int vsize_post, int hold_line )
 {
    	VSYNC_WR_MPEG_REG(DI_POST_SIZE, (hsize_post -1) | ((vsize_post -1 ) << 16));
+   	/* di demo */
+   	VSYNC_WR_MPEG_REG(DI_BLEND_REG0_X,((hsize_post-1)>>1));
+   	VSYNC_WR_MPEG_REG(DI_BLEND_REG0_Y,(vsize_post-1));
    	VSYNC_WR_MPEG_REG(DI_BLEND_CTRL,
                       (0x2 << 20) |      				// top mode. EI only
                        25);              				// KDEINT
@@ -2177,6 +2190,24 @@ unsigned char di_get_power_control(unsigned char type)
 #endif
     }
 
+}
+
+void di_load_nr_setting()
+{
+		#ifdef NEW_DI_V1
+    Wr(NR2_3DEN_MODE, 0x77);
+    Wr(NR2_SNR_SAD_CFG, 0x134f);
+    Wr(NR2_MATNR_SNR_NRM_GAIN, 0x0);
+    Wr(NR2_MATNR_SNR_LPF_CFG, 0xc1b86);
+    Wr(NR2_MATNR_SNR_USF_GAIN, 0x404);
+    Wr(NR2_MATNR_SNR_EDGE2B, 0xff08);
+    Wr(NR2_MATNR_BETA_EGAIN, 0x4040);
+    Wr(NR2_MATNR_YBETA_SCL, 0xff2000);
+    Wr(NR2_MATNR_CBETA_SCL, 0xff2000);
+    Wr(NR2_MATNR_MTN_CRTL2, 0x32020);
+    Wr(NR2_MATNR_MTN_GAIN, 0xffffffff);
+    Wr(NR2_MATNR_DEGHOST, 0x133);
+    #endif    
 }
 
 #ifdef DI_POST_SKIP_LINE

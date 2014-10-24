@@ -51,6 +51,7 @@ void root_func(){
           reg = <0xc4200000 0x1000>;
           arm,data-latency = <3 3 3>;
           arm,tag-latency = <2 2 2>;
+          arm,filter-ranges = <0x100000 0xc0000000>;
           cache-unified;
           cache-level = <2>;
           aux-instruction_prefetch;
@@ -78,14 +79,14 @@ void root_func(){
 		device_type = "memory";
 		aml_reserved_start = <0x06000000>; /**reserved memory start */
 		aml_reserved_end = <0x05000000>;/**reserved memory end : dtb start for uboot*/
-		phys_offset = <0x00000000>;
-		linux,total-memory = <0x80000000>;
+		phys_offset = <0x00200000>;
+		linux,total-memory = <0x7fe00000>;
         #address-cells = <1>;
         #size-cells = <1>;
 
         cma_0:region@0 {
            region_name = "cma_0";
-           reg = <0 0x02700000>;
+           reg = <0 0x02a00000>;
            linux,contiguous-region;
         };
 	};
@@ -387,10 +388,10 @@ void root_func(){
         pinctrl-5 = <&sdio_all_pins>;
         pinctrl-6 = <&sd_1bit_pins>;
 
-    sdio{
+    sd{
           status = "okay";
           port = <0>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
-          pinname = "sdio";
+          pinname = "sd";
           ocr_avail = <0x200000>;
           caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED", "MMC_CAP_NONREMOVABLE";
           f_min = <300000>;
@@ -460,7 +461,7 @@ void root_func(){
              f_max_w = <50000000>;
              max_req_size = <0x20000>;          /**128KB*/
              gpio_dat3 = "BOOT_3";
-             card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+             card_type = <1>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
          };
     };
 

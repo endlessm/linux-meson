@@ -56,8 +56,8 @@ struct emmckey_data_t {
 
 int emmc_key_init (struct mmc_card *card);
 
-int emmc_key_read();
-int emmc_key_write();
+int emmc_key_read(void);
+int emmc_key_write(void);
 
 #endif
 

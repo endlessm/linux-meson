@@ -22,6 +22,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/wakelock.h>
 
 /* Amlogic headers */
 #include <plat/io.h>
@@ -38,6 +39,7 @@ enum{
 	WORK_MODE_DUMP,
 	WORK_MODE_THREAD,
 	WORK_MODE_STACK,
+	WORK_MODE_GPIOTEST,
 };
 static const char * usage_str =
 {"Usage:\n"
@@ -56,6 +58,9 @@ static const char * usage_str =
 "    echo clkmsr {<index>} > debug ; Output clk source value, no index then all\n"
 "    echo thread {<pid>} > debug; Show thread infomation, no pid then all\n"
 "    echo stack <pid> > debug; Show thread's stack\n"
+#ifdef CONFIG_GPIO_TEST	
+"    echo gpiotest [name] <-m mask> <-t times> <-d delay_us>\n"
+#endif // CONFIG_GPIO_TEST	
 "\n"
 "Address format:\n"
 "    addrmem : 0xXXXXXXXX, 32 bits physical address\n"
@@ -299,6 +304,34 @@ int do_stack_show_work(char argn ,char **argv )
 	return 0;
 }
 
+#ifdef CONFIG_GPIO_TEST
+static struct wake_lock	debug_lock;
+extern int gpiotest(int argc, char **argv);
+
+#define MAX_ARG_NUM 8
+
+int do_gpio_test_work(char argn ,char **argv )
+{
+	//int i;
+	if(argn < 2 || argn > MAX_ARG_NUM){
+		printk("%s",syntax_error_str);
+	}else{
+		wake_lock(&debug_lock);
+		//for (i = 0; i < 10000; i++)
+			//printk("arg[%d] = %s\n", i, argv[i]);
+		gpiotest(argn, argv);
+		wake_unlock(&debug_lock);
+	}
+	return 0;
+}
+#else 
+
+#define MAX_ARG_NUM 4
+
+#endif /*CONFIG_GPIO_TEST*/
+
+
+
 /* Main Command Dispatcher */
 static ssize_t dbg_do_command(struct class *class,
 			struct class_attribute *attr,	const char *buf, size_t count)
@@ -306,13 +339,13 @@ static ssize_t dbg_do_command(struct class *class,
 
 	int argn;
 	char * buf_work,*p,*para;
-	char * argv[4];
+	char * argv[MAX_ARG_NUM];
 	char cmd,work_mode;
 
 	buf_work = kstrdup(buf, GFP_KERNEL);
 	p = buf_work;
 
-	for(argn = 0; argn < 4; argn++){
+	for(argn = 0; argn < MAX_ARG_NUM; argn++){
 		para = strsep(&p," ");
 		if(para == NULL)
 			break;
@@ -320,7 +353,7 @@ static ssize_t dbg_do_command(struct class *class,
 		//printk("argv[%d] = %s\n",argn,para);
 	}
 
-	if(argn < 1 || argn > 4)
+	if(argn < 1 || argn > MAX_ARG_NUM)
 		goto end;
 
 	cmd = argv[0][0];
@@ -356,10 +389,19 @@ static ssize_t dbg_do_command(struct class *class,
 		do_stack_show_work(argn,argv);
 		break;
 
+#ifdef CONFIG_GPIO_TEST	
+	case 'g':
+	case 'G':
+		work_mode=WORK_MODE_GPIOTEST;
+		do_gpio_test_work(argn,argv);
+		break;
+#endif /* CONFIG_GPIO_TEST */
+
 	default:
 		goto end;
 	}
-
+	
+	kfree(buf_work);
 	return count;
 end:
 	printk("error command!\n");
@@ -381,12 +423,20 @@ static int __init aml_debug_init(void)
 
 	ret = class_create_file(aml_sys_class,&class_attr_debug);
 	ret = class_create_file(aml_sys_class,&class_attr_help);
+	
+#ifdef CONFIG_GPIO_TEST		
+	wake_lock_init(&debug_lock, WAKE_LOCK_SUSPEND, "gpiotest");
+#endif /* CONFIG_GPIO_TEST */
 
 	return ret;
 }
 
 static void __exit aml_debug_exit(void)
 {
+#ifdef CONFIG_GPIO_TEST		
+	wake_lock_destroy(&debug_lock);
+#endif /* CONFIG_GPIO_TEST */
+
 	class_destroy(aml_sys_class);
 }
 

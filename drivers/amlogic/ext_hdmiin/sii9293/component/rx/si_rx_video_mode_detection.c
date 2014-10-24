@@ -995,12 +995,20 @@ void VMD_ResetTimingData(void)
     clear_sync_info();
 }
 #if defined(__KERNEL__)
+extern void sii_signal_notify(unsigned int status);
 static void VMD_Timer_Callback(void *pArg)
 {
+	bool_t signal_detected = false;
+
     DEBUG_PRINT(MSG_STAT, ("Video stable timer expired.\n"));
 	vmd_data.bReadyforVMD = true;
-    VMD_DetectVideoResolution();
+    signal_detected = VMD_DetectVideoResolution();
     SiiDrvRxMuteVideo(OFF);
+
+    if( signal_detected == true )
+    {
+    	sii_signal_notify(1);
+    }
 }
 #else
 void SiiRxFormatDetect(void)

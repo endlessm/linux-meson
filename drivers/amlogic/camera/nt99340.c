@@ -59,6 +59,8 @@
 #define NT99340_CAMERA_RELEASE 0
 #define NT99340_CAMERA_VERSION \
 	KERNEL_VERSION(NT99340_CAMERA_MAJOR_VERSION, NT99340_CAMERA_MINOR_VERSION, NT99340_CAMERA_RELEASE)
+	
+#define NT99340_DRIVER_VERSION "NT99340-COMMON-01-140717"
 
 MODULE_DESCRIPTION("nt99340 On Board");
 MODULE_AUTHOR("amlogic-sh");
@@ -2268,6 +2270,9 @@ static int nt99340_probe(struct i2c_client *client,
 		return err;
 	}
 
+	t->cam_info.version = NT99340_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
 	
 	ret = class_register(&camera_ctrl_class);
 	if(ret){
@@ -2284,6 +2289,7 @@ static int nt99340_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

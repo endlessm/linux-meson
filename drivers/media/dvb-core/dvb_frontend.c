@@ -662,7 +662,7 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
 			if (fe->ops.set_qam_mode){
 				fe->ops.set_qam_mode(fe);
 			}
-			for(newcount;newcount<6;newcount++){
+			for(newcount=0;newcount<6;newcount++){
 				if(dvbc_get_status()==5)
 					break;
 				msleep(50);
@@ -728,7 +728,7 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
 				}
 			//	dprintk("fepriv->parameters_in.frequency is %d\n",fepriv->parameters_in.frequency);
 			}
-			for(newcount;newcount<10;newcount++){
+			for(newcount=0;newcount<10;newcount++){
 				if((atsc_read_iqr_reg()>>16)==0x1f)
 					break;
 				msleep(50);
@@ -985,12 +985,17 @@ restart:
 					}
 				}
 				/* Track the carrier if the search was successful */
-				if (fepriv->algo_status != DVBFE_ALGO_SEARCH_SUCCESS) {
+				if (fepriv->algo_status == DVBFE_ALGO_SEARCH_SUCCESS) {
+					if (fe->ops.track)
+						fe->ops.track(fe, &fepriv->parameters_in);
+					s = FE_HAS_LOCK;
+				} else {
 					fepriv->algo_status |= DVBFE_ALGO_SEARCH_AGAIN;
 					fepriv->delay = HZ / 2;
+					s = FE_TIMEDOUT;
 				}
 				dtv_property_legacy_params_sync(fe, &fepriv->parameters_out);
-				fe->ops.read_status(fe, &s);
+				//fe->ops.read_status(fe, &s);
 				if (s != fepriv->status) {
 					dvb_frontend_add_event(fe, s); /* update event list */
 					fepriv->status = s;

@@ -18,11 +18,15 @@
 #include <linux/of_gpio.h>
 #include <mach/pinmux.h>
 #endif
+#include <linux/reboot.h>
+#include <linux/suspend.h>
+#include <linux/notifier.h>
+#include <uapi/linux/reboot.h>
 
-#define WIFI_POWER_MODULE_NAME   "wifi_power"
-#define WIFI_POWER_DRIVER_NAME "wifi_power"
-#define WIFI_POWER_DEVICE_NAME   "wifi_power"
-#define WIFI_POWER_CLASS_NAME   "wifi_power"
+#define WIFI_POWER_MODULE_NAME	"wifi_power"
+#define WIFI_POWER_DRIVER_NAME	"wifi_power"
+#define WIFI_POWER_DEVICE_NAME	"wifi_power"
+#define WIFI_POWER_CLASS_NAME	"wifi_power"
 
 #define POWER_UP    _IO('m',1)
 #define POWER_DOWN  _IO('m',2)
@@ -33,9 +37,12 @@ static struct device *devp=NULL;
 struct wifi_power_platform_data *pdata = NULL;
 int wifi_power_on_pin2 = 0;
 static int power = 1;
+static int usb_wifi = 0;
     
 static int wifi_power_probe(struct platform_device *pdev);
 static int wifi_power_remove(struct platform_device *pdev);
+static int wifi_power_suspend(struct platform_device *pdev, pm_message_t state);
+static int wifi_power_resume(struct platform_device *pdev);
 static int  wifi_power_open(struct inode *inode,struct file *file);
 static int  wifi_power_release(struct inode *inode,struct file *file);
 static void usb_wifi_power(int is_power);
@@ -50,10 +57,12 @@ static const struct of_device_id amlogic_wifi_power_dt_match[]={
 static struct platform_driver wifi_power_driver = {
     .probe = wifi_power_probe,
     .remove = wifi_power_remove,
+    .suspend	= wifi_power_suspend,
+	.resume		= wifi_power_resume,
     .driver = {
-    .name = WIFI_POWER_DRIVER_NAME,
-    .owner = THIS_MODULE,
-    .of_match_table = amlogic_wifi_power_dt_match,
+	    .name = WIFI_POWER_DRIVER_NAME,
+	    .owner = THIS_MODULE,
+	    .of_match_table = amlogic_wifi_power_dt_match,
     },
 };
 
@@ -101,6 +110,8 @@ static int wifi_power_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 	switch (cmd) 
 	{
     	case POWER_UP:
+    		usb_wifi_power(!power);
+    		mdelay(500);
      		usb_wifi_power(power);   
      		printk(KERN_INFO "Set usb wifi power up!\n");
     		break;
@@ -269,6 +280,10 @@ EXPORT_SYMBOL(wifi_usb_set_power);
 static void usb_wifi_power(int is_power)
 {    
 #ifdef CONFIG_OF
+	if(!pdata){
+		printk("%s pdata is not inited!\n",__FUNCTION__);
+		return;
+	}
 	if(pdata->power_gpio > 0)
 		amlogic_gpio_direction_output(pdata->power_gpio, is_power, WIFI_POWER_MODULE_NAME); 	  
 
@@ -301,36 +316,36 @@ static int wifi_power_probe(struct platform_device *pdev)
     pdata->usb_set_power = &usb_wifi_power;
     if(pdev->dev.of_node)
     {
-        ret = of_property_read_string(pdev->dev.of_node, "power_gpio", &str);
-	    if(ret)
-	     {  
-	        printk("Error: can not get power_gpio name------%s %d\n",__func__,__LINE__);
-	        return -1;
-	     }else{
-	        pdata->power_gpio = amlogic_gpio_name_map_num(str);
-	        printk("wifi_power power_gpio is %d\n",pdata->power_gpio);
-	        //ret = amlogic_gpio_request(pdata->power_gpio,WIFI_POWER_MODULE_NAME);
-	        //mcli pdata->usb_set_power(0);    //power on   
-	        //pdata->usb_set_power(1);    //power on   
-	     }
-	     
-	    ret = of_property_read_string(pdev->dev.of_node, "valid", &str);
+    	usb_wifi = 1;
+    	ret = of_property_read_string(pdev->dev.of_node, "valid", &str);
 		if(ret)
 		{
 			printk("Error: Didn't get power valid value --- %s %d\n",__func__,__LINE__);
 		    power = 1;
-		}else{
-			printk("mcli: gpio valid: %s\n",str);
+		} else {
 			if(!strncmp(str,"low",3))
 				power = 0;
 			else
 				power = 1;
 		}
+		
+        ret = of_property_read_string(pdev->dev.of_node, "power_gpio", &str);
+	    if(ret)
+	    {
+	    	printk("Error: can not get power_gpio name------%s %d\n",__func__,__LINE__);
+	        return -1;
+	    } else {
+	    	pdata->power_gpio = amlogic_gpio_name_map_num(str);
+	    	printk("wifi_power power_gpio is %d\n",pdata->power_gpio);
+	    	//ret = amlogic_gpio_request(pdata->power_gpio,WIFI_POWER_MODULE_NAME);
+	        //mcli pdata->usb_set_power(0);    //power on   
+	        //pdata->usb_set_power(1);    //power on   
+	    }	     	    
 		 
 	   if(!(ret = of_property_read_string(pdev->dev.of_node, "power_gpio2", &str)))
 			wifi_power_on_pin2 = 1;
 	   else{
-		printk("wifi_dev_probe : there is no wifi_power_on_pin2 setup in DTS file!\n");
+			printk("wifi_dev_probe : there is no wifi_power_on_pin2 setup in DTS file!\n");
 	   }
 	   
 	   if(wifi_power_on_pin2){
@@ -339,7 +354,7 @@ static int wifi_power_probe(struct platform_device *pdev)
 		        printk("Error: can not get power_gpio2 name------%s %d\n",__func__,__LINE__);
 		        return -1;
 		     }else{
-			 pdata->power_gpio2 = amlogic_gpio_name_map_num(str);
+				pdata->power_gpio2 = amlogic_gpio_name_map_num(str);
 		        printk("wifi_power power_gpio2 is %d\n",pdata->power_gpio2);
 		     }
 	   }
@@ -397,6 +412,36 @@ static int wifi_power_remove(struct platform_device *pdev)
     return 0;
 }
 
+static int wifi_power_suspend(struct platform_device *pdev, pm_message_t state)
+{	
+  if(usb_wifi)
+    usb_wifi_power(!power);
+   
+	return 0;
+}
+
+static int wifi_power_resume(struct platform_device *pdev)
+{
+	//wifi_usb_set_power(!power);
+    //mdelay(500);
+    if(usb_wifi)
+      usb_wifi_power(power);   
+
+	return 0;
+}
+
+static int wifi_power_reboot_notify(struct notifier_block *nb, unsigned long event,void *dummy)
+{
+	if(usb_wifi)
+		usb_wifi_power(!power);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block wifi_power_reboot_notifier = {
+	.notifier_call = wifi_power_reboot_notify,
+};
+
 static int __init init_wifi(void)
 {
     int ret = -1;
@@ -405,6 +450,9 @@ static int __init init_wifi(void)
         printk(KERN_ERR "failed to register wifi power module, error %d\n", ret);
         return -ENODEV;
     }
+    
+	register_reboot_notifier(&wifi_power_reboot_notifier);
+        
     return ret;
 }
 
@@ -413,11 +461,10 @@ module_init(init_wifi);
 static void __exit unload_wifi(void)
 {
     platform_driver_unregister(&wifi_power_driver);
+    unregister_reboot_notifier(&wifi_power_reboot_notifier);
 }
 module_exit(unload_wifi);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("AMLOGIC");
 MODULE_DESCRIPTION("WIFI power driver");
-
-

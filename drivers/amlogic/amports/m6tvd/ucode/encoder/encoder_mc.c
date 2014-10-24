@@ -21,7 +21,7 @@
 
 #include <linux/types.h>
 
-#define MicroCode full_encoder_mc
+#define MicroCode mix_dump_mc
 #include "full_encoder_linux.h"
 
 #undef MicroCode

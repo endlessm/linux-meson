@@ -602,7 +602,7 @@ int aml_emmc_partition_ops (struct mmc_card *card, struct gendisk *disk)
     disk_part_iter_init(&piter, disk, DISK_PITER_INCL_EMPTY);
     while ((part = disk_part_iter_next(&piter))){
 	printk("Delete invalid mbr partition part %p, part->partno %d\n",
-		 (u32)part, part->partno);
+		 part, part->partno);
         delete_partition(disk, part->partno);
     }
     disk_part_iter_exit(&piter);

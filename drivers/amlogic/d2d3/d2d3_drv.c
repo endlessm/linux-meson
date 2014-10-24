@@ -310,7 +310,7 @@ static int d2d3_receiver_event_fun(int type, void* data, void* arg)
         int i, ret=0;
         d2d3_param_t *parm = &d2d3_devp->param;
         if((type == VFRAME_EVENT_PROVIDER_UNREG)||
-                        (type == VFRAME_EVENT_PROVIDER_LIGHT_UNREG_RETURN_VFRAME)){
+           (type == VFRAME_EVENT_PROVIDER_LIGHT_UNREG)){
                 prov = NULL;
 		if(d2d3_devp->flag & D2D3_BYPASS){
                 	d2d3_enable_hw(false);

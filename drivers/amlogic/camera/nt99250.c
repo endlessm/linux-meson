@@ -65,6 +65,8 @@ MODULE_DESCRIPTION("nt99250 On Board");
 MODULE_AUTHOR("amlogic-sh");
 MODULE_LICENSE("GPL v2");
 
+#define NT99250_DRIVER_VERSION "NT99250-COMMON-01-140717"
+
 #define NT99250_TLINE_LENGTH_2500	//
 
 #define AE_TARGET_MEAN	0x35	//0x32	//0x38
@@ -2897,6 +2899,10 @@ static int nt99250_probe(struct i2c_client *client,
 		return err;
 	}
 
+	t->cam_info.version = NT99250_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+
 	ret = class_register(&camera_ctrl_class);
 	if(ret){
 		printk("class register camera_ctrl_class fail!\n");
@@ -2912,6 +2918,7 @@ static int nt99250_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

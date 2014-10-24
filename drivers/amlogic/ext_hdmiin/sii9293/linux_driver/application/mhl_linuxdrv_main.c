@@ -86,6 +86,46 @@ const char strVersion[] = "CP5293-v0.90.01";
 
 static char BUILT_TIME[64];
 
+int32_t StartMhlTxDevice(void);
+int32_t StopMhlTxDevice(void);
+
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+// early_suspend/late_resume
+#include <linux/earlysuspend.h>
+static void sii9293_early_suspend(struct early_suspend *h)
+{
+	int ret = 0;
+
+	ret = StopMhlTxDevice();
+
+	sii_set_standby(1);
+
+	return ;
+}
+
+static void sii9293_late_resume(struct early_suspend *h)
+{
+	int ret = 0;
+
+	sii_set_standby(0);
+
+	ret = StartMhlTxDevice();
+
+	return ;
+}
+
+static struct early_suspend sii9293_early_suspend_handler = {
+    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 10,
+    .suspend = sii9293_early_suspend,
+    .resume = sii9293_late_resume,
+    .param = &devinfo,
+};
+
+#endif
+
+
 /*****************************************************************************
  *  @brief Start the MHL transmitter device
  *
@@ -1439,6 +1479,7 @@ typedef enum
 
 static unsigned int vdin_state = 0;
 sii5293_vdin sii5293_vdin_info;
+sii9293_info_t sii9293_info;
 
 void dump_input_video_info(void)
 {
@@ -1536,7 +1577,7 @@ static void sii5293_start_vdin_mode(unsigned int mode)
 	switch(mode)
 	{
 		case CEA_480I60:
-			width = 1440;	height = 480;	frame_rate = 60;	field_flag = 1;		
+			width = 720;	height = 240;	frame_rate = 60;	field_flag = 1;		
 			break;
 		
 		case CEA_480P60:
@@ -1544,7 +1585,7 @@ static void sii5293_start_vdin_mode(unsigned int mode)
 			break;
 		
 		case CEA_576I50:
-			width = 1440;	height = 576;	frame_rate = 50;	field_flag = 1;		
+			width = 720;	height = 288;	frame_rate = 50;	field_flag = 1;		
 			break;
 		
 		case CEA_576P50:
@@ -1589,36 +1630,45 @@ static unsigned int sii_output_mode = 0xff;
 void sii5293_output_mode_trigger(unsigned int flag)
 {
 	unsigned int mode = 0xff;
-	
-	printk("sii5293 SCDT trigger flag = %d\n", flag);
-	if( flag == 0 ) // sii5293 SCDT off
+
+	sii9293_info.signal_status = flag;
+	printk("[%s] set signal_status = %d\n", __FUNCTION__, sii9293_info.signal_status);
+
+	if( (sii9293_info.user_cmd==0) || (sii9293_info.user_cmd==0x4) || (sii9293_info.user_cmd==0xff) )
 		return ;
 
-	// if vdin is not started, then don't trigger automatically.
-	if( sii5293_vdin_info.vdin_started != 1 )
-		return ;
-
-	msleep(500);
-	mode = sii5293_get_output_mode();
-	if( mode != sii_output_mode )
+	if( (0==flag) && ((sii9293_info.user_cmd==1)||(sii9293_info.user_cmd==3)) )
 	{
-		printk("[%s], trigger new mode = %d, old mode = %d\n", __FUNCTION__, mode, sii_output_mode);
-		if( mode < CEA_MAX )
+		printk("[%s], lost signal, stop vdin!\n", __FUNCTION__);
+		sii_output_mode = 0xff;
+		sii5293_stop_vdin(&sii5293_vdin_info);
+		return ;
+	}
+
+	if( (1==flag) && ((sii9293_info.user_cmd==2)||(sii9293_info.user_cmd==3)) )
+	{
+		mode = sii5293_get_output_mode();
+		if( mode != sii_output_mode )
 		{
-			sii5293_start_vdin_mode(mode);
-			sii_output_mode = mode;
+			printk("[%s], trigger new mode = %d, old mode = %d\n", __FUNCTION__, mode, sii_output_mode);
+			if( mode < CEA_MAX )
+			{
+				sii5293_start_vdin_mode(mode);
+				sii_output_mode = mode;
+			}
 		}
 	}
 
 	return ;
 }
 
-static ssize_t vdin_enable_show(struct class *class, struct class_attribute *attr, char *buf)
+
+static ssize_t user_enable_show(struct class *class, struct class_attribute *attr, char *buf)
 {
-	return sprintf(buf, "sii5293 vdin eanble = %d\n", sii5293_vdin_info.vdin_started);
+	return sprintf(buf, "sii9293 user eanble = %d\n", sii9293_info.user_cmd);
 }
 
-static ssize_t vdin_enable_store(struct class *class, struct class_attribute *attr,
+static ssize_t user_enable_store(struct class *class, struct class_attribute *attr,
 									const char *buf, size_t count)
 {
 	int argn;
@@ -1637,10 +1687,16 @@ static ssize_t vdin_enable_store(struct class *class, struct class_attribute *at
 	}
 
 //	printk("argn = %d, \"%s\", \"%s\", \"%s\", \"%s\", \"%s\"\n", argn, argv[0], argv[1], argv[2], argv[3], argv[4] );
-	if( !strcmp(argv[0], "0\n") )
+	if( !strcmp(argv[0], "0\n") ) // disable
 		enable = 0;
-	else if( !strcmp(argv[0], "1\n") )
+	else if( !strcmp(argv[0], "1\n") ) // enable, driver will trigger to vdin-stop
 		enable = 1;
+	else if( !strcmp(argv[0], "2\n") ) // enable, driver will trigger to vdin-start
+		enable = 2;
+	else if( !strcmp(argv[0], "3\n") ) // enable, driver will trigger to vdin-start/vdin-stop
+		enable = 3;
+	else if( !strcmp(argv[0], "4\n") ) // enable, driver will not trigger to vdin-start/vdin-stop
+		enable = 4;
 	else
 	{
 		for( i=0; i<10; i++ )
@@ -1648,10 +1704,12 @@ static ssize_t vdin_enable_store(struct class *class, struct class_attribute *at
 			if( !strcmp(argv[0], vmode[i]) )
 			{
 				mode = i;
-				enable = 2;
+				enable = 0xff;
 			}
 		}
 	}
+
+	sii9293_info.user_cmd = enable;
 
 	if( (enable==1) && (argn!=5) && (argn!=1) )
 	{
@@ -1662,15 +1720,15 @@ static ssize_t vdin_enable_store(struct class *class, struct class_attribute *at
 	if( (enable==0) && (sii5293_vdin_info.vdin_started==1) )
 	{
 		sii5293_stop_vdin(&sii5293_vdin_info);
-		printk("sii5293 disable dvin !\n");
+		printk("sii9293 disable dvin !\n");
 	}
-	else if( (enable==1) && (sii5293_vdin_info.vdin_started==0) )
+	else if( ( (enable==1)||(enable==2)||(enable==3)||(enable==4) ) && (sii5293_vdin_info.vdin_started==0) )
 	{
 		mode = sii5293_get_output_mode();
 		sii5293_start_vdin_mode(mode);
-		printk("sii5293 enable(1) dvin !\n");
+		printk("sii9293 enable(0x%x) dvin !\n", enable);
 	}
-	else if( (enable==2) && (sii5293_vdin_info.vdin_started==0) )
+	else if( (enable==0xff) && (sii5293_vdin_info.vdin_started==0) )
 	{
 		
 		switch(mode)
@@ -1689,21 +1747,20 @@ static ssize_t vdin_enable_store(struct class *class, struct class_attribute *at
 			default:
 				mode = CEA_720P60;		break;
 			case 6: // 1080i60
-				mode = CEA_1080I60; 	break;
+				mode = CEA_1080I60;		break;
 			case 7: // 1080p60
-				mode = CEA_1080P60; 	break;
+				mode = CEA_1080P60;		break;
 			case 8: // 1080i50
-				mode = CEA_1080I50; 	break;
+				mode = CEA_1080I50;		break;
 			case 9: // 1080p50
-				mode = CEA_1080P50; 	break;
+				mode = CEA_1080P50;		break;
 		}
 
 		sii5293_start_vdin_mode(mode);
-		printk("sii5293 enable(2) dvin !\n");
+		printk("sii9293 enable(0x%x) dvin !\n", enable);
 	}
 
 	return count;
-
 }
 
 static ssize_t debug_show(struct class *class, struct class_attribute *attr, char *buf)
@@ -1993,10 +2050,52 @@ static ssize_t pinmux_store(struct class *class, struct class_attribute *attr,
 	return count;
 }
 
-static CLASS_ATTR(vdin_enable, S_IRUGO | S_IWUGO, vdin_enable_show, vdin_enable_store);
-static CLASS_ATTR(debug, S_IRUGO | S_IWUGO, debug_show, debug_store);
-//static CLASS_ATTR(pinmux, S_IRUGO | S_IWUGO, pinmux_show, pinmux_store);
-static CLASS_ATTR(input_mode, S_IRUGO, sii5293_input_mode_show, NULL);
+static ssize_t sii9293_cable_status_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+	sii9293_info.cable_status = sii_get_pwr5v_status();
+	return sprintf(buf, "%d\n", sii9293_info.cable_status);
+}
+
+static ssize_t sii9293_signal_status_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", sii9293_info.signal_status);
+}
+
+static ssize_t sii9293_audio_sr_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+	int audio_sr;
+	char *audio_sr_array[] =
+	{
+		"44.1 kHz",			// 0x0
+		"Not indicated",	// 0x1
+		"48 kHz",			// 0x2
+		"32 kHz",			// 0x3
+		"22.05 kHz",		// 0x4
+		"reserved",			// 0x5
+		"24 kHz",			// 0x6
+		"reserved",			// 0x7
+		"88.2 kHz",			// 0x8
+		"768 kHz (192*4)",	// 0x9
+		"96 kHz",			// 0xa
+		"reserved",			// 0xb
+		"176.4 kHz",		// 0xc
+		"reserved",			// 0xd
+		"192 kHz",			// 0xe
+		"reserved"			// 0xf
+	};
+
+	audio_sr = sii_get_audio_sampling_freq()&0xf;
+
+	return sprintf(buf, "%s\n", audio_sr_array[audio_sr]);
+}
+
+static CLASS_ATTR(enable, 				S_IRUGO | S_IWUGO,	user_enable_show,			user_enable_store);
+static CLASS_ATTR(debug, 				S_IRUGO | S_IWUGO,	debug_show,					debug_store);
+//static CLASS_ATTR(pinmux,				S_IRUGO | S_IWUGO,	pinmux_show,				pinmux_store);
+static CLASS_ATTR(input_mode, 			S_IRUGO,			sii5293_input_mode_show,	NULL);
+static CLASS_ATTR(cable_status, 		S_IRUGO,			sii9293_cable_status_show,	NULL);
+static CLASS_ATTR(signal_status, 		S_IRUGO,			sii9293_signal_status_show,	NULL);
+static CLASS_ATTR(audio_sample_rate, 	S_IRUGO,			sii9293_audio_sr_show,		NULL);
 
 static int aml_sii5293_create_attrs(struct class *cls)
 {
@@ -2005,10 +2104,13 @@ static int aml_sii5293_create_attrs(struct class *cls)
 	if( cls == NULL )
 		return 1;
 
-	ret = class_create_file(cls, &class_attr_vdin_enable);	
+	ret = class_create_file(cls, &class_attr_enable);	
 	ret |= class_create_file(cls, &class_attr_debug);
 //	ret |= class_create_file(cls, &class_attr_pinmux);
 	ret |= class_create_file(cls, &class_attr_input_mode);
+	ret |= class_create_file(cls, &class_attr_cable_status);
+	ret |= class_create_file(cls, &class_attr_signal_status);
+	ret |= class_create_file(cls, &class_attr_audio_sample_rate);
 
 	return ret;
 }
@@ -2018,10 +2120,13 @@ static void aml_sii5293_remove_attrs(struct class *cls)
 	if( cls == NULL )
 		return ;
 
-	class_remove_file(cls, &class_attr_vdin_enable);	
+	class_remove_file(cls, &class_attr_enable);	
 	class_remove_file(cls, &class_attr_debug);
 //	class_remove_file(cls, &class_attr_pinmux);
 	class_remove_file(cls, &class_attr_input_mode);
+	class_remove_file(cls, &class_attr_cable_status);
+	class_remove_file(cls, &class_attr_signal_status);
+	class_remove_file(cls, &class_attr_audio_sample_rate);
 
 	return ;
 }
@@ -2123,6 +2228,8 @@ static int sii5293_probe(struct platform_device *pdev)
 #ifdef CONFIG_USE_OF
 	sii5293_get_of_data(pdev->dev.of_node);
 #endif
+
+	memset((void*)&sii9293_info, 0x00, sizeof(sii9293_info_t));
 
 	//amlogic_gpio_request(hdmirx_info.gpio_reset, HDMIRX_SII9233A_NAME);
 
@@ -2258,6 +2365,10 @@ static int __init SiiMhlInit(void)
     if (ret) {
         goto free_dev;
     }
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	register_early_suspend(&sii9293_early_suspend_handler);
+#endif
 
     ret = StartMhlTxDevice();
     if(ret == 0) {

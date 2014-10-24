@@ -80,20 +80,22 @@ static int audio_spdif_release(struct inode *inode, struct file *file)
 static long audio_spdif_ioctl(struct file *file, unsigned int cmd, unsigned long args)
 {
 	int err = 0;
-	unsigned long  *val = (unsigned long*)args;
+	int tmp = 0;
 	mutex_lock(&mutex_spdif);	
 	switch(cmd){
 		case AUDIO_SPDIF_GET_958_BUF_RD_OFFSET:
-			*val = READ_MPEG_REG(AIU_MEM_IEC958_RD_PTR) -READ_MPEG_REG(AIU_MEM_IEC958_START_PTR);
+			tmp = READ_MPEG_REG(AIU_MEM_IEC958_RD_PTR) -READ_MPEG_REG(AIU_MEM_IEC958_START_PTR);
+			put_user(tmp,(__s32 __user *)args);
 			break;
 		case AUDIO_SPDIF_GET_958_BUF_SIZE:
-			*val = READ_MPEG_REG(AIU_MEM_IEC958_END_PTR) -READ_MPEG_REG(AIU_MEM_IEC958_START_PTR)+64;//iec958_info.iec958_buffer_size;
+			tmp = READ_MPEG_REG(AIU_MEM_IEC958_END_PTR) -READ_MPEG_REG(AIU_MEM_IEC958_START_PTR)+64;//iec958_info.iec958_buffer_size;
+			put_user(tmp,(__s32 __user *)args);
 			break;
 		case AUDIO_SPDIF_GET_958_ENABLE_STATUS:
-			*val = if_audio_output_iec958_enable();
+			put_user(if_audio_output_iec958_enable(),(__s32 __user *)args);
 			break;	
 		case AUDIO_SPDIF_GET_I2S_ENABLE_STATUS:
-			*val = if_audio_output_i2s_enable();
+			put_user(if_audio_output_i2s_enable(),(__s32 __user *)args);
 			break;	
 		case AUDIO_SPDIF_SET_958_ENABLE:
 		//	IEC958_mode_raw = 1;
@@ -107,8 +109,8 @@ static long audio_spdif_ioctl(struct file *file, unsigned int cmd, unsigned long
 			DSP_WD(DSP_IEC958_INIT_READY_INFO, 0);
 			break;
 		case AUDIO_SPDIF_SET_958_WR_OFFSET:
-			iec958_wr_offset = *val;
-		      break;	
+			get_user(iec958_wr_offset,(__u32 __user *)args);
+			break;	
 		default:
 			printk("audio spdif: cmd not implemented\n");
 			break;

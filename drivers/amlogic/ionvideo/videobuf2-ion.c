@@ -215,7 +215,7 @@ static int vb2_ion_map_dmabuf(void *mem_priv) {
 }
 
 static void vb2_ion_unmap_dmabuf(void *mem_priv) {
-    struct vb2_ion_buf *buf = mem_priv;
+    //struct vb2_ion_buf *buf = mem_priv;
 
 #if 0
     __arm_iounmap(buf->vaddr);

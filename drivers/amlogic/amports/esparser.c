@@ -96,7 +96,7 @@ static irqreturn_t parser_isr(int irq, void *dev_id)
 static inline u32 buf_wp(u32 type)
 {
     u32 wp = 
-#if HAS_HEVC_VDEC    
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     (type == BUF_TYPE_HEVC) ? READ_VREG(HEVC_STREAM_WR_PTR) :
 #endif
     (type == BUF_TYPE_VIDEO) ? READ_VREG(VLD_MEM_VIFIFO_WP) :
@@ -119,12 +119,9 @@ static ssize_t _esparser_write(const char __user *buf,
     int ret;
     u32 wp;
 
-#if HAS_HEVC_VDEC
     if (type == BUF_TYPE_HEVC) {
         parser_type = PARSER_VIDEO;
-    } else
-#endif
-    if (type == BUF_TYPE_VIDEO) {
+    } else if (type == BUF_TYPE_VIDEO) {
         parser_type = PARSER_VIDEO;
     } else if (type == BUF_TYPE_AUDIO) {
         parser_type = PARSER_AUDIO;
@@ -185,11 +182,7 @@ static ssize_t _esparser_write(const char __user *buf,
         }
     }
 
-#if HAS_HEVC_VDEC
-    if ((type == BUF_TYPE_VIDEO) || (type == BUF_TYPE_HEVC)) {
-#else
-    if (type == BUF_TYPE_VIDEO) {
-#endif
+    if ((type == BUF_TYPE_VIDEO) || (HAS_HEVC_VDEC && (type == BUF_TYPE_HEVC))) {
         video_data_parsed += len;
     } else if (type == BUF_TYPE_AUDIO ) {
         audio_data_parsed += len;
@@ -250,8 +243,8 @@ s32 esparser_init(struct stream_buf_s *buf)
     u32 parser_sub_rp;
     bool first_use = false;
 
-#if HAS_HEVC_VDEC
-    if (buf->type == BUF_TYPE_HEVC) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && (buf->type == BUF_TYPE_HEVC)) {
         pts_type = PTS_TYPE_HEVC;
     } else
 #endif
@@ -337,9 +330,9 @@ s32 esparser_init(struct stream_buf_s *buf)
         tasklet_init(&esparser_tasklet, parser_tasklet, 0);
     }
 
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     /* hook stream buffer with PARSER */
-#if HAS_HEVC_VDEC
-    if (pts_type == PTS_TYPE_HEVC) {
+    if (HAS_HEVC_VDEC && (pts_type == PTS_TYPE_HEVC)) {
         CLEAR_VREG_MASK(HEVC_STREAM_CONTROL, 1);
 
         WRITE_MPEG_REG(PARSER_VIDEO_START_PTR,
@@ -368,9 +361,9 @@ s32 esparser_init(struct stream_buf_s *buf)
         WRITE_VREG(VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_INIT);
         CLEAR_VREG_MASK(VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_INIT);
 
-#if HAS_HEVC_VDEC
-        WRITE_VREG(DOS_GEN_CTRL0, 0);    // set vififo_vbuf_rp_sel=>vdec
-#endif
+        if (HAS_HEVC_VDEC) {
+            WRITE_VREG(DOS_GEN_CTRL0, 0);    // set vififo_vbuf_rp_sel=>vdec
+        }
 
         video_data_parsed = 0;
     } else if (pts_type == PTS_TYPE_AUDIO) {
@@ -490,12 +483,9 @@ void esparser_release(struct stream_buf_s *buf)
         }
     }
 
-#if HAS_HEVC_VDEC
-    if (buf->type == BUF_TYPE_HEVC) {
+    if (HAS_HEVC_VDEC && (buf->type == BUF_TYPE_HEVC)) {
         pts_type = PTS_TYPE_VIDEO;
-    } else
-#endif
-    if (buf->type == BUF_TYPE_VIDEO) {
+    } else if (buf->type == BUF_TYPE_VIDEO) {
         pts_type = PTS_TYPE_VIDEO;
     } else if (buf->type == BUF_TYPE_AUDIO) {
         pts_type = PTS_TYPE_AUDIO;

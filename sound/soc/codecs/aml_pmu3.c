@@ -29,6 +29,9 @@
 //#include <sound/aml_pmu3.h>
 #include <linux/amlogic/aml_pmu.h>
 #include "aml_pmu3.h"
+#include <linux/reboot.h>
+#include <linux/notifier.h>
+
 
 static u16 pmu3_reg_defaults[] = {
 	0x0000,     /* R00h	- SW Reset */
@@ -105,14 +108,16 @@ static int pmu3_dac_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	u16 val = snd_soc_read(codec, PMU3_BLOCK_ENABLE_2);
+        unsigned int mask = 1<<w->shift;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		val |= 0x1;
+		val |= mask;
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
-		val &= ~0x1;
+		//val &= ~0x1;
 		break;
 
 	default:
@@ -361,13 +366,13 @@ static const struct snd_kcontrol_new pgain_lp_switch_controls =
 static const struct snd_kcontrol_new pgain_rp_switch_controls =
 	SOC_DAPM_SINGLE("Switch", PMU3_PGA_IN, 2, 1, 0);
 
-static const char *plin_text[] = { "None", "AINL1", "AINL2" };
+static const char *plin_text[] = { "None", "AINL2", "AINL1" };
 static const struct soc_enum pgainl_enum =
 	SOC_ENUM_SINGLE(PMU3_PGA_IN, 8, ARRAY_SIZE(plin_text), plin_text);
 static const struct snd_kcontrol_new pgain_ln_mux[] = {
 	SOC_DAPM_ENUM("route", pgainl_enum),
 };
-static const char *prin_text[] = { "None", "AINR1", "AINR2" };
+static const char *prin_text[] = { "None", "AINR2", "AINR1" };
 static const struct soc_enum pgainr_enum =
 	SOC_ENUM_SINGLE(PMU3_PGA_IN, 0, ARRAY_SIZE(prin_text), prin_text);
 static const struct snd_kcontrol_new pgain_rn_mux[] = {
@@ -419,9 +424,9 @@ SND_SOC_DAPM_ADC_E("ADCR", "Capture", PMU3_BLOCK_ENABLE_2, 4, 0,
 			pmu3_adc_event, SND_SOC_DAPM_POST_PMU|SND_SOC_DAPM_PRE_PMD),
 
 /* Output */
-SND_SOC_DAPM_DAC_E("DACL", "Playback", PMU3_BLOCK_ENABLE_2, 3, 0,
+SND_SOC_DAPM_DAC_E("DACL", "Playback", SND_SOC_NOPM, 3, 0,
 			pmu3_dac_event, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
-SND_SOC_DAPM_DAC_E("DACR", "Playback", PMU3_BLOCK_ENABLE_2, 2, 0,
+SND_SOC_DAPM_DAC_E("DACR", "Playback", SND_SOC_NOPM, 2, 0,
 			pmu3_dac_event, SND_SOC_DAPM_PRE_PMU|SND_SOC_DAPM_POST_PMD),
 
 SND_SOC_DAPM_MIXER("MIXOUTL", PMU3_BLOCK_ENABLE_1, 3, 0,
@@ -635,6 +640,31 @@ static int pmu3_digital_mute(struct snd_soc_dai *codec_dai, int mute)
 	return 0;
 }
 
+static int pmu3_mute_stream(struct snd_soc_dai *dai, int mute, int stream)
+{
+    struct snd_soc_codec *codec = dai->codec;
+    u16 reg;
+    if(stream == SNDRV_PCM_STREAM_PLAYBACK){
+        reg = snd_soc_read(codec, PMU3_SOFT_MUTE);
+        if (mute){
+           // reg |= 0x8000;
+        }else
+            reg &= ~0x8000;
+        snd_soc_write(codec, PMU3_SOFT_MUTE, reg);
+    }
+    if(stream == SNDRV_PCM_STREAM_CAPTURE){
+        if (mute){
+            snd_soc_write(codec, PMU3_ADC_VOLUME_CTL, 0);
+        }else{
+            msleep(300);
+            snd_soc_write(codec, PMU3_ADC_VOLUME_CTL, 0x6a6a);
+        }
+    }
+    return 0;
+
+}
+
+
 static struct {
 	int rate;
 	int value;
@@ -695,6 +725,7 @@ static int pmu3_set_dai_clkdiv(struct snd_soc_dai *codec_dai,
 static struct snd_soc_dai_ops pmu3_dai_ops = {
 	.hw_params	= pmu3_hw_params,
 	.digital_mute	= pmu3_digital_mute,
+	.mute_stream = pmu3_mute_stream,
 	.set_fmt	= pmu3_set_dai_fmt,
 	//.set_clkdiv = pmu3_set_dai_clkdiv,
 	.set_sysclk	= pmu3_set_dai_sysclk,
@@ -857,11 +888,48 @@ static struct snd_soc_codec_driver soc_codec_dev_pmu3 = {
 	.num_dapm_routes = ARRAY_SIZE(pmu3_intercon),
 };
 
+
+static int pmu3_audio_codec_mute()
+{
+    uint32_t addr;
+    unsigned int value = 0x8000;
+    unsigned int reg = PMU3_SOFT_MUTE;
+    printk("pmu3_audio_codec_mute\n");
+
+    addr = PMU3_AUDIO_BASE + (reg<<1);
+    aml1218_write16(addr, value);
+
+    return 0;
+}
+
+
+
+static int aml_pmu3_audio_reboot_work(struct notifier_block *nb, unsigned long state, void *cmd)
+{
+    
+    printk(KERN_DEBUG "\n%s\n", __func__);
+
+    pmu3_audio_codec_mute();
+    
+    return NOTIFY_DONE;
+}
+
+
+static struct notifier_block aml_pmu3_audio_reboot_nb = {
+    .notifier_call    = aml_pmu3_audio_reboot_work,
+    .priority = 0,
+};
+
 static int aml_pmu3_codec_probe(struct platform_device *pdev)
 {
-	return snd_soc_register_codec(&pdev->dev, 
-		&soc_codec_dev_pmu3, &pmu3_dai, 1);
+    int ret = snd_soc_register_codec(&pdev->dev, 
+        &soc_codec_dev_pmu3, &pmu3_dai, 1);
+    register_reboot_notifier(&aml_pmu3_audio_reboot_nb);
+
+    return ret;
 }
+
+
 
 static int aml_pmu3_codec_remove(struct platform_device *pdev)
 {

@@ -128,7 +128,9 @@ static vpu_mod_t get_vpu_mod(unsigned int vmod)
 	if (vmod < VPU_MOD_START) {
 		switch (vmod) {
 			case VMODE_480P:
+            case VMODE_480P_RPT:
 			case VMODE_576P:
+			case VMODE_576P_RPT:
 			case VMODE_720P:
 			case VMODE_1080I:
 			case VMODE_1080P:
@@ -147,7 +149,9 @@ static vpu_mod_t get_vpu_mod(unsigned int vmod)
 				vpu_mod = VPU_VENCP;
 				break;
 			case VMODE_480I:
+			case VMODE_480I_RPT:
 			case VMODE_576I:
+			case VMODE_576I_RPT:
 			case VMODE_480CVBS:
 			case VMODE_576CVBS:
 				vpu_mod = VPU_VENCI;
@@ -656,13 +660,13 @@ static void vpu_driver_disable(void)
 #ifdef CONFIG_PM
 static int vpu_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	vpu_driver_disable();
+	//vpu_driver_disable();
 	return 0;
 }
 
 static int vpu_resume(struct platform_device *pdev)
 {
-	vpu_driver_init();
+	//vpu_driver_init();
 	return 0;
 }
 #endif

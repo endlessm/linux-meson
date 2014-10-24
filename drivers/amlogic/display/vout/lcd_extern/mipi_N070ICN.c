@@ -231,7 +231,7 @@ static int lcd_extern_driver_update(void)
 
 static int aml_N070ICN_probe(struct platform_device *pdev)
 {
-    int i = 0;
+    //int i = 0;
 
     if (lcd_extern_driver_check()) {
         return -1;

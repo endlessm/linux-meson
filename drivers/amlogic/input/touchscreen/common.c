@@ -60,6 +60,77 @@ int touch_read_fw(int offset, int length, char *buf)
 	return 0;
 }
 
+int get_data_from_text_file(char *text_file, fill_buf_t fill_buf, void *priv)
+{
+	struct file  *fp;
+	struct inode *inode = NULL;
+	loff_t file_size, offset = 0;
+	mm_segment_t fs;
+
+	char text_buf[512];
+	int text_len;
+#define NO_COMMENT 0
+#define LINE_COMMENT 1
+#define BLOCK_COMMENT 2
+	int comment = NO_COMMENT;
+	char cur_char, last_char = 0;
+	int i;
+	
+	char scan_buf[64];
+	int scan_len;
+	int idx=0;
+	int ival=0;
+	
+	fp = filp_open(text_file, O_RDONLY, 0);
+	if (IS_ERR(fp)) {
+		return -1;
+	}
+	inode = fp->f_dentry->d_inode;
+	file_size = inode->i_size;
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	
+	scan_len = 0;
+	memset(scan_buf, 0 ,ARRAY_SIZE(scan_buf));
+	printk("open %s success, size=%d\n", text_file, (int)file_size);
+	while (offset < file_size) {
+		text_len = min_t(int, file_size-offset, ARRAY_SIZE(text_buf));
+		vfs_read(fp, text_buf, text_len, &offset);		
+		for(i=0; i<text_len; i++) {
+			cur_char = text_buf[i];
+			/* comment judge*/
+			if (comment != NO_COMMENT) {
+				if ((LINE_COMMENT == comment) && (0x0d == last_char) && (0x0a == cur_char)) {
+					comment = NO_COMMENT;
+				}
+				else if ((BLOCK_COMMENT == comment) && ('*' == last_char) && ('/' == cur_char)) {
+					comment = NO_COMMENT;
+				}
+			}
+			else if ('/' == last_char) {
+				if ('/' == cur_char) comment = LINE_COMMENT;
+				else if ('*' == cur_char) comment = BLOCK_COMMENT;
+			}
+			else if ((cur_char <= ' ') || (',' == cur_char)
+					  || ('{' == cur_char) || ('}' == cur_char)) {
+				if (scan_len &&
+				((sscanf(scan_buf,"0x%x",&ival)==1) || (sscanf(scan_buf,"%d",&ival)==1))) {
+					fill_buf(priv, idx++, ival);
+					//printk("%5d: val=0x8x,  string=%s\n", idx, ival, scan_buf);
+				}
+				scan_len = 0;
+				memset(scan_buf, 0 ,ARRAY_SIZE(scan_buf));
+			}
+			else if (scan_len < ARRAY_SIZE(scan_buf)) {
+				scan_buf[scan_len++] = cur_char;
+			}
+			last_char = cur_char;
+		}
+	}
+	filp_close(fp, NULL);
+	return idx;
+}
+
 /***********************************************************************************************
 Name	:	touch_close_fw
 Input	:

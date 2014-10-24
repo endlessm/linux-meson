@@ -90,8 +90,6 @@ static int enable_mask = 0x400ff;
 
 static int pre_enable_ = 0;
 
-static int log_flag = 0;
-
 static int debug_flag = 0;
 
 static int post_line_start = 0;
@@ -124,7 +122,6 @@ static void set_output_mode_rdma(void)
 
 static int display_notify_callback_v(struct notifier_block *block, unsigned long cmd , void *para)
 {
-    const vinfo_t *info;
     if((enable_mask>>18)&0x1){
         return 0;
     }
@@ -254,7 +251,7 @@ static int rdma_config(unsigned char type)
 #endif        
     }
     else if(type == 2){
-        int i,j;
+        int i;
         for(i=0; i<rmda_item_count; i++){
             Wr(rmda_table_addr_remap[i<<1], rmda_table_addr_remap[(i<<1)+1]);
             if(debug_flag&1)
@@ -262,7 +259,7 @@ static int rdma_config(unsigned char type)
         }   
     }
     else if(type == 3){
-        int i, j;
+        int i;
         for(i=0; i<rmda_item_count; i++){
             Wr(rmda_table[i<<1], rmda_table[(i<<1)+1]);
             if(debug_flag&1)
@@ -608,6 +605,13 @@ EXPORT_SYMBOL(enable_rdma);
 
 static int  __init rdma_init(void)
 {
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+	if(IS_MESON_M8M2_CPU){
+		WRITE_VCBUS_REG(VPU_VDISP_ASYNC_HOLD_CTRL, 0x18101810);
+		WRITE_VCBUS_REG(VPU_VPUARB2_ASYNC_HOLD_CTRL, 0x18101810);
+	}
+#endif
+
 #if 1 // MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
     //set_output_mode_rdma();
     enable = 1;

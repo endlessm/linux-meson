@@ -150,6 +150,7 @@ typedef  struct {
 	u32			angle[HW_OSD_COUNT];
 	u32			clone;
 	u32	       bot_type;
+	dispdata_t	cursor_dispdata[HW_OSD_COUNT];
 }hw_para_t;
 
 /************************************************************************

@@ -51,7 +51,7 @@
 #define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */
 
 #define TX_TIMEOUT 		(HZ * 200 / 1000)
-
+#define GMAC_MMC_Interrupt 1<<27
 #define ANOR_INTR_EN 1<<15
 #define TX_STOP_EN 1<<1
 #define TX_JABBER_TIMEOUT 1<<3

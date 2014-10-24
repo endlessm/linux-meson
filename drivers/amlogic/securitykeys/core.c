@@ -1258,6 +1258,9 @@ static ssize_t key_list_show(struct device *dev, struct device_attribute *attr,
 {
 	aml_key_t * keys;
 	int i,n=0;
+	if(keys_version == 0){
+		return -EINVAL;
+	}
 	keys = key_schematic[keys_version]->keys;
 	for(i=0;i<key_schematic[keys_version]->count;i++)
 	{
@@ -1297,74 +1300,22 @@ static ssize_t key_name_store(struct device *dev, struct device_attribute *attr,
 {
 	aml_key_t * keys;
 	int i,cnt,suffix;
+	char *name;
 	char *cmd,*oldname=NULL,*newname;
+	if(keys_version == 0){
+		return -EINVAL;
+	}
 	keys = key_schematic[keys_version]->keys;
-	if (strncmp(buf, "rename", 6) == 0)
-	{
-		cmd = (char*)&buf[6];
-		for(i=0;i<key_schematic[keys_version]->count;i++)
-		{
-			oldname = strstr(cmd,keys[i].name);
-			if(oldname){
-				suffix = i;
-				break;
-			}
-		}
-		if(oldname)
-		{
-			while(*oldname != ' '){
-				oldname++;
-			}
-			newname = oldname;
-			while(*newname == ' '){
-				newname++;
-			}
-			oldname = newname;
-			cnt=0;
-			while((*oldname != ' ')&&(*oldname !='\n')&&(*oldname !='\r')&&(*oldname !=0)){
-				cnt++;
-				oldname++;
-			}
-			newname[cnt]=0;
-			if(cnt >= AML_KEY_NAMELEN){
-				newname[AML_KEY_NAMELEN-1]=0;
-			}
-			for(i=0;i<key_schematic[keys_version]->count;i++)
-			{
-				if(strcmp(newname,keys[i].name) == 0){
-					printk("name exist,%s:%d\n",__func__,__LINE__);
-					return -EINVAL;
-				}
-			}
-			//printk("newname:%s,keys[%d].name:%s,%s:%d\n",newname,i,keys[i].name,__func__,__LINE__);
-			strcpy(keys[suffix].name,newname);
-			//printk("keys[%d].name:%s,%s:%d\n",i,keys[i].name,__func__,__LINE__);
-		}
-		else {
-			printk("don't have old key name,%s:%d\n",__func__,__LINE__);
-			return -EINVAL;
-		}
-		return count;
+
+	name = kzalloc(count+1, GFP_KERNEL);
+	if(!name){
+		printk("don't kzalloc mem,%s:%d\n",__func__,__LINE__);
+		return -EINVAL;
 	}
-	else if(strncmp(buf, "set", 3) == 0)
-	{
-		cmd = (char*)&buf[3];
-		for(i=0;i<key_schematic[keys_version]->count;i++)
-		{
-			oldname = strstr(cmd,keys[i].name);
-			if(oldname){
-				curkey = &keys[i];
-				break;
-			}
-		}
-		if(oldname == NULL){
-			printk("don't have the key name,%s:%d\n",__func__,__LINE__);
-			return -EINVAL;
-		}
-		return count;
-	}
+	memcpy(name,buf,count+1);
 	
-	cmd = (char*)&buf[0];
+	//cmd = (char*)&buf[0];
+	cmd = name;
 	newname = cmd;
 	oldname = cmd;
 	cnt=0;
@@ -1396,11 +1347,14 @@ static ssize_t key_name_store(struct device *dev, struct device_attribute *attr,
 		}
 		if(curkey == NULL){
 			printk("key count too much,%s:%d\n",__func__,__LINE__);
+			if (!IS_ERR_OR_NULL(name))
+				kfree(name);
 			return -EINVAL;
 		}
 		strcpy(security_key_name,newname);
 	}
-
+	if (!IS_ERR_OR_NULL(name))
+		kfree(name);
 	return count;
 }
 //DEVICE_ATTR(key_name, 0660, key_name_show, key_name_store);
@@ -1516,6 +1470,9 @@ static ssize_t key_usid_show(struct device *dev, struct device_attribute *attr,
 	int i,j,err=0;
 	int count;
 	char * data=NULL;
+	if(keys_version == 0){
+		return -EINVAL;
+	}
 	keys = key_schematic[keys_version]->keys;
 	for(i=0;i<key_schematic[keys_version]->count;i++)
 	{
@@ -1670,6 +1627,9 @@ static ssize_t version_available_show(struct device *dev,
     int i,j;
     ssize_t n=0;
     aml_key_t * key;
+    if(keys_version == 0){
+		return -EINVAL;
+	}
     key=key_schematic[keys_version]->keys;
     n+=sprintf(&buf[n],"key version %d\n",keys_version);
     for(i=0;i<key_schematic[keys_version]->count;i++)
@@ -1717,6 +1677,9 @@ static ssize_t install_key(struct device *dev, struct device_attribute *attr,
     aml_key_t * key;
     char * name, *data;
     int i;
+    if(keys_version == 0){
+		return -EINVAL;
+	}
     data = strstr(buf, "=");
     *data++ = 0;
     name = (char*) buf;
@@ -1832,7 +1795,10 @@ int get_aml_key_kernel(const char* key_name, unsigned char* data, int ascii_flag
 	}
 	memset(buf, 0, MAX_BUF_LEN);
 	//printk("11111111\n");
-	key_name_store(NULL, NULL, key_name, strlen(key_name));
+	ret = key_name_store(NULL, NULL, key_name, strlen(key_name));
+	if(ret < 0){
+		goto exit;
+	}
 	//printk("2222222\n");
 	ret = key_read_show(NULL, NULL, buf);
 	//printk("hdcp strlen is %d\n", strlen(buf));
@@ -1847,6 +1813,7 @@ int get_aml_key_kernel(const char* key_name, unsigned char* data, int ascii_flag
 			strncpy(data, buf, MAX_BUF_LEN);
 		}
 	}
+exit:
 	kfree(buf);
 	buf = NULL;
 	return ret;

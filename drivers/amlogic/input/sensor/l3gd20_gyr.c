@@ -61,6 +61,7 @@
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/stat.h>
+#include <linux/earlysuspend.h>
 
 
 #include <linux/sensor/l3gd20.h>
@@ -227,8 +228,16 @@ struct l3gd20_gyr_status {
 	struct hrtimer hr_timer;
 	ktime_t ktime;
 	struct work_struct polling_task;
-};
 
+	int is_sleep ;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+       struct early_suspend early_suspend;
+#endif
+};
+static struct l3gd20_gyr_status * g_stat = NULL;
+
+static void l3gd20_gyr_early_suspend(struct early_suspend *h);
+static void l3gd20_gyr_late_resume(struct early_suspend *h);
 
 static int l3gd20_gyr_i2c_read(struct l3gd20_gyr_status *stat, u8 *buf,
 									int len)
@@ -709,15 +718,18 @@ static int l3gd20_gyr_hw_init(struct l3gd20_gyr_status *stat)
 	buf[5] = stat->resume_state[RES_CTRL_REG5];
 
 	err = l3gd20_gyr_i2c_write(stat, buf, 5);
-	if (err < 0)
+	if (err < 0){
+		printk("%s, l3gd20_gyr_i2c_write 5 err\n");
 		return err;
+	}
 
 	buf[0] = (FIFO_CTRL_REG);
 	buf[1] = stat->resume_state[RES_FIFO_CTRL_REG];
 	err = l3gd20_gyr_i2c_write(stat, buf, 1);
-	if (err < 0)
-			return err;
-
+	if (err < 0){
+		printk("%s, l3gd20_gyr_i2c_write 1 err\n");
+		return err;
+	}
 	stat->hw_initialized = 1;
 
 	return err;
@@ -753,6 +765,7 @@ static void l3gd20_gyr_device_power_off(struct l3gd20_gyr_status *stat)
 		}
 		stat->hw_initialized = 0;
 	}
+	atomic_set(&stat->enabled, 0);
 }
 
 static int l3gd20_gyr_device_power_on(struct l3gd20_gyr_status *stat)
@@ -791,27 +804,22 @@ static int l3gd20_gyr_device_power_on(struct l3gd20_gyr_status *stat)
 		}
 	}
 
+	atomic_set(&stat->enabled, 1);
 	return 0;
 }
 
 static int l3gd20_gyr_enable(struct l3gd20_gyr_status *stat)
 {
 	int err;
-
+	if(stat->is_sleep == 1)
+		return 0;
 	if (!atomic_cmpxchg(&stat->enabled, 0, 1)) {
-
 		err = l3gd20_gyr_device_power_on(stat);
 		if (err < 0) {
 			atomic_set(&stat->enabled, 0);
 			return err;
 		}
-
-		if (stat->polling_enabled) {
-			printk("hrtimer_start before***************\n");
-			hrtimer_start(&(stat->hr_timer), stat->ktime, HRTIMER_MODE_REL);
-            printk("**************hrtimer_start after\n");
-		}
-
+		hrtimer_start(&(stat->hr_timer), stat->ktime, HRTIMER_MODE_REL);
 	}
 
 	return 0;
@@ -819,13 +827,15 @@ static int l3gd20_gyr_enable(struct l3gd20_gyr_status *stat)
 
 static int l3gd20_gyr_disable(struct l3gd20_gyr_status *stat)
 {
-	dev_dbg(&stat->client->dev, "%s: stat->enabled = %d\n", __func__,
+	if(stat->is_sleep == 1)
+		return 0;
+	dev_info(&stat->client->dev, "%s: stat->enabled = %d\n", __func__,
 						atomic_read(&stat->enabled));
 
 	if (atomic_cmpxchg(&stat->enabled, 1, 0)) {
-
-		l3gd20_gyr_device_power_off(stat);
+		cancel_work_sync(&stat->polling_task);
 		hrtimer_cancel(&stat->hr_timer);
+		l3gd20_gyr_device_power_off(stat);
 		dev_dbg(&stat->client->dev, "%s: cancel_hrtimer ", __func__);
 	}
 	return 0;
@@ -1108,11 +1118,11 @@ static struct device_attribute attributes[] = {
 	__ATTR(pollrate_ms, 0666, attr_polling_rate_show,
 						attr_polling_rate_store),
 	__ATTR(range, 0666, attr_range_show, attr_range_store),
-	__ATTR(enable_device, 0666, attr_enable_show, attr_enable_store),
+	__ATTR(enable, 0666, attr_enable_show, attr_enable_store),
 	__ATTR(enable_polling, 0666, attr_polling_mode_show,
 						attr_polling_mode_store),
-	__ATTR(enable, 0666, attr_polling_mode_show,
-						attr_polling_mode_store),
+	//__ATTR(enable, 0666, attr_polling_mode_show,
+	//					attr_polling_mode_store),
 	__ATTR(fifo_samples, 0666, attr_watermark_show, attr_watermark_store),
 	__ATTR(fifo_mode, 0666, attr_fifomode_show, attr_fifomode_store),
 #ifdef DEBUG
@@ -1387,9 +1397,12 @@ static void poll_function_work(struct work_struct *polling_task)
 					struct l3gd20_gyr_status, polling_task);
 
 	err = l3gd20_gyr_get_data(stat, &data_out);
-	if (err < 0)
+	if (err < 0){
 		dev_err(&stat->client->dev, "get_rotation_data failed.\n");
-	else
+		l3gd20_gyr_disable(stat);
+		if(stat->is_sleep == 0)
+			l3gd20_gyr_enable(stat);
+	}else
 		l3gd20_gyr_report_values(stat, &data_out);
 
 	hrtimer_start(&stat->hr_timer, stat->ktime, HRTIMER_MODE_REL);
@@ -1463,7 +1476,7 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 	if (client->dev.platform_data == NULL) {
 		default_l3gd20_gyr_pdata.gpio_int1 = int1_gpio;
 		default_l3gd20_gyr_pdata.gpio_int2 = int2_gpio;
-		
+
 		if(client->irq > 0){
 			//stat->irq2 = client->irq;
 		}
@@ -1580,7 +1593,14 @@ static int l3gd20_gyr_probe(struct i2c_client *client,
 	dev_info(&client->dev, "%s probed: device created successfully\n",
 							L3GD20_GYR_DEV_NAME);
 
-
+	g_stat = stat;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	stat->early_suspend.level =
+		EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	stat->early_suspend.suspend = l3gd20_gyr_early_suspend;
+	stat->early_suspend.resume = l3gd20_gyr_late_resume;
+	register_early_suspend(&stat->early_suspend);
+#endif
 	return 0;
 
 /*err7:
@@ -1633,11 +1653,11 @@ static int l3gd20_gyr_remove(struct i2c_client *client)
 		free_irq(stat->irq2, stat);
 		destroy_workqueue(stat->irq2_work_queue);
 	}
-	
+
 	if (stat->pdata->gpio_int2 >= 0) {
 		gpio_free(stat->pdata->gpio_int2);
 	}
-	
+
 
 	l3gd20_gyr_disable(stat);
 	l3gd20_gyr_input_cleanup(stat);
@@ -1649,18 +1669,22 @@ static int l3gd20_gyr_remove(struct i2c_client *client)
 	return 0;
 }
 
-static int l3gd20_gyr_suspend(struct device *dev)
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void l3gd20_gyr_early_suspend(struct early_suspend *h)
+//#define SLEEP
+//static int l3gd20_gyr_suspend(struct device *dev)
 {
 	int err = 0;
-#define SLEEP
 #ifdef CONFIG_PM
-	struct i2c_client *client = to_i2c_client(dev);
-	struct l3gd20_gyr_status *stat = i2c_get_clientdata(client);
+	struct l3gd20_gyr_status *stat = g_stat ;
 	u8 buf[2];
 
-	dev_info(&client->dev, "suspend\n");
+	pr_info( "%s suspend\n", __func__);
 
-	dev_dbg(&client->dev, "%s\n", __func__);
+	l3gd20_gyr_disable(stat);
+	
+	stat->is_sleep = 1;
+#if 0
 	if (atomic_read(&stat->enabled)) {
 		mutex_lock(&stat->lock);
 		if (stat->polling_enabled) {
@@ -1676,22 +1700,27 @@ static int l3gd20_gyr_suspend(struct device *dev)
 #endif /*SLEEP*/
 		mutex_unlock(&stat->lock);
 	}
+#endif
 #endif /*CONFIG_PM*/
 	return err;
 }
 
-static int l3gd20_gyr_resume(struct device *dev)
+static void l3gd20_gyr_late_resume(struct early_suspend *h)
+//static int l3gd20_gyr_resume(struct device *dev)
 {
 	int err = 0;
 #ifdef CONFIG_PM
-	struct i2c_client *client = to_i2c_client(dev);
-	struct l3gd20_gyr_status *stat = i2c_get_clientdata(client);
+	struct l3gd20_gyr_status *stat = g_stat ;
 	u8 buf[2];
 
 
-	dev_info(&client->dev, "resume\n");
+	pr_info( "%s resume\n", __func__);
 
-	dev_dbg(&client->dev, "%s\n", __func__);
+	stat->is_sleep = 0;
+
+	l3gd20_gyr_enable(stat);
+
+#if 0
 	if (atomic_read(&stat->enabled)) {
 		mutex_lock(&stat->lock);
 		if (stat->polling_enabled) {
@@ -1708,10 +1737,11 @@ static int l3gd20_gyr_resume(struct device *dev)
 		mutex_unlock(&stat->lock);
 
 	}
+#endif
 #endif /*CONFIG_PM*/
 	return err;
 }
-
+#endif
 
 static const struct i2c_device_id l3gd20_gyr_id[] = {
 	{ L3GD20_GYR_DEV_NAME , 0 },
@@ -1721,15 +1751,15 @@ static const struct i2c_device_id l3gd20_gyr_id[] = {
 MODULE_DEVICE_TABLE(i2c, l3gd20_gyr_id);
 
 static const struct dev_pm_ops l3gd20_gyr_pm = {
-	.suspend = l3gd20_gyr_suspend,
-	.resume = l3gd20_gyr_resume,
+//	.suspend = l3gd20_gyr_suspend,
+//	.resume = l3gd20_gyr_resume,
 };
 
 static struct i2c_driver l3gd20_gyr_driver = {
 	.driver = {
 			.owner = THIS_MODULE,
 			.name = L3GD20_GYR_DEV_NAME,
-			.pm = &l3gd20_gyr_pm,
+//			.pm = &l3gd20_gyr_pm,
 	},
 	.probe = l3gd20_gyr_probe,
 	.remove = l3gd20_gyr_remove,

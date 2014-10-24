@@ -28,7 +28,7 @@
 #include <linux/percpu.h>
 
 static DEFINE_SPINLOCK(boot_lock);
-
+#if 0
 static unsigned int cpu_entry_code[16];
 /*
  * Write pen_release in a way that is guaranteed to be visible to all
@@ -66,7 +66,7 @@ static void check_and_rewrite_cpu_entry(void)
 		outer_clean_range(__pa(p), __pa(p+count));
 	}
 }
-
+#endif
 static void write_pen_release(int val)
 {
 	pen_release = val;
@@ -131,9 +131,18 @@ int __cpuinit meson_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	write_pen_release(cpu_logical_map(cpu));
 
 #ifndef CONFIG_MESON_TRUSTZONE
-	check_and_rewrite_cpu_entry();
+//	check_and_rewrite_cpu_entry();
+	meson_set_cpu_ctrl_addr(cpu,
+			(const uint32_t)virt_to_phys(meson_secondary_startup));
 	meson_set_cpu_power_ctrl(cpu, 1);
+	timeout = jiffies + (10* HZ);
+	while(meson_get_cpu_ctrl_addr(cpu));
+	{
+		if(!time_before(jiffies, timeout))
+			return -EPERM;
+	}
 #endif
+
 	meson_secondary_set(cpu);
 	dsb_sev();
 

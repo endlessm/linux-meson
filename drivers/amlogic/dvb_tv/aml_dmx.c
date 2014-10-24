@@ -1961,8 +1961,8 @@ void dmx_reset_hw_ex(struct aml_dvb *dvb, int reset_irq)
 		for(n=0; n<CHANNEL_COUNT; n++)
 		{
 			struct aml_channel *chan = &dmx->channel[n];
-
-			if(chan->used)
+	
+			/*if(chan->used)*/
 			{
 				dmx_set_chan_regs(dmx, n);
 			}

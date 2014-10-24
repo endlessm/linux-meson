@@ -12,8 +12,10 @@ obj-$(CONFIG_GSLX680_COMPATIBLE_CAPACITIVE_TOUCHSCREEN)        += gslx680_compat
 obj-$(CONFIG_NOVATEK_CAPACITIVE_TOUCHSCREEN)  += novatek.o
 #obj-m += gsl_point_id.o
 #gsl_point_id-objs += gsl_point_id_z.o aml_gsl_module.o
+obj-$(CONFIG_MESON_INPUT_TOUCHSCREEN) += gt9xx/
+obj-$(CONFIG_MESON_INPUT_TOUCHSCREEN) += ct36x_ts/
+obj-$(CONFIG_MESON_INPUT_TOUCHSCREEN) += ft5x02/
+obj-$(CONFIG_MESON_INPUT_TOUCHSCREEN) += gslx680/
 obj-y += gt9xx/
 obj-y += ct36x_ts/
 obj-y += ft5x02/
-obj-y += gslx680/
-

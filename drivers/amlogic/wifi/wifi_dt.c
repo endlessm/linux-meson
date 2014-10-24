@@ -22,6 +22,7 @@ struct wifi_plat_info {
 	int irq_trigger_type;
 
 	int power_on_pin;
+	int power_on_pin_level;
 	int power_on_pin2;
 
 	int clock_32k_pin;
@@ -113,7 +114,9 @@ static int wifi_dev_probe(struct platform_device *pdev)
 			CHECK_PROP(ret, "power_on_pin", value);
 			wifi_power_gpio = 1;
 			plat->power_on_pin = amlogic_gpio_name_map_num(value);
-		}	
+		}
+	
+		ret = of_property_read_u32(pdev->dev.of_node, "power_on_pin_level", &plat->power_on_pin_level);
 		
 		ret = of_property_read_string(pdev->dev.of_node, "power_on_pin2", &value);
 		if(!ret){
@@ -223,7 +226,10 @@ int wifi_setup_dt()
 		SHOW_PIN_OWN("power_on_pin", wifi_info.power_on_pin);
 		ret = amlogic_gpio_request(wifi_info.power_on_pin, OWNER_NAME);
 		CHECK_RET(ret);
-		ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 0, OWNER_NAME);
+		if(wifi_info.power_on_pin_level)
+			ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 1, OWNER_NAME);
+		else
+			ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 0, OWNER_NAME);
 		CHECK_RET(ret);
 		SHOW_PIN_OWN("power_on_pin", wifi_info.power_on_pin);
 	}	
@@ -296,6 +302,11 @@ void wifi_request_32k_clk(int is_on, const char *requestor)
                 aml_write_reg32(P_PWM_MISC_REG_CD, (aml_read_reg32(P_PWM_MISC_REG_CD) & ~(0x7f<<16)) | ((1 << 23) | (0<<16) | (3<<6) | (1<<1)));//
                 aml_set_reg32_bits(P_PWM_PWM_D, 0x27bc-1, 0, 16);   //pwm low
                 aml_set_reg32_bits(P_PWM_PWM_D, 0x27bd-1, 16, 16); //pwm high
+            } if(wifi_info.clock_32k_pin == 188) { //GPIOAO_6, as CLK_OUT2
+                aml_set_reg32_mask(P_HHI_GEN_CLK_CNTL2,1<<9);//set clk source
+                aml_clr_reg32_mask(P_HHI_GEN_CLK_CNTL2,0x3f<<0);//set div ==1
+                aml_set_reg32_mask(P_HHI_GEN_CLK_CNTL2,1<<8);//set enable clk
+                aml_set_reg32_mask(P_AO_RTI_PIN_MUX_REG,0x1<<22);//set mode GPIOAO_6-->CLK_OUT2
             } else {
                 aml_set_reg32_mask(P_HHI_GEN_CLK_CNTL2,1<<22);//set clk source
                 aml_clr_reg32_mask(P_HHI_GEN_CLK_CNTL2,0x3f<<13);//set div ==1
@@ -328,7 +339,10 @@ void extern_wifi_set_enable(int is_on)
 	int ret = 0;
 	if (is_on) {
 		if(wifi_power_gpio){
-			ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 1, OWNER_NAME);
+			if(wifi_info.power_on_pin_level)
+				ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 0, OWNER_NAME);
+			else
+				ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 1, OWNER_NAME);
 			CHECK_RET(ret);
 		}	
 		if(wifi_power_gpio2){
@@ -338,7 +352,10 @@ void extern_wifi_set_enable(int is_on)
 		printk("WIFI  Enable! %d\n", wifi_info.power_on_pin);
 	} else {
 		if(wifi_power_gpio){
-			ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 0, OWNER_NAME);
+			if(wifi_info.power_on_pin_level)
+				ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 1, OWNER_NAME);
+			else
+				ret = amlogic_gpio_direction_output(wifi_info.power_on_pin, 0, OWNER_NAME);
 			CHECK_RET(ret);
 		}
 		if(wifi_power_gpio2){

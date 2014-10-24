@@ -71,6 +71,30 @@
             i2c_bus = "i2c_bus_b";
         };
 
+//$$ DEVICE="mxc6255xc"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_U32 = "address"
+//$$ L2 PROP_STR = "i2c_bus"
+//$$ L2 PROP_U32 = "acc_dir"
+        mxc6255xc{
+            dev_name = "mxc6255xc";
+            status = "okay";
+            address = <0x15>;
+            i2c_bus = "i2c_bus_b";
+            acc_dir = <0x0000>;
+        };
+//$$ DEVICE="mir3da"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_U32 = "address"
+//$$ L2 PROP_STR = "i2c_bus"
+        mir3da{
+            dev_name = "mir3da";
+            status = "okay";
+            address = <0x27>;
+            i2c_bus = "i2c_bus_b";
+	    acc_dir = <0x0000>;
+        };
+
 };
 
 #endif

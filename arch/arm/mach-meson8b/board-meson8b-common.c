@@ -51,7 +51,7 @@ static void meson_map_board_io(void);
 extern unsigned long long aml_reserved_start;
 extern unsigned long long aml_reserved_end;
 extern void __init meson_timer_init(void);
-void backup_cpu_entry_code(void);
+//void backup_cpu_entry_code(void);
 
 static __init void meson8b_reserve(void)
 {
@@ -125,14 +125,14 @@ static __init void meson_init_early(void)
 static void __init meson_init_irq(void)
 {
 	meson_init_gic_irq();
-	backup_cpu_entry_code();
+//	backup_cpu_entry_code();
 }
 static const char *m8_common_board_compat[] __initdata = {
 	"AMLOGIC,8726_M8B",
 	NULL,
 };
 
-DT_MACHINE_START(AML8726_M8, "Amlogic Meson8B platform")
+DT_MACHINE_START(AML8726_M8, "Amlogic Meson8B")
 	.reserve	= meson8b_reserve,
 //.nr_irqs	= 
 	.smp		= smp_ops(meson_smp_ops),

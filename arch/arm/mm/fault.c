@@ -59,8 +59,6 @@ static inline int notify_page_fault(struct pt_regs *regs, unsigned int fsr)
 int fixup_pte(struct mm_struct *mm, struct vm_area_struct *vma, unsigned long addr, unsigned int fsr)
 {
 	pgd_t *pgd;
-	struct page *page = NULL;
-	unsigned long time;
 	int ret = 1;
 
 	if (!mm)

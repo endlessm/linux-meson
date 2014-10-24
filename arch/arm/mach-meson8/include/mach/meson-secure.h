@@ -58,17 +58,25 @@
 #define TRUSTZONE_MON_RTC_RD_REG_INDEX          0x501
 #define TRUSTZONE_MON_RTC_WR_REG_INDEX          0x502
 
+#define TRUSTZONE_MON_REG                       0x600
+#define TRUSTZONE_MON_REG_RD_INDEX              0x601
+#define TRUSTZONE_MON_REG_WR_INDEX              0x602
+
+#define TRUSTZONE_MON_MEM                       0x700
+#define TRUSTZONE_MON_MEM_BASE                  0x701
+#define TRUSTZONE_MON_MEM_TOTAL_SIZE            0x702
+#define TRUSTZONE_MON_MEM_FLASH                 0x703
+#define TRUSTZONE_MON_MEM_FLASH_SIZE            0x704
+#define TRUSTZONE_MON_MEM_GE2D                  0x705
+
 /* Secure HAL APIs*/
 #define TRUSTZONE_HAL_API_EFUSE                 0x100
 #define TRUSTZONE_HAL_API_STORAGE               0x200
 #define TRUSTZONE_HAL_API_MEMCONFIG             0x300
-
-#define MESON_TRUSTZONE_MEM_START               0x06100000
-#define MESON_TRUSTZONE_MEM_SIZE                0x04000000
-
+#define TRUSTZONE_HAL_API_MEMCONFIG_GE2D        0x301
 
 #ifndef __ASSEMBLER__
-extern void meson_smc1(u32 fn, u32 arg);
+extern int meson_smc1(u32 fn, u32 arg);
 extern int meson_smc_hal_api(u32 cmdidx, u32 arg);
 extern int meson_smc2(u32 arg);
 extern int meson_smc3(u32 arg1, u32 arg2);
@@ -82,8 +90,11 @@ extern uint32_t meson_secure_reg_read(uint32_t addr);
 extern uint32_t meson_secure_reg_write(uint32_t addr, uint32_t val);
 extern u32 meson_read_socrev1(void);
 extern u32 meson_read_socrev2(void);
-extern uint32_t meson_secure_mem_size(void);
-extern uint32_t meson_secure_mem_end(void);
+extern uint32_t meson_secure_mem_base_start(void);
+extern uint32_t meson_secure_mem_total_size(void);
+extern uint32_t meson_secure_mem_flash_start(void);
+extern uint32_t meson_secure_mem_flash_size(void);
+extern int32_t meson_secure_mem_ge2d_access(uint32_t msec);
 
 // efuse HAL_API arg
 struct efuse_hal_api_arg{
@@ -114,6 +125,5 @@ extern unsigned int meson_trustzone_getmemsecure_size(void);
 extern int meson_trustzone_getmemconfig(unsigned char* name, unsigned int* startphyaddr, unsigned int* endphyaddr);
 
 #endif
-
 
 #endif

@@ -1,7 +1,7 @@
 #include "config_parser.h"
 #include <linux/uaccess.h>  
 #include <linux/fs.h>  
-
+#include <linux/vmalloc.h>
 
 static struct file  *fp;
 mm_segment_t fs;
@@ -36,10 +36,10 @@ void *realloc_mem(char *buffer, int new_size,int *old_size){
     }
     else{
         char *tmp;
-        if((tmp = kzalloc(new_size,0)) != NULL){
+        if((tmp = vmalloc(new_size)) != NULL){
             memcpy(tmp,buffer,*old_size);
             *old_size = new_size;
-            kfree(buffer);
+            vfree(buffer);
             return tmp;
         }else
             return NULL;
@@ -191,8 +191,7 @@ char *search_string(buffer_para_t *buf_para,int *offset,int *remained,char *star
     data_start = buf_para->data_start;
     data_size = buf_para->data_size;
     buffer_len = buf_para->buffer_len;
-    
-    iter = strstr(buffer + data_start,start);   
+    iter = strstr(buffer + data_start,start);  
     while(iter == NULL){
         if(iter == NULL && *remained < strlen(start)){
             printk("wrong config file");
@@ -524,9 +523,9 @@ int parse_aet(configure_t *cf,buffer_para_t *buf_para,int *remained,int *offset)
             ret = -WRONG_FORMAT;
             goto clean;
         }
-        if((cf->aet.aet[check].aet_table = (sensor_aet_t *)kmalloc(sizeof(sensor_aet_t) * (cf->aet.aet[check].info->tbl_max_step + 1),0)) == NULL){
+        if((cf->aet.aet[check].aet_table = (sensor_aet_t *)vmalloc(sizeof(sensor_aet_t) * (cf->aet.aet[check].info->tbl_max_step + 1))) == NULL){
     		for(i = 0; i < check; i++){
-    			kfree(cf->aet.aet[i].aet_table);	
+    			vfree(cf->aet.aet[i].aet_table);	
     		}
     		ret = -NO_MEM;
             goto clean;
@@ -547,7 +546,7 @@ int parse_aet(configure_t *cf,buffer_para_t *buf_para,int *remained,int *offset)
 
 clean_table:
 	for(i = 0; i <= check; i++){
-    	kfree(cf->aet.aet[i].aet_table);	
+    	vfree(cf->aet.aet[i].aet_table);	
     }
 clean:
     for(i = 0;i < sum; i++){
@@ -927,7 +926,6 @@ int parse_wb_sensor(configure_t *cf,buffer_para_t *buf_para,int *remained,int *o
 int parse_version(configure_t *cf,buffer_para_t *buf_para,int *remained,int *offset){
     char *iter,*end;
     int len = 0;
-
     iter = search_string(buf_para,offset,remained,"version_start]","[version_end]");
     if(iter == NULL){
         return -WRONG_FORMAT;
@@ -1091,7 +1089,7 @@ int parse_config(const char *path,configure_t *cf){
     int ret = 0;
     buffer_para_t buf_para;
 
-    if((buffer=(char *)kmalloc(BUFFER_SIZE + 1,0))== NULL){
+    if((buffer=(char *)vmalloc(BUFFER_SIZE + 1))== NULL){
         printk("malloc buffer failed\n");
         return -NO_MEM;
     }
@@ -1117,6 +1115,7 @@ int parse_config(const char *path,configure_t *cf){
             camera_read_config(0,BUFFER_SIZE,buffer);
             remained_size = file_size - BUFFER_SIZE;
             read_offset = BUFFER_SIZE;
+            *(buffer + BUFFER_SIZE) = '\0';
         }
     }
     buf_para.data_start = 0;
@@ -1315,7 +1314,7 @@ int parse_config(const char *path,configure_t *cf){
 clean_all:
     camera_close_config();
 clean_mem:
-    kfree(buf_para.buffer);
+    vfree(buf_para.buffer);
     return ret;
 }
 
@@ -1455,7 +1454,7 @@ int generate_para(cam_parameter_t *para,para_index_t pindex,configure_t *cf){
     }
     /**init scenes**/
     if(cf->scene_valid == 1){
-        if((para->xml_scenes = kmalloc(sizeof(xml_scenes_t),0)) == NULL){
+        if((para->xml_scenes = vmalloc(sizeof(xml_scenes_t))) == NULL){
             printk("alloc mem failed\n");
             return 	-ENOMEM;
         }
@@ -1469,7 +1468,7 @@ int generate_para(cam_parameter_t *para,para_index_t pindex,configure_t *cf){
 
     /**init hw**/
     if(cf->hw_valid == 1){
-        if((para->xml_regs_map = kmalloc(sizeof(xml_default_regs_t),0)) == NULL){
+        if((para->xml_regs_map = vmalloc(sizeof(xml_default_regs_t))) == NULL){
             printk("alloc mem failed\n");
             return 	-ENOMEM;
         }
@@ -1489,7 +1488,7 @@ int generate_para(cam_parameter_t *para,para_index_t pindex,configure_t *cf){
     /** init gamma **/
     if(cf->gamma_valid == 1){
         if(para->xml_regs_map == NULL){
-            if((para->xml_regs_map = kmalloc(sizeof(xml_default_regs_t),0)) == NULL){
+            if((para->xml_regs_map = vmalloc(sizeof(xml_default_regs_t))) == NULL){
                 printk("alloc mem failed\n");
                 return 	-ENOMEM;
             }
@@ -1524,7 +1523,7 @@ int generate_para(cam_parameter_t *para,para_index_t pindex,configure_t *cf){
 
     /**init capture**/
     if(cf->capture_valid == 1){
-        if((para->xml_capture = kmalloc(sizeof(xml_capture_t),0)) == NULL){
+        if((para->xml_capture = vmalloc(sizeof(xml_capture_t))) == NULL){
             printk("alloc mem failed\n");
             return 	-ENOMEM;
         }
@@ -1560,11 +1559,11 @@ void free_para(cam_parameter_t *para){
 		para->xml_peripheral = NULL;	
 	}
 	if(para->xml_scenes != NULL){
-		kfree(para->xml_scenes);
+		vfree(para->xml_scenes);
 		para->xml_scenes = NULL;	
 	}
 	if(para->xml_regs_map != NULL){
-		kfree(para->xml_regs_map);
+		vfree(para->xml_regs_map);
 		para->xml_regs_map = NULL;	
 	}
 	if(para->xml_effect_manual != NULL){
@@ -1576,7 +1575,7 @@ void free_para(cam_parameter_t *para){
 		para->xml_wb_manual = NULL;	
 	}
 	if(para->xml_capture != NULL){
-		kfree(para->xml_capture);
+		vfree(para->xml_capture);
 		para->xml_capture = NULL;	
 	}
 	if(para->xml_wave != NULL){
@@ -1602,7 +1601,7 @@ int update_fmt_para(int width,int height,cam_parameter_t *para,para_index_t *pin
 		}
 		/** init lens **/
         if(para->xml_regs_map == NULL){
-            if((para->xml_regs_map = kmalloc(sizeof(xml_default_regs_t),0)) == NULL){
+            if((para->xml_regs_map = vmalloc(sizeof(xml_default_regs_t))) == NULL){
                 printk("alloc mem failed\n");
                 return 	-ENOMEM;
             }
@@ -1626,7 +1625,7 @@ int update_fmt_para(int width,int height,cam_parameter_t *para,para_index_t *pin
 		}
 			/** init nr **/
 		if(para->xml_regs_map == NULL){
-			if((para->xml_regs_map = kmalloc(sizeof(xml_default_regs_t),0)) == NULL){
+			if((para->xml_regs_map = vmalloc(sizeof(xml_default_regs_t))) == NULL){
 				printk("alloc mem failed\n");
 				return 	-ENOMEM;
 			}
@@ -1650,7 +1649,7 @@ int update_fmt_para(int width,int height,cam_parameter_t *para,para_index_t *pin
 		}
 		    /** init sharp **/
 		if(para->xml_regs_map == NULL){
-			if((para->xml_regs_map = kmalloc(sizeof(xml_default_regs_t),0)) == NULL){
+			if((para->xml_regs_map = vmalloc(sizeof(xml_default_regs_t))) == NULL){
 				printk("alloc mem failed\n");
 				return 	-ENOMEM;
 			}

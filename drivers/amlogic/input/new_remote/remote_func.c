@@ -17,10 +17,8 @@
 #include "remote_main.h"
 
 #ifdef CONFIG_AML_HDMI_TX
-#ifdef CONFIG_ARCH_MESON8
 extern int cec_power_flag;
 unsigned char cec_repeat = 10;
-#endif
 #endif
 extern char *remote_log_buf;
 static int auto_repeat_count,repeat_count = 0;
@@ -357,7 +355,7 @@ unsigned int (*get_cur_key_domian[])(struct remote *remote_data,int domain)={
 
 int remote_hw_reprot_key(struct remote *remote_data)
 {
-	static int last_scan_code,scan_code;
+	static int last_scan_code;
 	int i;
 	get_cur_scancode(remote_data);
 	get_cur_scanstatus(remote_data);
@@ -425,7 +423,6 @@ int remote_hw_reprot_key(struct remote *remote_data)
 	}
 	else if((remote_data->frame_status & REPEARTFLAG) && remote_data->enable_repeat_falg){	//repeate key
 #ifdef CONFIG_AML_HDMI_TX
-#ifdef CONFIG_ARCH_MESON8
        extern int rc_long_press_pwr_key;
 		if((remote_data->repeat_release_code == 0x1a) && (!cec_repeat)) {
             rc_long_press_pwr_key = 1;
@@ -435,7 +432,6 @@ int remote_hw_reprot_key(struct remote *remote_data)
 		if(remote_data->repeat_release_code == 0x1a)
  		    cec_repeat--;
 
-#endif
 #endif
 		if (remote_data->repeat_enable) {
 			repeat_count++;

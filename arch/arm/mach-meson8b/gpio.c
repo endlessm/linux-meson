@@ -34,6 +34,9 @@
 #include <linux/amlogic/aml_gpio_consumer.h>
 #include <linux/amlogic/gpio-amlogic.h>
 #define AO 10
+#ifdef CONFIG_MESON_TRUSTZONE
+#include <mach/meson-secure.h>
+#endif
 unsigned p_gpio_oen_addr[]={
 	P_PREG_PAD_GPIO0_EN_N,
 	P_PREG_PAD_GPIO1_EN_N,
@@ -242,7 +245,7 @@ static unsigned int gpio_to_pin[][6]={
 	[HDMI_TTL_CK_P]={P_PIN_MUX_REG(0,23),NONE,NONE,NONE,NONE,NONE,},
 	[HDMI_TTL_CK_N]={P_PIN_MUX_REG(0,23),NONE,NONE,NONE,NONE,NONE,},
 	[GPIO_BSD_EN]={NONE,NONE,NONE,NONE,NONE,NONE,},
-	[GPIO_TEST_N]={P_PIN_MUX_REG(9,19),NONE,NONE,NONE,NONE,NONE,},
+	[GPIO_TEST_N]={P_PIN_MUX_REG(10,19),NONE,NONE,NONE,NONE,NONE,},
 };
 struct amlogic_gpio_desc amlogic_pins[]=
 {
@@ -465,7 +468,11 @@ int gpio_amlogic_direction_output(struct gpio_chip *chip,unsigned offset, int va
 	unsigned int reg,bit;
 	if(offset==GPIO_BSD_EN){
 		aml_clr_reg32_mask(P_PREG_PAD_GPIO0_O,1<<29);
+#ifndef CONFIG_MESON_TRUSTZONE
 		aml_set_reg32_mask(P_AO_SECURE_REG0,1<<0);
+#else
+		meson_secure_reg_write(P_AO_SECURE_REG0, meson_secure_reg_read(P_AO_SECURE_REG0) | (1<<0));
+#endif
 		if(value)
 			aml_set_reg32_mask(P_PREG_PAD_GPIO0_O,1<<31);//out put high
 		else
@@ -478,7 +485,11 @@ int gpio_amlogic_direction_output(struct gpio_chip *chip,unsigned offset, int va
 			aml_set_reg32_mask(P_AO_GPIO_O_EN_N,1<<31);//out put high
 		else
 			aml_clr_reg32_mask(P_AO_GPIO_O_EN_N,1<<31);//out put low
+#ifndef CONFIG_MESON_TRUSTZONE
 		aml_set_reg32_mask(P_AO_SECURE_REG0,1);// out put enable
+#else
+		meson_secure_reg_write(P_AO_SECURE_REG0, meson_secure_reg_read(P_AO_SECURE_REG0) | (1<<0));
+#endif
 		return 0;
 	}
 	if(value){

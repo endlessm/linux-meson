@@ -35,8 +35,11 @@
 #include <linux/poll.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <linux/dma-contiguous.h>
+#include "amports_config.h"
 
 #define ENC_CANVAS_OFFSET  AMVENC_CANVAS_INDEX
+
 
 #define LOG_LEVEL_VAR 1
 #define debug_level(level, x...) \
@@ -45,7 +48,7 @@
 			printk(x); \
 	} while (0);
 
-#define PUT_INTERVAL        (HZ/100)
+
 #ifdef CONFIG_AM_VDEC_MJPEG_LOG
 #define AMLOG
 #define LOG_LEVEL_VAR       amlog_level_jpeg
@@ -149,7 +152,7 @@ typedef struct
     Buff_t bitstream;
 } BuffInfo_t;
 
-const static BuffInfo_t jpegenc_buffspec[]={
+const BuffInfo_t jpegenc_buffspec[]={
     {
         .lev_id = JPEGENC_BUFFER_LEVEL_VGA,
         .max_width = 640,
@@ -976,7 +979,6 @@ static void jpegenc_canvas_init(void)
 
 }
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 static void mfdin_basic_jpeg (unsigned input, unsigned char iformat, unsigned char oformat, unsigned picsize_x, unsigned picsize_y, unsigned char r2y_en)
 {
     unsigned char dsample_en; // Downsample Enable
@@ -1188,7 +1190,6 @@ static int  set_jpeg_input_format (jpegenc_mem_type type, jpegenc_frame_fmt inpu
         mfdin_basic_jpeg(input,iformat,oformat,picsize_x,picsize_y,r2y_en);
     return ret;
 }
-#endif
 
 static void jpegenc_isr_tasklet(ulong data)
 {
@@ -1348,12 +1349,12 @@ static s32 jpegenc_poweron(void)
     data32 = 0;
     enable_hcoder_ddr_access();
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     //CLK_GATE_ON(DOS);
     switch_mod_gate_by_name("vdec", 1);
 
     spin_lock_irqsave(&lock, flags);
 
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     data32 = READ_AOREG(AO_RTI_PWR_CNTL_REG0);
     data32 = data32 & (~(0x18));
     WRITE_AOREG(AO_RTI_PWR_CNTL_REG0, data32);
@@ -1397,28 +1398,28 @@ static s32 jpegenc_poweron(void)
 
 static s32 jpegenc_poweroff(void)
 {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     unsigned long flags;
 
     spin_lock_irqsave(&lock, flags);
 
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     // enable HCODEC isolation
     WRITE_AOREG(AO_RTI_GEN_PWR_ISO0, READ_AOREG(AO_RTI_GEN_PWR_ISO0) | 0x30);
     // power off HCODEC memories
     WRITE_VREG(DOS_MEM_PD_HCODEC, 0xffffffffUL);
+#endif
     // disable HCODEC clock
     jpegenc_clock_disable();
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     // HCODEC power off
     WRITE_AOREG(AO_RTI_GEN_PWR_SLEEP0, READ_AOREG(AO_RTI_GEN_PWR_SLEEP0) | 0x3);
+#endif
 
     spin_unlock_irqrestore(&lock, flags);
 
     // release DOS clk81 clock gating
     //CLK_GATE_OFF(DOS);
     switch_mod_gate_by_name("vdec", 0);
-#else
-    jpegenc_clock_disable();
-#endif
     return 0;
 }
 
@@ -1427,7 +1428,11 @@ static s32 jpegenc_init(void)
     int r;   
     jpegenc_poweron();
     jpegenc_canvas_init();
-    WRITE_HREG(HCODEC_ASSIST_MMC_CTRL1,0x2);
+
+    if(IS_MESON_M8M2_CPU)
+        WRITE_HREG(HCODEC_ASSIST_MMC_CTRL1,0x32);
+    else
+        WRITE_HREG(HCODEC_ASSIST_MMC_CTRL1,0x2);
     debug_level(1,"start to load microcode\n");
     if (jpegenc_loadmc(jpeg_encoder_mc) < 0) {
         //amvdec_disable();
@@ -1698,8 +1703,7 @@ static int jpegenc_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static unsigned int jpegenc_poll(struct file *file, poll_table *wait_table)
 {
-    if((encoder_status != ENCODER_DONE)||(process_irq!=1))
-        poll_wait(file, &jpegenc_wait, wait_table);
+    poll_wait(file, &jpegenc_wait, wait_table);
 
     if (atomic_read(&jpegenc_ready)) {
         atomic_dec(&jpegenc_ready);

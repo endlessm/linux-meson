@@ -159,6 +159,18 @@ typedef struct
 	unsigned int	vdin_started;
 }sii5293_vdin;
 
+typedef struct
+{
+    unsigned int        user_cmd; // 0 to disable from user
+                                  // 1 to enable, driver will trigger to vdin-stop
+                                  // 2 to enable, driver will trigger to vdin-start
+                                  // 3 to enable, driver will trigger to vdin-start/vdin-stop
+                                  // 4 to enable, driver will not trigger to vdin-start/vdin-stop
+                                  // 0xff to enable, and driver will NOT trigger on signal-lost/vdin-stop, singal-get/vdin-start
+    unsigned int        cable_status; // 1 for cable plug in, 0 for cable plug out
+    unsigned int        signal_status; // external hdmi cable is insert or not
+}sii9293_info_t;
+
 /***** global variables ********************************************/
 
 extern MHL_DRIVER_CONTEXT_T gDriverContext;

@@ -19,18 +19,47 @@
 static DEFINE_MUTEX(cec_mutex);
 
 void cec_arbit_bit_time_set(unsigned bit_set, unsigned time_set, unsigned flag);
+unsigned int cec_int_disable_flag = 0;
 
 extern int cec_msg_dbg_en;
 void cec_disable_irq(void)
 {
     // disable all AO_CEC interrupt sources
     aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x0, 0, 3);
+    cec_int_disable_flag = 1;
     hdmi_print(INF, CEC "disable:int mask:0x%x\n", aml_read_reg32(P_AO_CEC_INTR_MASKN));
 }
 void cec_enable_irq(void)
 {
     aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
+    cec_int_disable_flag = 0;
     hdmi_print(INF, CEC "enable:int mask:0x%x\n", aml_read_reg32(P_AO_CEC_INTR_MASKN));
+}
+
+void gpiox_10_pin_mux_mask(void){
+    //GPIOX_10 pin mux masked expect PWM_E
+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_3, 0x0, 22, 1); //0x202f bit[22]: XTAL_32K_OUT 
+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_3, 0x0,  8, 1); //0x202f bit[ 8]: Tsin_D0_B
+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_4, 0x0, 23, 1); //0x2030 bit[23]: SPI_MOSI
+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_6, 0x0, 17, 1); //0x2032 bit[17]: UART_CTS_B
+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_7, 0x0, 31, 1); //0x2033 bit[31]: PWM_VS
+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_9, 0x1, 19, 1); //0x2035 bit[19]: PWM_E
+}
+
+void pwm_e_config(void){
+    //PWM E config
+    aml_set_reg32_bits(P_PWM_PWM_E,    0x25ff, 16, 16); //0x21b0 bit[31:16]: PWM_E_HIGH counter
+    aml_set_reg32_bits(P_PWM_PWM_E,    0x25fe,  0, 16); //0x21b0 bit[15: 0]: PWM_E_LOW counter
+    aml_set_reg32_bits(P_PWM_MISC_REG_EF, 0x1, 15,  1); //0x21b2 bit[15]   : PWM_E_CLK_EN
+    aml_set_reg32_bits(P_PWM_MISC_REG_EF, 0x0,  8,  7); //0x21b2 bit[14: 8]: PWM_E_CLK_DIV
+    aml_set_reg32_bits(P_PWM_MISC_REG_EF, 0x2,  4,  2); //0x21b2 bit[5 : 4]: PWM_E_CLK_SEL :0x2 sleect fclk_div4:637.5M
+    aml_set_reg32_bits(P_PWM_MISC_REG_EF, 0x1,  0,  1); //0x21b2 bit[0]    : PWM_E_EN
+}
+
+void pwm_out_rtc_32k(void){
+    gpiox_10_pin_mux_mask(); //enable PWM_E pin mux
+    pwm_e_config();  //PWM E config   
+    hdmi_print(INF, CEC "Set PWM_E out put RTC 32K!\n");
 }
 
 void cec_hw_reset(void)
@@ -47,7 +76,8 @@ void cec_hw_reset(void)
     aml_set_reg32_bits(P_AO_CEC_GEN_CNTL, 0, 0, 1);
 
     // Enable all AO_CEC interrupt sources
-    aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
+    if(!cec_int_disable_flag)
+        aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
 
     aocec_wr_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | cec_global_info.my_node_index);
 
@@ -122,7 +152,7 @@ static int cec_ll_tx_once(const unsigned char *msg, unsigned char len)
     unsigned int cnt = 30;
     int pos;
 
-    while(aocec_rd_reg(CEC_TX_MSG_STATUS) || aocec_rd_reg(CEC_RX_MSG_STATUS)){
+    while(aocec_rd_reg(CEC_TX_MSG_STATUS)){
         msleep(5);
         if(TX_ERROR == aocec_rd_reg(CEC_TX_MSG_STATUS)){
             //aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
@@ -166,6 +196,22 @@ int cec_ll_tx_polling(const unsigned char *msg, unsigned char len)
 	unsigned int j = 30;
     int pos;
 
+    while( aocec_rd_reg(CEC_TX_MSG_STATUS)){
+        if(TX_ERROR == aocec_rd_reg(CEC_TX_MSG_STATUS)){
+            //aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
+            aocec_wr_reg(CEC_TX_MSG_CMD, TX_NO_OP);
+            //cec_hw_reset();
+            break;
+        }
+        if(!(j--)){
+            hdmi_print(INF, CEC "tx busy time out.\n");
+            aocec_wr_reg(CEC_TX_MSG_CMD, TX_ABORT);
+            aocec_wr_reg(CEC_TX_MSG_CMD, TX_NO_OP);
+            break;
+        }
+        msleep(5);
+    }
+
     aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x0, 1, 1);
     for (i = 0; i < len; i++)
     {
@@ -174,7 +220,10 @@ int cec_ll_tx_polling(const unsigned char *msg, unsigned char len)
     aocec_wr_reg(CEC_TX_MSG_LENGTH, len-1);
     aocec_wr_reg(CEC_TX_MSG_CMD, RX_ACK_CURRENT);
 
+    j = 30;
     while((TX_DONE != aocec_rd_reg(CEC_TX_MSG_STATUS)) && (j--)){
+        if(TX_ERROR == aocec_rd_reg(CEC_TX_MSG_STATUS))
+            break;
 		msleep(5);
 	}
 
@@ -226,7 +275,9 @@ void tx_irq_handle(void){
 int cec_ll_tx(const unsigned char *msg, unsigned char len)
 {
     int ret = 0;
-    
+    if(cec_int_disable_flag)
+        return;
+        
     mutex_lock(&cec_mutex);
     //aml_write_reg32(P_AO_CEC_INTR_MASKN, aml_read_reg32(P_AO_CEC_INTR_MASKN) & ~(1 << 2));
     cec_ll_tx_once(msg, len);
@@ -270,6 +321,7 @@ void cec_polling_online_dev(int log_addr, int *bool)
 void ao_cec_init(void)
 {
     unsigned long data32;
+    pwm_out_rtc_32k();  //enable RTC 32k
     // Assert SW reset AO_CEC
     data32  = 0;
     data32 |= 0 << 1;   // [2:1]    cntl_clk: 0=Disable clk (Power-off mode); 1=Enable gated clock (Normal mode); 2=Enable free-run clk (Debug mode).
@@ -281,7 +333,7 @@ void ao_cec_init(void)
     aml_set_reg32_bits(P_AO_CEC_GEN_CNTL, 0, 0, 1);
 
     // Enable all AO_CEC interrupt sources
-    aml_set_reg32_bits(P_AO_CEC_INTR_MASKN, 0x6, 0, 3);
+    cec_enable_irq();
 
     // Device 0 config
     aocec_wr_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | 0x4);

@@ -21,7 +21,7 @@
 #include "aml_syno9629_codec.h"
 
 #define CODEC_DEBUG  printk
-#define stimulus_print  //printk
+#define stimulus_print pr_debug
 #define Wr WRITE_MPEG_REG
 #define Rd  READ_MPEG_REG
 static struct snd_soc_codec *aml_syno9629_codec;

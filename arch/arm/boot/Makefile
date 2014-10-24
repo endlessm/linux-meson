@@ -30,7 +30,7 @@ karg="-z"
 else ifeq ($(CONFIG_KERNEL_LZO),y)
 UIMAGE_COMPRESSION ?= lzo
 kcomp=lzop
-karg=
+karg="-9"
 else ifeq ($(CONFIG_KERNEL_GZIP),y)
 UIMAGE_COMPRESSION ?= gzip
 kcomp=gzip

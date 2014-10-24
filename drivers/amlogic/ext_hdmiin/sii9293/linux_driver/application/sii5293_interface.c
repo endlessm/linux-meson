@@ -4,10 +4,47 @@
 
 #define GET_VIDEO_INFO_FROM_TABLE
 
-#ifndef GET_VIDEO_INFO_FROM_TABLE
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+void sii_set_standby(int bStandby)
+{
+	SiiRegWrite(RX_A__PD_TOT, !bStandby);
+	return ;
+}
 
-#endif
 
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
+int sii_get_pwr5v_status(void)
+{
+	char pwr5v;
+
+	pwr5v = SiiRegRead(RX_A__STATE)&RX_M__STATE__PWR5V;
+
+	return (pwr5v==0)?0:1;
+}
+
+// audio sampling frequency:
+// 0x0 for 44.1 KHz
+// 0x1 for Not indicated
+// 0x2 for 48 KHz
+// 0x3 for 32 KHz
+// 0x4 for 22.05 KHz
+// 0x6 for 24 kHz
+// 0x8 for 88.2 kHz
+// 0x9 for 768 kHz (192*4)
+// 0xa for 96 kHz
+// 0xc for 176.4 kHz
+// 0xe for 192 kHz
+int sii_get_audio_sampling_freq(void)
+{
+	unsigned char freq;
+
+	freq = SiiRegRead(RX_A__CHST4)&RX_A__CHST4__BIT_AUD_FS;
+
+	return freq;
+}
+
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
 #ifdef GET_VIDEO_INFO_FROM_TABLE
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/

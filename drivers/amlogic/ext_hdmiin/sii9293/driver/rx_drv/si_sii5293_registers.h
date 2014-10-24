@@ -450,6 +450,8 @@
 #define RX_A__CHST1				0x22A
 #define RX_A__CHST2				0x22B
 #define RX_A__CHST3				0x22C
+#define RX_A__CHST4				0x230
+#define RX_A__CHST4__BIT_AUD_FS	0x0F // AUD_FS, sampling frequency
 
 #define RX_A__SW_OW				0x22E
 #define RX_M__SW_OW__SWAP_CH3			0x80

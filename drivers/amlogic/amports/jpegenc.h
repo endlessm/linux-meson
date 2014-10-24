@@ -23,7 +23,7 @@
 
 #define jpegenc_clock_disable() \
     WRITE_VREG_BITS(DOS_GCLK_EN0, 0, 12, 15); \
-    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  24, 0, 1);
+    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  0, 24, 1);
 #else
 #define HDEC_250M()   WRITE_MPEG_REG(HHI_VDEC_CLK_CNTL, (0 << 25) | (3 << 16) |(1 << 24) | (0xffff&READ_CBUS_REG(HHI_VDEC_CLK_CNTL)))
 #define jpegenc_clock_enable() \
@@ -31,7 +31,7 @@
     WRITE_VREG(DOS_GCLK_EN0, 0xffffffff)
 
 #define jpegenc_clock_disable() \
-    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  24, 0, 1);
+    WRITE_MPEG_REG_BITS(HHI_VDEC_CLK_CNTL,  0, 24, 1);
 #endif
 
 #define JPEGENC_IOC_MAGIC  'E'

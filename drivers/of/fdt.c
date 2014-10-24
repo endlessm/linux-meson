@@ -630,7 +630,7 @@ unsigned long long phys_offset=0;
 #define FIRMWARE_ADDR 0x9ff00000
 
 #ifdef CONFIG_MESON_TRUSTZONE
-#define EARLY_RESERVED_MEM_SIZE	(DSP_MEM_SIZE+MESON_TRUSTZONE_MEM_SIZE)
+#define EARLY_RESERVED_MEM_SIZE	(DSP_MEM_SIZE+meson_secure_mem_total_size())
 #else
 #define EARLY_RESERVED_MEM_SIZE	(DSP_MEM_SIZE)
 #endif

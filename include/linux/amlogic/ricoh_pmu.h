@@ -17,7 +17,11 @@
 #define RN5T618_WORK_CYCLE                  2000
 
 #define RICOH_DBG(format,args...)                 \
-    if (1) printk(KERN_ERR "[RN5T618]"format,##args)  
+    if (1) printk(KERN_DEBUG "[RN5T618]"format,##args)
+#define RICOH_INFO(format,args...)                 \
+    if (1) printk(KERN_WARNING "[RN5T618]"format,##args)
+#define RICOH_ERR(format,args...)                 \
+    if (1) printk(KERN_ERR "[RN5T618]"format,##args)
 #define ABS(x)                  ((x) >0 ? (x) : -(x))
 
 /*
@@ -123,6 +127,7 @@ extern int  rn5t618_set_charge_enable(int enable);                      // 0->di
 extern int  rn5t618_set_charge_current(int curr);                       // current of charge, in uA
 extern int  rn5t618_get_battery_percent(void);                          // return volume of battery, in 1%
 extern int  rn5t618_cal_ocv(int ibat, int vbat, int dir);               // ibat in mA, vbat in mV
+extern int  rn5t618_get_saved_coulomb(void);                            // for coulomb clear issue
 extern void rn5t618_power_off(void);                                    // power of system
 
 #endif /* __RN5T618_H__ */

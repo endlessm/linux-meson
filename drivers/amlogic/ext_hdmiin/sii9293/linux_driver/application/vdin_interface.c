@@ -145,11 +145,7 @@ static void sii5293_tvin_get_sig_propery(struct tvin_frontend_s *fe, struct tvin
 
 	prop->color_format = TVIN_RGB444;
 	prop->dest_cfmt = TVIN_YUV422;
-	if( (devp->vdin_parm.h_active==1440) && 
-	  ((devp->vdin_parm.v_active==576)||(devp->vdin_parm.v_active==480)) )
-	  prop->decimation_ratio = 1;
-	else 
-	  prop->decimation_ratio = 0;
+	prop->decimation_ratio = 0;
 
 	return ;
 }
@@ -317,7 +313,7 @@ void sii5293_start_vdin(sii5293_vdin *info, int width, int height, int frame_rat
 		if(field_flag && height <= 576 )
 		{
 			// for rgb 576i signal from 9233, it's 720/864, not 1440/1728
-			if( (width==1440)&&(height==576) )
+			if( (width==720)&&(height==288) )
 			{
 				start_pix = 138;
 				start_line_o = 22;
@@ -326,7 +322,7 @@ void sii5293_start_vdin(sii5293_vdin *info, int width, int height, int frame_rat
 				v_total = 625;
 			}
 			// for rgb 480i signal from 9233, it's 720/858, not 1440/1716
-			else if( (width==1440)&&(height==480) )
+			else if( (width==720)&&(height==240) )
 			{
 				start_pix = 114;
 				start_line_o = 18;
@@ -398,10 +394,10 @@ void sii5293_start_vdin(sii5293_vdin *info, int width, int height, int frame_rat
 				 set_invert_top_bot(true);
 			}
 		*/
-			else if(info->vdin_info.cur_width == 1440 &&  
+			else if(info->vdin_info.cur_width == 720 &&  
 			  (info->vdin_info.cur_height == 576 || info->vdin_info.cur_height == 288)){
-				para.fmt = TVIN_SIG_FMT_HDMI_1440X576I_50HZ;
-				para.v_active = 576;
+				para.fmt = TVIN_SIG_FMT_MAX;//TVIN_SIG_FMT_HDMI_1440X576I_50HZ;
+				para.v_active = 288;
 				set_invert_top_bot(true);
 			}
 		/*
@@ -411,10 +407,10 @@ void sii5293_start_vdin(sii5293_vdin *info, int width, int height, int frame_rat
 				 set_invert_top_bot(true);
 			}
 		*/
-			else if(info->vdin_info.cur_width == 1440  &&  
+			else if(info->vdin_info.cur_width == 720  &&  
 			  (info->vdin_info.cur_height == 480 || info->vdin_info.cur_height == 240)){
-				para.fmt = TVIN_SIG_FMT_HDMI_1440X480I_60HZ;
-				para.v_active = 480;
+				para.fmt = TVIN_SIG_FMT_MAX;//TVIN_SIG_FMT_HDMI_1440X480I_60HZ;
+				para.v_active = 240;
 				set_invert_top_bot(true);
 			}
 			else{

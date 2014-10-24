@@ -86,7 +86,7 @@ void hdmi_wr_reg(unsigned int addr, unsigned int data)
     spin_unlock_irqrestore(&reg_lock, flags);
 }
 
-#ifdef CONFIG_ARCH_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 #define waiting_aocec_free()    while(aml_read_reg32(P_AO_CEC_RW_REG) & (1<<23))
 unsigned long aocec_rd_reg (unsigned long addr)
 {

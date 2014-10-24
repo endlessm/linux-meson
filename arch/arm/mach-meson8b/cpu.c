@@ -27,6 +27,10 @@
 #include <linux/printk.h>
 #include <linux/string.h>
 
+#ifdef CONFIG_MESON_TRUSTZONE
+#include <mach/meson-secure.h>
+#endif
+
 static int meson_cpu_version[MESON_CPU_VERSION_LVL_MAX+1];
 int __init meson_cpu_version_init(void)
 {
@@ -36,8 +40,12 @@ int __init meson_cpu_version_init(void)
 	meson_cpu_version[MESON_CPU_VERSION_LVL_MAJOR] = 
 		aml_read_reg32(P_ASSIST_HW_REV);
 
+#ifndef CONFIG_MESON_TRUSTZONE
 	version_map = (unsigned int *)IO_BOOTROM_BASE;
 	meson_cpu_version[MESON_CPU_VERSION_LVL_MISC] = version_map[1];
+#else
+	meson_cpu_version[MESON_CPU_VERSION_LVL_MISC] = meson_read_socrev1();
+#endif
 
 	version = aml_read_reg32(P_METAL_REVISION);
 	switch (version) {		

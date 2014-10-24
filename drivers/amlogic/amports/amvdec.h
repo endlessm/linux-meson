@@ -35,7 +35,7 @@ extern void amvdec_enable(void);
 extern void amvdec_disable(void);
 s32 amvdec_loadmc_ex(const char*name,char *def);
 
-#if HAS_VDEC2
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 extern  s32 amvdec2_loadmc(const u32 *p);
 extern void amvdec2_start(void);
 extern void amvdec2_stop(void);
@@ -43,7 +43,7 @@ extern void amvdec2_enable(void);
 extern void amvdec2_disable(void);
 #endif
 
-#if HAS_HEVC_VDEC
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 extern  s32 amhevc_loadmc(const u32 *p);
 extern void amhevc_start(void);
 extern void amhevc_stop(void);

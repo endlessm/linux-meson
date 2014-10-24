@@ -10,7 +10,7 @@ typedef enum HDMI_Video_Type_ {
     HDMI_1080i60,
     HDMI_480i60,
     HDMI_480i60_16x9,
-    
+    HDMI_480i60_16x9_rpt = 11,
     HDMI_1440x480p60 = 14 ,
     HDMI_1440x480p60_16x9 = 15 ,
     HDMI_1080p60 = 16,
@@ -20,10 +20,13 @@ typedef enum HDMI_Video_Type_ {
     HDMI_1080i50,
     HDMI_576i50,
     HDMI_576i50_16x9,
+    HDMI_576i50_16x9_rpt = 26,
     HDMI_1080p50 = 31,
     HDMI_1080p24,
     HDMI_1080p25,
     HDMI_1080p30,
+    HDMI_480p60_16x9_rpt = 36,
+    HDMI_576p50_16x9_rpt = 38,
     HDMI_4k2k_24 = 93,      // CEA-861-F
     HDMI_4k2k_25,
     HDMI_4k2k_30,
@@ -588,6 +591,15 @@ typedef struct {
     audio_sample_size_t sample_size; 
 }Hdmi_tx_audio_para_t;    
 
+// ACR packet CTS parameters have 3 types:
+// 1. HW auto calculated
+// 2. Fixed values defined by Spec
+// 3. Calculated by clock meter
+typedef enum {
+    AUD_CTS_AUTO = 0,
+    AUD_CTS_FIXED,
+    AUD_CTS_CALC,
+}Hdmi_tx_audio_cts_t;
 
 typedef struct
 {

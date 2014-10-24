@@ -4,6 +4,10 @@
 config  AM_PTSSERVER
 	bool 
 	default n
+
+config  H264_4K2K_SINGLE_CORE
+	bool 
+	default n
 	
 config  VSYNC_RDMA
 	bool "VSYNC CBUS RDMA"
@@ -41,6 +45,14 @@ config SUPPORT_VIDEO_ON_VPP2
 	depends on !AM_VIDEO2
 	help
 	  Support displaying video on vpp2
+
+config AM_MEMPROTECT
+    bool "Amlogic Video protect video streambuf framebuf"
+    default y
+    depends on  AM_VIDEO
+    depends on  MESON_TRUSTZONE
+    help
+      Select to enable protect video streambuf framebuf.
 
 menu "Video Decoders"
 	depends on AM_VIDEO
@@ -86,7 +98,7 @@ config AM_VDEC_H264MVC
 
 config AM_VDEC_H264_4K2K
         tristate "Amlogic H264_4K2K Video Decoder"
-	depends on ARCH_MESON8 || ARCH_MESON6TVD
+	 depends on ARCH_MESON8 || ARCH_MESON6TVD
         default y
 
         select AM_PTSSERVER
@@ -95,7 +107,7 @@ config AM_VDEC_H264_4K2K
 
 config AM_VDEC_H265
         tristate "Amlogic H265 Video Decoder"
-        depends on ARCH_MESON8B
+        depends on ARCH_MESON8B || ARCH_MESON8
         default y
 
         select AM_PTSSERVER

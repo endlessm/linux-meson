@@ -106,6 +106,23 @@ static const struct ionvideo_fmt *get_format(struct v4l2_format *f)
 
 static LIST_HEAD (ionvideo_devlist);
 
+static DEFINE_SPINLOCK(ion_states_lock);
+static int  ionvideo_vf_get_states(vframe_states_t *states)
+{
+    int ret = -1;
+    unsigned long flags;
+    struct vframe_provider_s *vfp;
+    vfp = vf_get_provider(RECEIVER_NAME);
+    spin_lock_irqsave(&ion_states_lock, flags);
+    if (vfp && vfp->ops && vfp->ops->vf_states) {
+        ret=vfp->ops->vf_states(states, vfp->op_arg);
+    }
+    spin_unlock_irqrestore(&ion_states_lock, flags);
+    return ret;
+}
+
+
+
 /* ------------------------------------------------------------------
  DMA and thread functions
  ------------------------------------------------------------------*/
@@ -144,9 +161,17 @@ static int ionvideo_fillbuff(struct ionvideo_dev *dev, struct ionvideo_buffer *b
     if (!vf) {
         return -EAGAIN;
     }
+    if (vf && dev->once_record == 1) {
+    	dev->once_record = 0;
+    	if ((vf->type & VIDTYPE_INTERLACE_BOTTOM) == 0x3) {
+    		dev->ppmgr2_dev.bottom_first = 1;
+    	} else {
+    		dev->ppmgr2_dev.bottom_first = 0;
+    	}
+    }
     if (freerun_mode == 0) {
         if ((vf->type & 0x1) == VIDTYPE_INTERLACE) {
-            if (dev->ppmgr2_dev.interlaced_num == 0) {
+            if ((dev->ppmgr2_dev.bottom_first && (vf->type & 0x2)) || (dev->ppmgr2_dev.bottom_first == 0 && ((vf->type & 0x2) == 0))) {
                 buf->pts = vf->pts;
                 buf->duration = vf->duration;
             }
@@ -162,7 +187,7 @@ static int ionvideo_fillbuff(struct ionvideo_dev *dev, struct ionvideo_buffer *b
         vf_put(vf, RECEIVER_NAME);
     } else {
         if ((vf->type & 0x1) == VIDTYPE_INTERLACE) {
-            if (dev->ppmgr2_dev.interlaced_num == 0)
+            if ((dev->ppmgr2_dev.bottom_first && (vf->type & 0x2)) || (dev->ppmgr2_dev.bottom_first == 0 && ((vf->type & 0x2) == 0)))
                 dev->pts = vf->pts_us64;
         } else
             dev->pts = vf->pts_us64;
@@ -450,6 +475,8 @@ static int vidioc_open(struct file *file) {
     dev->pts = 0;
     dev->c_width = 0;
     dev->c_height = 0;
+    dev->once_record = 1;
+    dev->ppmgr2_dev.bottom_first = 0;
     skip_frames = 0;
     dprintk(dev, 2, "vidioc_open\n");
     printk("ionvideo open\n");
@@ -458,12 +485,15 @@ static int vidioc_open(struct file *file) {
 
 static int vidioc_release(struct file *file) {
     struct ionvideo_dev *dev = video_drvdata(file);
+    ionvideo_stop_generating(dev);
+    printk("ionvideo_stop_generating!!!!\n");
     ppmgr2_release(&(dev->ppmgr2_dev));
     dprintk(dev, 2, "vidioc_release\n");
     printk("ionvideo release\n");
     if (dev->fd_num > 0) {
         dev->fd_num--;
     }
+    dev->once_record = 0;
     return vb2_fop_release(file);
 }
 
@@ -819,6 +849,8 @@ static int video_receiver_event_fun(int type, void* data, void* private_data) {
         dev->receiver_register = 1;
         dev->ppmgr2_dev.interlaced_num = 0;
         printk("reg:ionvideo\n");
+    }else if (type == VFRAME_EVENT_PROVIDER_QUREY_STATE) {
+        return RECEIVER_ACTIVE ;
     }
     return 0;
 }
@@ -904,6 +936,33 @@ free_dev:
     return ret;
 }
 
+static ssize_t vframe_states_show(struct class *class, struct class_attribute* attr, char* buf)
+{
+    int ret = 0;
+    vframe_states_t states;
+    unsigned long flags;
+	
+    if (ionvideo_vf_get_states(&states) == 0) {
+        ret += sprintf(buf + ret, "vframe_pool_size=%d\n", states.vf_pool_size);
+        ret += sprintf(buf + ret, "vframe buf_free_num=%d\n", states.buf_free_num);
+        ret += sprintf(buf + ret, "vframe buf_recycle_num=%d\n", states.buf_recycle_num);
+        ret += sprintf(buf + ret, "vframe buf_avail_num=%d\n", states.buf_avail_num);
+    } else {
+        ret += sprintf(buf + ret, "vframe no states\n");
+    }
+
+    return ret;
+}
+
+static struct class_attribute ion_video_class_attrs[] = {
+	__ATTR_RO(vframe_states),
+    __ATTR_NULL
+};
+static struct class ionvideo_class = {
+        .name = "ionvideo",
+        .class_attrs = ion_video_class_attrs,
+};
+
 /* This routine allocates from 1 to n_devs virtual drivers.
 
  The real maximum number of virtual drivers will depend on how many drivers
@@ -913,7 +972,9 @@ free_dev:
 static int __init ionvideo_init(void)
 {
     int ret = 0, i;
-
+    ret = class_register(&ionvideo_class);
+    if(ret<0)
+        return ret;
     if (n_devs <= 0)
     n_devs = 1;
 
@@ -938,13 +999,14 @@ static int __init ionvideo_init(void)
 
     /* n_devs will reflect the actual number of allocated devices */
     n_devs = i;
-
+    
     return ret;
 }
 
 static void __exit ionvideo_exit(void)
 {
     ionvideo_release();
+	class_unregister(&ionvideo_class);
 }
 
 MODULE_DESCRIPTION("Video Technology Magazine Ion Video Capture Board");

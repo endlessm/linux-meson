@@ -68,6 +68,8 @@ MODULE_DESCRIPTION("ov5642 On Board");
 MODULE_AUTHOR("amlogic-sh");
 MODULE_LICENSE("GPL v2");
 
+#define OV5642_DRIVER_VERSION "OV5642-COMMON-01-140717"
+
 static unsigned video_nr = -1;  /* videoX start number, -1 is autodetect. */
 
 static unsigned debug;
@@ -2097,13 +2099,21 @@ static int OV5642_FlashCtrl(struct ov5642_device *dev, int flash_mode)
 	switch (flash_mode) {
 	case FLASHLIGHT_ON:
 	case FLASHLIGHT_AUTO:
-	case FLASHLIGHT_TORCH:
+		if (dev->cam_info.torch_support)
+			aml_cam_torch(&dev->cam_info, 1);
 		aml_cam_flash(&dev->cam_info, 1);
-		printk("flash on\n");
+		break;
+	case FLASHLIGHT_TORCH:
+		if (dev->cam_info.torch_support) {
+			aml_cam_torch(&dev->cam_info, 1);
+			aml_cam_flash(&dev->cam_info, 0);
+		} else 
+			aml_cam_torch(&dev->cam_info, 1);
 		break;
 	case FLASHLIGHT_OFF:
 		aml_cam_flash(&dev->cam_info, 0);
-		printk("flash off\n");
+		if (dev->cam_info.torch_support)
+			aml_cam_torch(&dev->cam_info, 0);
 		break;
 	default:
 		printk("this flash mode not support yet\n");
@@ -3435,6 +3445,11 @@ static int ov5642_probe(struct i2c_client *client,
 		kfree(client);
 		return -1;
 	}
+	
+	t->cam_info.version = OV5642_DRIVER_VERSION;
+	if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+	
 	err = video_register_device(t->vdev, VFL_TYPE_GRABBER, video_nr);
 	if (err < 0) {
 		video_device_release(t->vdev);
@@ -3452,6 +3467,7 @@ static int ov5642_remove(struct i2c_client *client)
 	video_unregister_device(t->vdev);
 	v4l2_device_unregister_subdev(sd);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

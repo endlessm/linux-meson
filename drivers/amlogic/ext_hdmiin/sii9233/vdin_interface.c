@@ -306,7 +306,7 @@ void sii9233a_start_vdin(sii9233a_info_t *info, int width, int height, int frame
 
 	if( (info->vdin_started==0) && (width>0) && (height>0) && (frame_rate>0) )
 	{
-		int start_pix, start_line_o, start_line_e, h_total, v_total;
+		int start_pix=0, start_line_o=0, start_line_e=0, h_total=0, v_total=0;
 
 		info->vdin_info.cur_width = width;
 		info->vdin_info.cur_height = height;

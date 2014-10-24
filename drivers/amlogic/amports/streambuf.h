@@ -33,12 +33,8 @@
 #define BUF_TYPE_AUDIO      1
 #define BUF_TYPE_SUBTITLE   2
 #define BUF_TYPE_USERDATA   3
-#if HAS_HEVC_VDEC
 #define BUF_TYPE_HEVC       4
 #define BUF_MAX_NUM         5
-#else
-#define BUF_MAX_NUM         4
-#endif
 
 #define INVALID_PTS 0xffffffff
 

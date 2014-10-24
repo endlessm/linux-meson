@@ -112,7 +112,7 @@ static const char __initdata *m6tv_common_boards_compat[] = {
 	NULL,
 };
 
-DT_MACHINE_START(AML8726_MX, "Amlogic Meson6TVD platform")
+DT_MACHINE_START(AML8726_MX, "Amlogic Meson6TVD")
 	.smp		= smp_ops(meson6tv_smp_ops),
 	.map_io		= meson6tv_map_io,	// dt - 1
 	.init_early	= meson6tv_init_early,	// dt - 2

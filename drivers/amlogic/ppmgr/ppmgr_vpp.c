@@ -138,9 +138,9 @@ static int still_picture_notify = 0 ;
 //static int q_free_set = 0 ;
 static vframe_t *ppmgr_vf_peek(void *op_arg)
 {
+    vframe_t* vf;
     if(ppmgr_blocking)
         return NULL;
-    vframe_t* vf;
     vf = vfq_peek(&q_ready);
     return vf;
 }
@@ -194,13 +194,16 @@ static void ppmgr_vf_video_put(ppframe_t *pp)
 }
 static void ppmgr_vf_put(vframe_t *vf, void *op_arg)
 {
+	ppframe_t *vf_local;
+	int i;
+	int index;
     ppframe_t *pp_vf = to_ppframe(vf);
     if(ppmgr_blocking)
         return;
 
-    ppframe_t *vf_local;
-    int i=vfq_level(&q_free);
-    int index;
+
+    i=vfq_level(&q_free);
+    
     while(i>0)
     {
         index=(q_free.rp+i-1)%(q_free.size);
@@ -499,7 +502,7 @@ void vf_ppmgr_reset(int type)
             current_reset_time=jiffies;
             if(abs(current_reset_time-last_reset_time)<PPMGR_RESET_INTERVAL)
             {
-                printk("==[vf_ppmgr_reset]=skip=current_reset_time:%lu last_reset_time:%lu discrete:%lu  interval:%lu \n",current_reset_time,last_reset_time,abs(current_reset_time-last_reset_time),PPMGR_RESET_INTERVAL);
+                //printk("==[vf_ppmgr_reset]=skip=current_reset_time:%lu last_reset_time:%lu discrete:%lu  interval:%lu \n",current_reset_time,last_reset_time,abs(current_reset_time-last_reset_time),PPMGR_RESET_INTERVAL);
                 return;
             }
             ppmgr_blocking = true;
@@ -2261,11 +2264,14 @@ extern int get_tv_process_type(vframe_t* vf);
 static struct task_struct *task=NULL;
 extern int video_property_notify(int flag);
 extern vframe_t* get_cur_dispbuf(void);
-extern platform_type_t get_platform_type();
+extern platform_type_t get_platform_type(void);
 
 static int ppmgr_task(void *data)
 {
     struct sched_param param = {.sched_priority = MAX_RT_PRIO - 1 };
+    int i;
+	 vframe_t *vf_local = NULL;
+	 ppframe_t *pp_local=NULL;    
     ge2d_context_t *context=create_ge2d_work_queue();
     config_para_ex_t ge2d_config;
     memset(&ge2d_config,0,sizeof(config_para_ex_t));
@@ -2292,7 +2298,7 @@ static int ppmgr_task(void *data)
         if(scaler_pos_changed){
             scaler_pos_changed = 0;
             vf = get_cur_dispbuf();
-            if (!is_valid_ppframe(vf)) {
+            if (!is_valid_ppframe(to_ppframe(vf))) {
                 continue;
             }
             if(vf){
@@ -2316,7 +2322,7 @@ static int ppmgr_task(void *data)
             DisableVideoLayer();
 
             vf = get_cur_dispbuf();
-            if (!is_valid_ppframe(vf)) {
+            if (!is_valid_ppframe(to_ppframe(vf))) {
                 continue;
             }
 
@@ -2423,12 +2429,10 @@ static int ppmgr_task(void *data)
         	}
             #endif
             /***recycle buffer to decoder***/
-             int i;
+
              for (i=0; i < VF_POOL_SIZE; i++)
                    ppmgr_vf_video_put(&vfp_pool[i]);
 
-             vframe_t *vf_local = NULL;
-             ppframe_t *pp_local=NULL;
              vf_local=vfq_pop(&q_ready);
              while(vf_local)
              {
@@ -2508,7 +2512,6 @@ int ppmgr_buffer_init(int vout_mode)
     int i,j;
     u32 canvas_width, canvas_height;
     u32 decbuf_size;
-    u32 total_size;
     char* buf_start;
     int buf_size;
 #ifdef INTERLACE_DROP_MODE

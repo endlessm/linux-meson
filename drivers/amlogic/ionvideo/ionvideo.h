@@ -103,6 +103,7 @@ struct ppmgr2_device {
     int mirror;
     int paint_mode;
     int interlaced_num;
+    int bottom_first;
 };
 
 struct ionvideo_dev {
@@ -138,6 +139,7 @@ struct ionvideo_dev {
     u8 receiver_register;
     u8 is_video_started;
     u32 skip;
+    int once_record;
 };
 
 int is_ionvideo_active(void);

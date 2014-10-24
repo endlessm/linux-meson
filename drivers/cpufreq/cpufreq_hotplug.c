@@ -668,7 +668,7 @@ static void hg_check_cpu(int cpu, unsigned int max_load)
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct hg_dbs_tuners *hg_tuners = dbs_data->tuners;
-
+	memset(each_cpu_out_avg_load,0,sizeof(each_cpu_out_avg_load));
 	avg_load = hg_tuners->hotplug_load_history[hg_tuners->hotplug_load_index];
 	max_load_freq = hg_tuners->max_load_freq;
 	/*

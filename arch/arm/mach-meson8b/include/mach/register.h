@@ -14048,4 +14048,6 @@
 #define P_HDMI_DATA_PORT 		APB_REG_ADDR(HDMI_DATA_PORT)
 #define HDMI_CTRL_PORT 0x42008 	///../ucode/hdmi.h:6
 #define P_HDMI_CTRL_PORT 		APB_REG_ADDR(HDMI_CTRL_PORT)
+#define MMC_CHAN_STS (S_DMC_REG_BASE + (0x32 << 2))		///../ucode/dmc_reg.h:170
+#define P_MMC_CHAN_STS			MMC_REG_ADDR(MMC_CHAN_STS)
 #endif

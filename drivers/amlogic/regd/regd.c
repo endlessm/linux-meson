@@ -776,7 +776,7 @@ static long regd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		sscanf(parm, "%x", gammaR);
 		printk("sgr:%s --> %d\n",parm, gammaR[0]);
 		if(gammaR[0] > 598){
-			gammaR[0] == 598;
+			gammaR[0] = 598;
 		}
 		set_lcd_gamma_table(gammaR, H_SEL_R);
 		break;
@@ -796,7 +796,7 @@ static long regd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		sscanf(parm, "%x", gammaR);
 		printk("sgg:%s --> %d\n",parm, gammaR[0]);
 		if(gammaR[0] > 598){
-			gammaR[0] == 598;
+			gammaR[0] = 598;
 		}
 		set_lcd_gamma_table(gammaR, H_SEL_G);
 		break;
@@ -816,7 +816,7 @@ static long regd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		sscanf(parm, "%x", gammaR);
 		printk("sgb:%s --> %d\n",parm, gammaR[0]);
 		if(gammaR[0] > 598){
-			gammaR[0] == 598;
+			gammaR[0] = 598;
 		}
 		set_lcd_gamma_table(gammaR, H_SEL_B);
 		break;

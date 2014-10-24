@@ -1160,8 +1160,8 @@ static const struct snd_soc_dapm_route rt5616_dapm_routes[] = {
 
 static int rt5616_codec_mute_stream(struct snd_soc_dai *dai, int mute, int stream)
 {
-    int ret;
-    unsigned int reg_value;
+//    int ret;
+ //   unsigned int reg_value;
     struct snd_soc_codec *codec = dai->codec;
     
     printk(KERN_DEBUG "enter:%s, stream=%d, mute=%d \n",__func__,stream,mute);

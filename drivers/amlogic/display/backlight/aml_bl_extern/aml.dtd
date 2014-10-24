@@ -37,6 +37,21 @@
 		dim_max_min = <255 10>;
 	};
 
+//$$ DEVICE = "bl_extern_mipi_LT070ME05"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_STR 2 = "gpio_enable"
+//$$ L2 PROP_U32 = "type"
+//$$ L2 PROP_U32 2 = "dim_max_min"
+	bl_extern_mipi_LT070ME05{
+		compatible = "amlogic,bl_mipi_LT070ME05";
+		dev_name ="bl_mipi_LT070ME056";
+		status = "disabled"; /** "disabled" or "okay" */
+
+		gpio_enable = "GPIODV_28"; /** "n" for none */
+		type = <2>;	/** bl_extern_driver type: 0=i2c, 1=spi, 2=other */
+		dim_max_min = <255 10>;
+	};
+
 //******************************************************************************
 
 #endif

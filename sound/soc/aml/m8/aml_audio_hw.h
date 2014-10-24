@@ -67,6 +67,7 @@ enum {
 	AML_AUDIO_PCMIN = 1<<4,
 	AML_AUDIO_PCMOUT = 1<<5,				
 };
+
 #define AUDIO_CLK_256FS             0
 #define AUDIO_CLK_384FS             1
 
@@ -113,13 +114,14 @@ unsigned int audio_in_i2s_rd_ptr(void);
 unsigned int audio_in_i2s_wr_ptr(void);
 unsigned int audio_in_spdif_wr_ptr(void);
 void audio_set_i2s_mode(u32 mode);
-void audio_set_clk(unsigned freq, unsigned fs_config);
-void audio_set_i2s_clk(unsigned freq, unsigned fs_config);
+void audio_set_i2s_clk(unsigned freq, unsigned fs_config, unsigned mpll);
 void audio_set_958_clk(unsigned freq, unsigned fs_config);
 void audio_enable_ouput(int flag);
 unsigned int read_i2s_rd_ptr(void);
 void audio_i2s_unmute(void);
 void audio_i2s_mute(void);
+void aml_audio_i2s_unmute(void);
+void aml_audio_i2s_mute(void);
 void audio_util_set_dac_format(unsigned format);
 void audio_util_set_dac_i2s_format(unsigned format);
 void audio_util_set_dac_958_format(unsigned format);

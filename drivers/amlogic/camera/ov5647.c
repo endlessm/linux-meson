@@ -53,7 +53,7 @@
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-static struct early_suspend ov5647_early_suspend;
+//static struct early_suspend ov5647_early_suspend;
 #endif
 
 #include "common/config_parser.h"
@@ -75,7 +75,7 @@ static int capture_proc = 0;
 #define OV5647_CAMERA_VERSION \
 	KERNEL_VERSION(OV5647_CAMERA_MAJOR_VERSION, OV5647_CAMERA_MINOR_VERSION, OV5647_CAMERA_RELEASE)
 
-
+#define OV5647_DRIVER_VERSION "OV5647-COMMON-01-140717"
 
 MODULE_DESCRIPTION("ov5647 On Board");
 MODULE_AUTHOR("amlogic-sh");
@@ -108,8 +108,8 @@ static struct class *cam_class;
 static unsigned int g_ae_manual_exp;
 static unsigned int g_ae_manual_ag;
 static unsigned int g_ae_manual_vts;
-static unsigned int exp_mode;
-static unsigned int change_cnt;
+//static unsigned int exp_mode;
+//static unsigned int change_cnt;
 static unsigned int current_fmt;
 static unsigned int current_fr = 0;//50 hz
 static unsigned int aet_index;
@@ -2338,7 +2338,7 @@ bool OV5647_set_af_new_step(void *priv, unsigned int af_step){
     if(af_step == last_af_step)
         return true;
     if(vcm_mod == 0){
-	    unsigned int diff,vcm_data,codes;
+	    unsigned int diff,vcm_data=0,codes;
 	    diff = (af_step > last_af_step) ? af_step - last_af_step : last_af_step - af_step;
 	    last_af_step = af_step;
 	    if(diff < 256){
@@ -2542,7 +2542,7 @@ static ssize_t vcm_manual_store(struct class *cls,struct class_attribute *attr, 
 	char buff[3];
 	unsigned int af_step = 0;
 	unsigned int diff = 0;
-	int codes,vcm_data;
+	int codes,vcm_data=0;
 	unsigned char byte_h, byte_l;
 	sscanf(buf,"%d",&af_step);
     if(af_step == last_af_step)
@@ -2767,7 +2767,7 @@ void OV5647_set_param_wb(struct ov5647_device *dev,enum  camera_wb_flip_e para)/
  *************************************************************************/
 void OV5647_set_param_exposure(struct ov5647_device *dev,enum camera_exposure_e para)
 {
-    struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+    //struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
     int value;
     if(0){//para == EXPOSURE_0_STEP){
         dev->cam_para->cam_command = CAM_COMMAND_AE_ON;
@@ -2824,7 +2824,7 @@ void OV5647_set_param_effect(struct ov5647_device *dev,enum camera_effect_flip_e
     int index = 0;
     int i = 0;
     while(i < ARRAY_SIZE(effect_pair)){
-        if(effect_pair[i].effect == para){
+        if((unsigned int)effect_pair[i].effect == (unsigned int)para){
             break;
         }else
             i++;
@@ -2906,7 +2906,7 @@ static void OV5647_set_param_banding(struct ov5647_device *dev,enum  camera_nigh
 
 static int OV5647_AutoFocus(struct ov5647_device *dev, int focus_mode)
 {
-    struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+    //struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
     int ret = 0;
 
     switch (focus_mode) {
@@ -3059,7 +3059,7 @@ static resolution_param_t* get_resolution_param(struct ov5647_device *dev, int o
 void set_resolution_param(struct ov5647_device *dev, resolution_param_t* res_param)
 {
     struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-    int rc = -1;
+    //int rc = -1;
     int i=0;
     unsigned char t = dev->cam_info.interface;
     if(i_index != -1 && ov5647_work_mode != CAMERA_CAPTURE){
@@ -3122,9 +3122,9 @@ void set_resolution_param(struct ov5647_device *dev, resolution_param_t* res_par
 static int set_focus_zone(struct ov5647_device *dev, int value)
 {
 	int xc, yc, tx, ty;
-	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-	int retry_count = 10;
-	int ret = -1;
+	//struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	//int retry_count = 10;
+	//int ret = -1;
 	
 	xc = (value >> 16) & 0xffff;
 	yc = (value & 0xffff);
@@ -3886,7 +3886,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
         struct ov5647_device *dev = video_drvdata(file);
 
         int ret = vb2_ioctl_querybuf(file, priv, p);
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
         if(ret == 0){
                 p->reserved  = convert_canvas_index(dev->fmt->fourcc, OV5647_RES0_CANVAS_INDEX+p->index*3);
         }else{
@@ -4239,7 +4239,7 @@ static int ov5647_close(struct file *file)
             for(i = 0; i < dev->configure->aet.sum; i++){
                 kfree(dev->configure->aet.aet[i].info);
                 dev->configure->aet.aet[i].info = NULL;
-                kfree(dev->configure->aet.aet[i].aet_table);
+                vfree(dev->configure->aet.aet[i].aet_table);
                 dev->configure->aet.aet[i].aet_table = NULL;
             }
         }
@@ -4508,7 +4508,12 @@ static int ov5647_probe(struct i2c_client *client,
                 printk("camera ov5647: have no platform data\n");
                 ret = -EINVAL;
                 goto unreg_dev;
-        }	
+        }
+        
+        t->cam_info.version = OV5647_DRIVER_VERSION;
+        if (aml_cam_info_reg(&t->cam_info) < 0)
+		printk("reg caminfo error\n");
+			
         ret = video_register_device(vfd, VFL_TYPE_GRABBER, video_nr);
         if (ret < 0) {
                 goto unreg_dev;
@@ -4535,6 +4540,7 @@ static int ov5647_remove(struct i2c_client *client)
 	v4l2_device_unregister_subdev(sd);
 	v4l2_device_unregister(&t->v4l2_dev);
 	wake_lock_destroy(&(t->wake_lock));
+	aml_cam_info_unreg(&t->cam_info);
 	kfree(t);
 	return 0;
 }

@@ -210,6 +210,8 @@ static void hdmi_tx_construct_aud_packet(Hdmi_tx_audio_para_t* audio_param, unsi
 //            CHAN_STAT_BUF[3]=CHAN_STAT_BUF[24+3]=channel_status_freq[audio_param->sample_rate];
 //        }
     }
+    AUD_DB[0] = AUD_DB[0] & 0xf;        // bit[7:4] always set to 0 in HDMI
+    AUD_DB[1] = 0;                      // always set to 0 in HDMI
 }
 
 int hdmitx_set_audio(hdmitx_dev_t* hdmitx_device, Hdmi_tx_audio_para_t* audio_param, int hdmi_ch)

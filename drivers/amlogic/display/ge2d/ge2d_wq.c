@@ -22,6 +22,7 @@
 #include <mach/irqs.h>
 #include "ge2d_log.h"
 #include <linux/amlogic/amlog.h>
+#include <mach/mod_gate.h>
 static  ge2d_manager_t  ge2d_manager;
 
 
@@ -284,10 +285,12 @@ static int ge2d_monitor_thread(void *data)
 		ret = down_interruptible(&manager->event.cmd_in_sem);
 		//got new cmd arrived in signal,
 		//CLK_GATE_ON(GE2D);
+		switch_mod_gate_by_name("ge2d", 1);
 		while((manager->current_wq=get_next_work_queue(manager))!=NULL)
 		{
 			ge2d_process_work_queue(manager->current_wq);
 		}
+		switch_mod_gate_by_name("ge2d", 0);
 		//CLK_GATE_OFF(GE2D);
 	}
 	amlog_level(LOG_LEVEL_HIGH,"exit ge2d_monitor_thread\r\n");

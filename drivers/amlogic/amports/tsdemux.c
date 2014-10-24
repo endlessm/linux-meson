@@ -431,11 +431,7 @@ static ssize_t _tsdemux_write(const char __user *buf, size_t count)
     return count - r;
 }
 
-#if HAS_HEVC_VDEC
 s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid, bool is_hevc)
-#else
-s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid)
-#endif
 {
     s32 r;
     u32 parser_sub_start_ptr;
@@ -515,8 +511,8 @@ s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid)
     }
 
     /* hook stream buffer with PARSER */
-#if HAS_HEVC_VDEC
-    if (is_hevc) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC && is_hevc) {
         WRITE_MPEG_REG(PARSER_VIDEO_START_PTR,
                        READ_VREG(HEVC_STREAM_START_ADDR));
         WRITE_MPEG_REG(PARSER_VIDEO_END_PTR,
@@ -529,8 +525,9 @@ s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid)
         SET_VREG_MASK(HEVC_STREAM_CONTROL, (1<<3)|(0<<4)); // set use_parser_vbuf_wp
         SET_VREG_MASK(HEVC_STREAM_CONTROL, 1); // set stream_fetch_enable
         SET_VREG_MASK(HEVC_STREAM_FIFO_CTL, (1<<29)); // set stream_buffer_hole with 256 bytes
-    } else {
+    } else
 #endif
+    {
         WRITE_MPEG_REG(PARSER_VIDEO_START_PTR,
                        READ_VREG(VLD_MEM_VIFIFO_START_PTR));
         WRITE_MPEG_REG(PARSER_VIDEO_END_PTR,
@@ -540,10 +537,10 @@ s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid)
         WRITE_VREG(VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_INIT);
         CLEAR_VREG_MASK(VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_INIT);
 
-#if HAS_HEVC_VDEC
-        WRITE_VREG(DOS_GEN_CTRL0, 0);    // set vififo_vbuf_rp_sel=>vdec
+        if (HAS_HEVC_VDEC) {
+            WRITE_VREG(DOS_GEN_CTRL0, 0);    // set vififo_vbuf_rp_sel=>vdec
+        }
     }
-#endif
 
     WRITE_MPEG_REG(PARSER_AUDIO_START_PTR,
                    READ_MPEG_REG(AIU_MEM_AIFIFO_START_PTR));
@@ -564,11 +561,14 @@ s32 tsdemux_init(u32 vid, u32 aid, u32 sid, u32 pcrid)
     WRITE_MPEG_REG(PARSER_SUB_RP, parser_sub_rp);
     SET_MPEG_REG_MASK(PARSER_ES_CONTROL, (7 << ES_SUB_WR_ENDIAN_BIT) | ES_SUB_MAN_RD_PTR);
 
-#if HAS_HEVC_VDEC
-    if ((r = pts_start((is_hevc) ? PTS_TYPE_HEVC : PTS_TYPE_VIDEO)) < 0) {
-#else
-    if ((r = pts_start(PTS_TYPE_VIDEO)) < 0) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC)
+        r = pts_start((is_hevc) ? PTS_TYPE_HEVC : PTS_TYPE_VIDEO);
+    else 
 #endif
+        r = pts_start(PTS_TYPE_VIDEO);
+
+    if (r < 0) {
         printk("Video pts start failed.(%d)\n", r);
         goto err1;
     }
@@ -655,11 +655,12 @@ err4:
 err3:
     pts_stop(PTS_TYPE_AUDIO);
 err2:
-#if HAS_HEVC_VDEC
-    pts_stop((is_hevc) ? PTS_TYPE_HEVC : PTS_TYPE_VIDEO);
-#else
-    pts_stop(PTS_TYPE_VIDEO);
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    if (HAS_HEVC_VDEC)
+        pts_stop((is_hevc) ? PTS_TYPE_HEVC : PTS_TYPE_VIDEO);
+    else
 #endif
+        pts_stop(PTS_TYPE_VIDEO);
 err1:
     printk("TS Demux init failed.\n");
     return -ENOENT;

@@ -435,7 +435,7 @@ am_uart_type(struct uart_port *port)
 static int am_uart_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 {
     struct meson_uart_port * mup = &am_ports[port->line];
-    void __user *uarg = (void __user *)arg;
+    //void __user *uarg = (void __user *)arg;
     int ret = 0;
 
     switch(cmd) {

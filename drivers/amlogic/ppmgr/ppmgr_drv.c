@@ -52,7 +52,7 @@ static bool scaler_pos_reset = false;
 #include "../amports/amports_config.h"
 
 
-platform_type_t get_platform_type()
+platform_type_t get_platform_type(void)
 {
 	return	platform_type;
 }
@@ -202,10 +202,10 @@ static ssize_t _ppmgr_angle_write(unsigned long val)
         }
         ppmgr_device.angle = angle;
         ppmgr_device.videoangle = (ppmgr_device.angle + ppmgr_device.orientation) % 4;
-        printk("ppmgr angle:%d,orientation:%d,videoangle:%d \n", ppmgr_device.angle, ppmgr_device.orientation, ppmgr_device.videoangle);
+        printk("ppmgr angle:%x,orientation:%x,videoangle:%x \n", ppmgr_device.angle, ppmgr_device.orientation, ppmgr_device.videoangle);
     } else {
         set_video_angle(angle);
-        printk("prot angle:%d\n", angle);
+        printk("prot angle:%ld\n", angle);
     }
     return 0;
 }
@@ -504,7 +504,7 @@ static ssize_t receiver_write(struct class *cla,
 					struct class_attribute *attr,
 					const char *buf, size_t count)
 {
-	ssize_t ret = -EINVAL, size;
+	ssize_t size;
 	char *endp;
     if(buf[0]!='0'&&buf[0]!='1') {
 		printk("device to whitch the video stream decoded\n");
@@ -535,7 +535,7 @@ static ssize_t platform_type_write(struct class *cla,
 					struct class_attribute *attr,
 					const char *buf, size_t count)
 {
-	ssize_t ret = -EINVAL, size;
+	ssize_t size;
 	char *endp;
 	platform_type = simple_strtoul(buf, &endp, 0);
 	size = endp - buf;
@@ -1009,7 +1009,7 @@ static long ppmgr_ioctl(struct file *file,
             break;
 #endif
         case PPMGR_IOC_GET_ANGLE:
-            *((unsigned int *)argp) = ppmgr_device.angle;
+            put_user(ppmgr_device.angle,(unsigned int *)argp);
             break;
         case PPMGR_IOC_SET_ANGLE:
             ret = _ppmgr_angle_write(args);

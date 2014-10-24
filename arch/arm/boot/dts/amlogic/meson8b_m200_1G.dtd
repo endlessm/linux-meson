@@ -51,6 +51,7 @@ void root_func(){
           reg = <0xc4200000 0x1000>;
           arm,data-latency = <3 3 3>;
           arm,tag-latency = <2 2 2>;
+          arm,filter-ranges = <0x100000 0xc0000000>;
           cache-unified;
           cache-level = <2>;
           aux-instruction_prefetch;
@@ -78,14 +79,14 @@ void root_func(){
 		device_type = "memory";
 		aml_reserved_start = <0x06000000>; /**reserved memory start */
 		aml_reserved_end = <0x05000000>;/**reserved memory end : dtb start for uboot*/
-		phys_offset = <0x00000000>;
-		linux,total-memory = <0x40000000>;
+		phys_offset = <0x00200000>;
+		linux,total-memory = <0x3fe00000>;
         #address-cells = <1>;
         #size-cells = <1>;
 
         cma_0:region@0 {
            region_name = "cma_0";
-           reg = <0 0x02700000>;
+           reg = <0 0x02a00000>;
            linux,contiguous-region;
         };
 	};
@@ -491,7 +492,7 @@ void root_func(){
 //            port = <2>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
 //            pinname = "emmc";
 //            ocr_avail = <0x200000>;          /**VDD voltage 3.3 ~ 3.4 */
-//            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+//            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE","MMC_CAP_ERASE", "MMC_CAP_HW_RESET"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
 //            f_min = <300000>;
 //            f_max = <50000000>;
 //            f_max_w = <50000000>;
@@ -592,9 +593,10 @@ void root_func(){
             port = <5>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
             pinname = "emmc";
             ocr_avail = <0x200000>;          /**VDD voltage 3.3 ~ 3.4 */
-            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
-            f_min = <300000>;
-            f_max = <40000000>;
+            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE","MMC_CAP_ERASE", "MMC_CAP_HW_RESET"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+            caps2 = "MMC_CAP2_HS200_1_8V_SDR";
+	        f_min = <300000>;
+            f_max = <150000000>;
             max_req_size = <0x20000>;          /**128KB*/
             gpio_dat3 = "BOOT_3";
             card_type = <1>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
@@ -783,16 +785,16 @@ void root_func(){
 //$$ L2 PROP_U32 = "vddao_voltage"
 //$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
 //$$ L2 PROP_STR = "status"
-        axp202 { /* PMU for AXP */
-            compatible = "axp_mfd";                             /* for driver probe, must have          */
-            sub_type = "axp20_mfd";                             /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x34>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
-            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
+//        axp202 { /* PMU for AXP */
+//            compatible = "axp_mfd";                             /* for driver probe, must have          */
+//            sub_type = "axp20_mfd";                             /** sub type of pmu family, must have    */
+//            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
+//            reg = <0x34>;                                       /** device i2c address, must have        */
+//            soft_limit_to99 = <0>;                              /** optional                             */
+//            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
+//            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
+//            status = "disable";                                 /** status of pmu, only one should be OK */
+//        };
 //$$ DEVICE = "Pmu_aml1212"
 //$$ L2 PROP_STR = "sub_type"
 //$$ L2 PROP_STR = "i2c_bus"
@@ -802,16 +804,16 @@ void root_func(){
 //$$ L2 PROP_U32 = "vddao_voltage"
 //$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
 //$$ L2 PROP_STR = "status"
-        aml1212{                                                /* PMU for AML1212, see comment above   */
-            compatible = "amlogic_pmu";                         /** for driver probe, must have          */
-            sub_type = "aml1212";                               /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x35>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
-            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
+//        aml1212{                                                /* PMU for AML1212, see comment above   */
+//            compatible = "amlogic_pmu";                         /** for driver probe, must have          */
+//            sub_type = "aml1212";                               /** sub type of pmu family, must have    */
+//            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
+//            reg = <0x35>;                                       /** device i2c address, must have        */
+//            soft_limit_to99 = <0>;                              /** optional                             */
+//            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
+//            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
+//            status = "disable";                                 /** status of pmu, only one should be OK */
+//        };
 //$$ DEVICE = "Pmu_rn5t618"
 //$$ L2 PROP_STR = "sub_type"
 //$$ L2 PROP_STR = "i2c_bus"
@@ -821,17 +823,17 @@ void root_func(){
 //$$ L2 PROP_U32 = "vddao_voltage"
 //$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
 //$$ L2 PROP_STR = "status"
-        rn5t618{                                                /* PMU for RN5T618, see comment above   */
-            compatible = "ricoh_pmu";                           /* for driver probe, must have          */
-            sub_type = "rn5t618";                               /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x32>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
-            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
-            vbus_dcin_short_connect = <0>;
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
+//        rn5t618{                                                /* PMU for RN5T618, see comment above   */
+//            compatible = "ricoh_pmu";                           /* for driver probe, must have          */
+//            sub_type = "rn5t618";                               /** sub type of pmu family, must have    */
+//            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
+//            reg = <0x32>;                                       /** device i2c address, must have        */
+//            soft_limit_to99 = <0>;                              /** optional                             */
+//            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
+//            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
+//            vbus_dcin_short_connect = <0>;
+//            status = "disable";                                 /** status of pmu, only one should be OK */
+//        };
     
 //$$ DEVICE = "Pmu_aml1216"
 //$$ L2 PROP_STR = "sub_type"
@@ -842,15 +844,15 @@ void root_func(){
 //$$ L2 PROP_U32 = "vddao_voltage"
 //$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
 //$$ L2 PROP_STR = "status"
-        aml1216{
-            compatible = "amlogic_pmu";                         /** compatible to amlogic PMU            */
-            sub_type = "aml1216_pmu";                           /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x35>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            vbus_dcin_short_connect = <0>;
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
+//        aml1216{
+//            compatible = "amlogic_pmu";                         /** compatible to amlogic PMU            */
+//            sub_type = "aml1216_pmu";                           /** sub type of pmu family, must have    */
+//            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
+//            reg = <0x35>;                                       /** device i2c address, must have        */
+//            soft_limit_to99 = <0>;                              /** optional                             */
+//            vbus_dcin_short_connect = <0>;
+//            status = "disable";                                 /** status of pmu, only one should be OK */
+//        };
 
 //$$ DEVICE = "Pmu_aml1218"
 //$$ L2 PROP_STR = "sub_type"
@@ -898,8 +900,6 @@ void root_func(){
 			port-config = <0>; /** 0: default */
 			port-dma = <0>; /** 0: default, 1: single, 2: incr, 3: incr4, 4: incr8, 5: incr16, 6: disable*/
 			port-id-mode = <1>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
-			host-only-core = <1>;
-			pmu-apply-power = <1>;
 			status = "okay";
 		};
 		
@@ -961,6 +961,8 @@ void root_func(){
     audio_spdif_codec{
         compatible = "amlogic,aml-spdif-codec";
         dev_name = "spdif-dit.0";
+        pinctrl-names = "aml_audio_spdif";
+        pinctrl-0 = <&audio_spdif_pins>;
         status = "okay";
     };
 
@@ -1081,96 +1083,6 @@ void root_func(){
     };
 
 /// ***************************************************************************************
-///	-	Camera
-//$$ MODULE="Camera"
-///	-	aml_cams
-//$$ DEVICE = "aml_cams"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_STR 2 = "pinctrl-names"
-//$$ L2 PROP_CHOICE "Camera_pin_0_match" = "pinctrl-0"
-//$$ L2 PROP_CHOICE "Camera_pin_1_match" = "pinctrl-1"
-	aml_cams{
-		compatible = "amlogic,cams_prober";
-		status = "okay";
-		pinctrl-names = "gpio","csi";
-		pinctrl-0 = <&aml_cam_gpio_pins> ;
-		pinctrl-1 = <&aml_cam_csi_pins> ;
-
-///	-	ar0543
-//$$ DEVICE="ar0543"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "front_back"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_STR = "gpio_pwdn"
-//$$ L2 PROP_STR = "gpio_rst"
-//$$ L2 PROP_U32 = "mirror_flip"
-//$$ L2 PROP_U32 = "vertical_flip"
-//$$ L2 PROP_STR = "config_path"
-//$$ L2 PROP_U32 = "mclk"
-//$$ L2 PROP_STR = "bt_path"
-//$$ L2 PROP_STR = "interface"
-//$$ L2 PROP_STR = "clk_channel"
-		cam_0{
-			cam_name = "ar0543";
-			front_back = <0>;
-			i2c_bus = "i2c_bus_d";
-			gpio_pwdn = "GPIOH_6";
-			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <0>;
-			config_path = "/system/etc/camera_isp_cfg/ar0543_skt";
-			mclk = <12000>;
-			bt_path = "csi";
-			interface = "mipi";
-			clk_channel = "a";
-			status = "okay";
-		};
-
-///	-	ov5647
-//$$ DEVICE="ov5647"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "front_back"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_STR = "gpio_pwdn"
-//$$ L2 PROP_STR = "gpio_rst"
-//$$ L2 PROP_U32 = "mirror_flip"
-//$$ L2 PROP_U32 = "vertical_flip"
-//$$ L2 PROP_STR = "bt_path"
-//$$ L2 PROP_STR = "interface"
-//$$ L2 PROP_STR = "clk_channel"
-		cam_1{
-			cam_name = "ov5647";
-			front_back = <0>;
-			i2c_bus = "i2c_bus_d";
-			gpio_pwdn = "GPIOH_5";
-			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <0>;	
-			config_path = "/system/etc/camera_isp_cfg/ov5647_cw0767";
-			bt_path = "csi";
-			interface = "mipi";
-			clk_channel = "b";
-			status = "okay";
-		};
-		
-		cam_2{
-			cam_name = "ar0833";
-			front_back = <0>;
-			i2c_bus = "i2c_bus_d";
-			gpio_pwdn = "GPIOH_6";
-			gpio_rst = "GPIOH_4";
-			mirror_flip = <0>;
-			vertical_flip = <0>;
-			config_path = "/system/etc/camera_isp_cfg/ar0833_skt";
-			mclk = <12000>;
-			bt_path = "csi";
-			interface = "mipi";
-			clk_channel = "a";
-			status = "okay";
-		};
-	};	
-
-/// ***************************************************************************************
 ///	-	Input
 //$$ MODULE="Input"
 //$$ DEVICE="gpio_keypad"
@@ -1263,7 +1175,7 @@ void root_func(){
 		bootloader:bootloader{
 			name = "bootloader";
 			offset = <0>;
-			size = <0x60000>;
+			size = <0x100000>;
 		};
 
 //$$ MATCH "Spi_nr-part-1_match" = <&ubootenv>
@@ -1884,22 +1796,6 @@ void root_func(){
             amlogic,pullup=<1>;
             amlogic,pullupen=<1>;
         };
-//$$ MATCH "Camera_pin_0_match" = "&aml_cam_gpio_pins"
-//$$ L2 PROP_U32 4 = "amlogic,setmask"
-//$$ L2 PROP_STR 10 = "amlogic,pins"	
-        aml_cam_gpio_pins: aml_cam_gpio_pins{
-			amlogic,setmask=<3 0x80000
-					         9 0x37c>;
-			amlogic,pins = "GPIOH_9","GPIOY_6","GPIOY_7","GPIOY_8","GPIOY_9","GPIOY_10","GPIOY_11","GPIOY_12","GPIOY_13","GPIOY_14";
-		};
-		
-//$$ MATCH "Camera_pin_1_match" = "&aml_cam_csi_pins"
-//$$ L2 PROP_U32 2 = "amlogic,setmask"
-//$$ L2 PROP_STR = "amlogic,pins"	
-		aml_cam_csi_pins: aml_cam_csi_pins{
-			amlogic,setmask=<3 0x80000>;
-			amlogic,pins = "GPIOH_9";
-		};
 
 //$$ MATCH "I2C_AO_pin_match" = "&ao_i2c_master"
 //$$ L2 PROP_U32 2 = "amlogic,setmask"
@@ -1956,10 +1852,19 @@ void root_func(){
 //$$ L2 PROP_U32 10 = "amlogic,clrmask"
 //$$ L2 PROP_STR 6 = "amlogic,pins"
         audio_pins:audio_pin{
-            amlogic,setmask=<10 0x78000008
-                              1 0x2000>;   // I2s_in
-            amlogic,clrmask=<10 0x8001a000>;
-            amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_6","GPIOAO_13";
+            amlogic,setmask=<10 0x78000000//>;
+                              1 0x2000>;   /*I2s_in*/
+            amlogic,clrmask=<10 0x18000>;
+            amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_6";
+        };
+//$$ MATCH "Audio_pin_0_match" = "&audio_spdif_pins"
+//$$ L2 PROP_U32 2 = "amlogic,setmask"
+//$$ L2 PROP_U32 2 = "amlogic,clrmask"
+//$$ L2 PROP_STR 1 = "amlogic,pins"
+        audio_spdif_pins:audio_pin1{
+            amlogic,setmask=<10 0x8>;       /*spdif_out*/
+            amlogic,clrmask=<10 0x80002000>;    /*spdif_out*/
+            amlogic,pins ="GPIOAO_13";        /*spdif_out*/
         };
 //$$ MATCH "Spi_pin_0_match" = "&aml_spi_nor_pins"
 //$$ L2 PROP_U32 2 = "amlogic,setmask"
@@ -1985,6 +1890,7 @@ void root_func(){
 		interruptnum = <40>;
                 savepowermode = <0>;
                 phy_interface = <0>;
+                new_maclogic = <1>;
                 reset_pin_enable = <0>;
                 reset_pin = "GPI0H_4";
                 reset_delay = <100>;

@@ -38,6 +38,8 @@ struct aml_audio_private_data {
 	struct switch_dev mic_sdev; // for android
 };
 
+void aml_spdif_pinmux_init(struct device *pdev);
 
+void aml_spdif_pinmux_deinit(struct device *pdev);
 #endif
 

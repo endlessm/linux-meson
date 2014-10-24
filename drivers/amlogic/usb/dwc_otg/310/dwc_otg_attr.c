@@ -741,8 +741,7 @@ static ssize_t peri_sleepm_store(struct device *_dev,
 	dwc_otg_device_t *otg_dev = lm_get_drvdata(lm_dev);
 
 	uint32_t in = simple_strtoul(buf, NULL, 16);
-	ctrl.d32 = DWC_READ_REG32(&otg_dev->core_if->usb_peri_reg->ctrl);
-	ctrl.b.sleepm = in?0:1;
+
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 	if(!in)
 	{
@@ -753,6 +752,9 @@ static ssize_t peri_sleepm_store(struct device *_dev,
 
 	}
 #endif
+	ctrl.d32 = DWC_READ_REG32(&otg_dev->core_if->usb_peri_reg->ctrl);
+	ctrl.b.sleepm = in?0:1;
+
 	DWC_WRITE_REG32(&otg_dev->core_if->usb_peri_reg->ctrl,ctrl.d32);
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6

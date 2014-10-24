@@ -113,6 +113,7 @@ ENDPROC(meson_modify_corestatus)
 
 ENTRY(meson_auxcoreboot_addr)
     stmfd sp!, {r2-r12, lr}
+    mov r3, r1
     mov r2, r0
     ldr r1, =TRUSTZONE_MON_CORE_BOOTADDR_INDEX
     ldr r0, =CALL_TRUSTZONE_MON

@@ -13,10 +13,10 @@
 #include <linux/sched.h>
 
 #define DVFS_DBG(format, args...) \
-    if (1) printk(KERN_ERR "[DVFS]"format, ##args)
+    if (1) printk(KERN_DEBUG "[DVFS]"format, ##args)
 
 #define DVFS_WARN(format, args...) \
-    if (1) printk(KERN_DEBUG"[DVFS]"format, ##args)
+    if (1) printk(KERN_DEBUG "[DVFS]"format, ##args)
 
 #define DEBUG_DVFS      0
 
@@ -222,10 +222,13 @@ static ssize_t dvfs_help(struct class *class, struct class_attribute *attr,   ch
 static int get_dvfs_id_by_name(char *str)
 {
     if (!strncmp(str, "vcck", 4)) {
+        str[4] = '\0';
         return AML_DVFS_ID_VCCK;    
     } else if (!strncmp(str, "vddee", 5)) {
+        str[5] = '\0';
         return AML_DVFS_ID_VDDEE;    
     } else if (!strncmp(str, "ddr", 3)) {
+        str[3] = '\0';
         return AML_DVFS_ID_DDR;    
     }
     return -1;
@@ -297,9 +300,9 @@ static ssize_t dvfs_class_write(struct class *class, struct class_attribute *att
             }
         }
         if (ret < 0) {
-            printk("set vcck to %d uV failed\n", uV);    
+            printk("set %s to %d uV failed\n", arg[1], uV);    
         } else {
-            printk("set vcck to %d uV success\n", uV);    
+            printk("set %s to %d uV success\n", arg[1], uV);    
         }
         break;
     }

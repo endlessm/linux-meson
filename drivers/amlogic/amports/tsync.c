@@ -113,7 +113,7 @@ static struct timer_list tsync_pcr_recover_timer;
 static int tsync_trickmode = 0;
 static int vpause_flag = 0;
 static int apause_flag = 0;
-
+static bool dobly_avsync_test = false;
 
 
 /*
@@ -908,13 +908,26 @@ int tsync_set_apts(unsigned pts)
         t = timestamp_pcrscr_get();
 
     if( tsync_mode == TSYNC_MODE_AMASTER ) {
-        if (get_vsync_pts_inc_mode()
-          && (((int)(timestamp_apts_get()-t)>(int)100*TIME_UNIT90K/1000) || (int)(t - timestamp_apts_get())>(int)500*TIME_UNIT90K/1000)){
-            printk("[%d]reset apts:0x%x-->0x%x, pcr 0x%x, diff %d\n",__LINE__,oldpts,pts,t,pts-t);
-            timestamp_pcrscr_set(pts);
-        } else if ((!get_vsync_pts_inc_mode()) && (abs(timestamp_apts_get()-t)>100*TIME_UNIT90K/1000)) {
-            printk("[%d]reset apts:0x%x-->0x%x, pcr 0x%x, diff %d\n",__LINE__,oldpts,pts,t,pts-t);
-            timestamp_pcrscr_set(pts);
+        if(dobly_avsync_test){//special used for Dobly Certification AVSync test
+            if (get_vsync_pts_inc_mode()
+                && (((int)(timestamp_apts_get()-t)>(int)60*TIME_UNIT90K/1000) || (int)(t - timestamp_apts_get())>(int)100*TIME_UNIT90K/1000)){
+                printk("[%d:avsync_test]reset apts:0x%x-->0x%x, pcr 0x%x, diff %d\n",__LINE__,oldpts,pts,t,pts-t);
+                timestamp_pcrscr_set(pts);
+            } else if ((!get_vsync_pts_inc_mode())&&  \
+        	((int)(timestamp_apts_get()-t)> 30*TIME_UNIT90K/1000 || (int)(t-timestamp_apts_get())> 80*TIME_UNIT90K/1000))
+        	/* && (abs(timestamp_apts_get()-t)> 100*TIME_UNIT90K/1000)) */ {
+                //printk("[%d:avsync_test]reset apts:0x%x-->0x%x, pcr 0x%x, diff %d\n",__LINE__,oldpts,pts,t,pts-t);
+                timestamp_pcrscr_set(pts);
+            }
+        }else{
+            if (get_vsync_pts_inc_mode()
+              && (((int)(timestamp_apts_get()-t)>(int)100*TIME_UNIT90K/1000) || (int)(t - timestamp_apts_get())>(int)500*TIME_UNIT90K/1000)){
+                printk("[%d]reset apts:0x%x-->0x%x, pcr 0x%x, diff %d\n",__LINE__,oldpts,pts,t,pts-t);
+                timestamp_pcrscr_set(pts);
+            } else if ((!get_vsync_pts_inc_mode()) && (abs(timestamp_apts_get()-t)>100*TIME_UNIT90K/1000)) {
+                printk("[%d]reset apts:0x%x-->0x%x, pcr 0x%x, diff %d\n",__LINE__,oldpts,pts,t,pts-t);
+                timestamp_pcrscr_set(pts);
+            }        
         }
     }else if(oldmod!=tsync_mode && tsync_mode==TSYNC_MODE_VMASTER){
 	timestamp_pcrscr_set(timestamp_vpts_get());
@@ -1011,6 +1024,19 @@ int tsync_set_av_threshold_max(int max)
     return tsync_av_threshold_max=max;
 }
 EXPORT_SYMBOL(tsync_set_av_threshold_max);
+
+int tsync_get_vpause_flag()
+{
+    return vpause_flag;
+}
+EXPORT_SYMBOL(tsync_get_vpause_flag);
+
+int tsync_set_vpause_flag(int mode)
+{
+    return vpause_flag=mode;
+}
+EXPORT_SYMBOL(tsync_set_vpause_flag);
+
 static ssize_t store_pcr_recover(struct class *class,
                                  struct class_attribute *attr,
                                  const char *buf,
@@ -1113,6 +1139,35 @@ static ssize_t store_apts(struct class *class,
     return size;
 }
 
+static ssize_t dobly_show_sync(struct class *class,
+                         struct class_attribute *attr,
+                         char *buf)
+{
+	return sprintf(buf, "avsync:cur value is %d\n  0:no set(default)\n  1:avsync test\n",
+		dobly_avsync_test ? 1:0);
+}
+
+static ssize_t dobly_store_sync(struct class *class,
+                          struct class_attribute *attr,
+                          const char *buf,
+                          size_t size)
+{
+    unsigned value;
+    ssize_t r;
+
+    r = sscanf(buf, "%u", &value);
+    if (r != 1) {
+        return -EINVAL;
+    }
+
+    if(value == 1){
+        dobly_avsync_test = true;
+    }else{
+        dobly_avsync_test = false;
+    }
+
+    return size;
+}
 static ssize_t show_pcrscr(struct class *class,
                            struct class_attribute *attr,
                            char *buf)
@@ -1447,9 +1502,32 @@ static ssize_t show_firstvpts(struct class *class,
     return sprintf(buf, "0x%x\n", timestamp_firstvpts_get());
 }
 
+static ssize_t show_vpause_flag(struct class *class,
+                         struct class_attribute *attr,
+                         char *buf)
+{
+    return sprintf(buf, "0x%x\n", tsync_get_vpause_flag());
+}
+
+static ssize_t store_vpause_flag(struct class *class,
+                         struct class_attribute *attr,
+                         const char *buf,
+                         size_t size)
+{
+    unsigned mode;
+    ssize_t r;
+    r = sscanf(buf, "%d", &mode);
+    if (r != 1) {
+        return -EINVAL;
+    }
+    tsync_set_vpause_flag(mode);
+    return size;
+}
+
 static struct class_attribute tsync_class_attrs[] = {
     __ATTR(pts_video,  S_IRUGO | S_IWUSR | S_IWGRP, show_vpts,    store_vpts),
     __ATTR(pts_audio,  S_IRUGO | S_IWUSR | S_IWGRP, show_apts,    store_apts),
+    __ATTR(dobly_av_sync,  S_IRUGO | S_IWUSR | S_IWGRP, dobly_show_sync,    dobly_store_sync),
     __ATTR(pts_pcrscr, S_IRUGO | S_IWUSR | S_IWGRP, show_pcrscr,  store_pcrscr),
     __ATTR(event,      S_IRUGO | S_IWUSR | S_IWGRP, NULL,         store_event),
     __ATTR(mode,       S_IRUGO | S_IWUSR | S_IWGRP, show_mode,    store_mode),
@@ -1464,6 +1542,7 @@ static struct class_attribute tsync_class_attrs[] = {
     __ATTR(av_threshold_max, S_IRUGO | S_IWUSR | S_IWGRP, show_av_threshold_max,  store_av_threshold_max),
     __ATTR(last_checkin_apts, S_IRUGO | S_IWUSR, show_last_checkin_apts, NULL),
     __ATTR(firstvpts, S_IRUGO | S_IWUSR, show_firstvpts, NULL),
+    __ATTR(vpause_flag, S_IRUGO | S_IWUSR, show_vpause_flag, store_vpause_flag),
     __ATTR_NULL
 };
 

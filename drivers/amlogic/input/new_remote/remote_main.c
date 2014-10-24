@@ -65,7 +65,7 @@ static int remote_enable;
 static int NEC_REMOTE_IRQ_NO = INT_REMOTE;
 unsigned int g_remote_base;
 DECLARE_TASKLET_DISABLED(tasklet, remote_tasklet, 0);
-static int repeat_flag;
+//static int repeat_flag;
 static struct remote *gp_remote = NULL;
 char *remote_log_buf;
 // use 20 map for this driver
@@ -201,6 +201,12 @@ void remote_send_key(struct input_dev *dev, unsigned int scancode, unsigned int 
 			input_dbg("scancode is 0x%04x, invalid key is 0x%04x.\n", scancode, key_map[gp_remote->map_num][scancode]);
 			return;
 		}
+		if(type == 1 && scancode == 0x1a && key_map[gp_remote->map_num][scancode] == 0x0074){
+		    disable_irq(NEC_REMOTE_IRQ_NO);
+                }
+		if(type == 0 && scancode == 0x1a && key_map[gp_remote->map_num][scancode] == 0x0074){
+		    enable_irq(NEC_REMOTE_IRQ_NO);
+                }
 		input_event(dev, EV_KEY, key_map[gp_remote->map_num][scancode], type);
 		input_sync(dev);
 		switch (type) {
@@ -255,7 +261,7 @@ static irqreturn_t remote_interrupt(int irq, void *dev_id){
 
 static void remote_fiq_interrupt(unsigned long data)
 {
-	struct remote *remote_data = (struct remote *)data;
+	//struct remote *remote_data = (struct remote *)data;
 	remote_reprot_key(gp_remote);
 }
 
@@ -615,8 +621,9 @@ static int remote_probe(struct platform_device *pdev)
 	tasklet_enable(&tasklet);
 	tasklet.data = (unsigned long)remote;
 	setup_timer(&remote->timer, remote_release_timer_sr, 0);
-
-
+        /*read status & frame register to abandon last key from uboot*/
+	am_remote_read_reg(DURATION_REG1_AND_STATUS);	
+	am_remote_read_reg(FRAME_BODY);	
 	#ifdef CONFIG_HAS_EARLYSUSPEND
     early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING + 1;
     early_suspend.suspend = remote_early_suspend;
@@ -728,6 +735,11 @@ static int remote_resume(struct platform_device * pdev)
 		WRITE_AOBUS_REG(AO_RTI_STATUS_REG2, 0);
 	}
 	gp_remote->sleep = 0;
+        printk("to clear irq ...\n");
+	disable_irq(NEC_REMOTE_IRQ_NO);
+        udelay(1000);
+	enable_irq(NEC_REMOTE_IRQ_NO);
+		
 	return 0;
 }
 

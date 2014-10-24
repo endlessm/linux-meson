@@ -14,6 +14,7 @@
 		irq_num = <4>;
 		irq_trigger_type = "GPIO_IRQ_HIGH";
 		power_on_pin = "GPIOAO_6";
+		power_on_pin_level = <0>;
 		clock_32k_pin = "GPIOX_10";
 	};
 #endif

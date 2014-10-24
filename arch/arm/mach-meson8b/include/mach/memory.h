@@ -23,7 +23,7 @@
 /*
  * Physical DRAM offset.
  */
-#define PHYS_OFFSET     UL(0x00000000)
+#define PHYS_OFFSET     UL(0x00200000)
 
 #define BOOT_PARAMS_OFFSET  (PHYS_OFFSET + 0x100)
 

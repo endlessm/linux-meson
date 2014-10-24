@@ -54,9 +54,10 @@ struct amlogic_spi {
 };
 
 static bool spi_chip_select(bool flag);
-static DEFINE_SPINLOCK(pinmux_set_lock);
+//static DEFINE_SPINLOCK(pinmux_set_lock);
 
 #if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8))
+#if 0
 static pinmux_item_t spi_nor_set_pins[] ={
 	{
 		.reg = PINMUX_REG(5),
@@ -90,7 +91,7 @@ static pinmux_set_t spi_nor_clr = {
 	.chip_select = spi_chip_select,
 	.pinmux = &spi_nor_clr_pins[0],
 };
-
+#endif
 
 #elif defined(CONFIG_ARCH_MESON3)
 static pinmux_item_t spi_nor_pins[] ={
@@ -146,7 +147,7 @@ static void spi_hw_init(struct amlogic_spi	*amlogic_spi)
 static void spi_hw_enable(struct amlogic_spi	*amlogic_spi)
 {
 int retry = 0,ret;
-	DECLARE_WAITQUEUE(spi_wait, current);
+	//DECLARE_WAITQUEUE(spi_wait, current);
 #if (defined(CONFIG_ARCH_MESON3) || defined(CONFIG_ARCH_MESON6) ||defined(CONFIG_ARCH_MESON8))
   /*clear_mio_mux(2,7<<19);
   clear_mio_mux(5,(0xf<<6));
@@ -502,7 +503,7 @@ static int amlogic_spi_transfer(struct spi_device *spi, struct spi_message *m)
 {
 	struct amlogic_spi	*amlogic_spi;
 	struct amlogic_spi_user_crtl amlogic_hw_ctl;
-	unsigned long		flags;
+	//unsigned long		flags;
 	struct spi_transfer	*t;
 	unsigned command_index = 0;
 	amlogic_spi = spi_master_get_devdata(spi->master);

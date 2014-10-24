@@ -1,14 +1,20 @@
 /*
- * Author: AMLOGIC, Inc.
- * Copyright (C) 2010 Amlogic Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Copyright (C) 2010-2014 Amlogic, Inc.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
-#ifndef _ETH_PLAT_
-#define _ETH_PLAT_
+#ifndef __PLAT_MESON_ETH_H
+#define __PLAT_MESON_ETH_H
+
 #include <mach/pinmux.h>
 
 struct aml_eth_platdata {
@@ -22,5 +28,5 @@ struct aml_eth_platdata {
 
 extern struct platform_device meson_device_eth;
 extern void meson_eth_set_platdata(struct aml_eth_platdata *pd);
-#endif /* _ETH_PLAT_ */
 
+#endif /* __PLAT_MESON_ETH_H */

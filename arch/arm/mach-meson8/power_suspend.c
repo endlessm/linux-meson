@@ -38,7 +38,7 @@
 #ifdef CONFIG_SUSPEND_WATCHDOG
 #include <mach/watchdog.h>
 #endif /* CONFIG_SUSPEND_WATCHDOG */
-
+#include <linux/amlogic/aml_wdt.h>
 //appf functions
 #define APPF_INITIALIZE             0
 #define APPF_POWER_DOWN_CPU         1
@@ -114,13 +114,18 @@ int meson_power_suspend(void)
 		printk("initial appf\n");
 		pwrtest_entry(APPF_INITIALIZE,0,0,IO_PL310_BASE & 0xffff0000);
 	}
-#ifdef CONFIG_SUSPEND_WATCHDOG
-	DISABLE_SUSPEND_WATCHDOG;
-#endif
+	if(AML_WDT_ENABLED){
+		disable_watchdog();
+		if(awdtv)
+			enable_watchdog(awdtv->firmware_timeout*awdtv->one_second);
+	}
+
 	printk("power down cpu --\n");
 	pwrtest_entry(APPF_POWER_DOWN_CPU,0,0,APPF_SAVE_PMU|APPF_SAVE_VFP|APPF_SAVE_L2 |( IO_PL310_BASE & 0xffff0000));
-#ifdef CONFIG_SUSPEND_WATCHDOG
-	ENABLE_SUSPEND_WATCHDOG;
-#endif
+	if(AML_WDT_ENABLED){
+		disable_watchdog();
+		if(awdtv)
+			enable_watchdog(awdtv->suspend_timeout*awdtv->one_second);
+	}
 	return 0;
 }
