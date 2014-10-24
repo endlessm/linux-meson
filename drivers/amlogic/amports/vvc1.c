@@ -73,12 +73,7 @@
 #define DECODE_BUFFER_NUM_MAX 4
 #define PUT_INTERVAL        (HZ/100)
 
-#define STAT_TIMER_INIT     0x01
-#define STAT_MC_LOAD        0x02
-#define STAT_ISR_REG        0x04
-#define STAT_VF_HOOK        0x08
-#define STAT_TIMER_ARM      0x10
-#define STAT_VDEC_RUN       0x20
+
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6  
 // TODO: move to register headers

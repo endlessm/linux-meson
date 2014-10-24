@@ -15,7 +15,7 @@ typedef enum {
     MOD_UART0,
     MOD_UART1,
     MOD_UART2,
-    MOD_UART3,
+    MOD_SANA,
     MOD_ROM,
     MOD_EFUSE,
     MOD_RANDOM_NUM_GEN,

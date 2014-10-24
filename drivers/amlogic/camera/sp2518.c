@@ -2190,6 +2190,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	fh->vb_vidq.field = f->fmt.pix.field;
 	fh->type          = f->type;
 	#if 1
+	set_flip(dev);
 	if(f->fmt.pix.pixelformat==V4L2_PIX_FMT_RGB24){
 		vidio_set_fmt_ticks=1;
 		SP2518_set_resolution(dev,fh->height,fh->width);

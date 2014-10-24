@@ -225,10 +225,10 @@
 #define EDP_DIV0_SEL_MAX			15
 #define EDP_DIV1_SEL_MAX			8
 
-static const unsigned od_table[OD_SEL_MAX] = {1,2,4,8};
-static const unsigned div_pre_table[DIV_PRE_SEL_MAX] = {1,2,3,4,5,6};
-static const unsigned edp_div0_table[EDP_DIV0_SEL_MAX]={1,2,3,4,5,7,8,9,11,13,17,19,23,29,31};
-static const unsigned edp_div1_table[EDP_DIV1_SEL_MAX]={1,2,4,5,6,7,9,13};
+static const unsigned od_table[4] = {1,2,4,8};
+static const unsigned div_pre_table[6] = {1,2,3,4,5,6};
+static const unsigned edp_div0_table[15]={1,2,3,4,5,7,8,9,11,13,17,19,23,29,31};
+static const unsigned edp_div1_table[8]={1,2,4,5,6,7,9,13};
 //********************************************//
 
 /* for lcd power on/off config */

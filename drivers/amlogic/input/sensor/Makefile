@@ -20,7 +20,7 @@ obj-$(CONFIG_GRAVITY_LSM303D)	+= lsm303d.o
 obj-$(CONFIG_GRAVITY_DMARD10)	+= dmt10.o
 obj-$(CONFIG_GRAVITY_KXTJ9)	+= kionix_accel.o
 
-obj-$(CONFIG_GRAVITY_STK8313)	+= stk831x.o
+obj-$(CONFIG_GRAVITY_STK8313)	+= stk8313.o
 obj-$(CONFIG_GRAVITY_STK8312)	+= stk831x.o
 
 obj-$(CONFIG_GRAVITY_MXC622X)     += mxc622x.o

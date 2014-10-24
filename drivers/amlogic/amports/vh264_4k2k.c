@@ -56,12 +56,7 @@
 #define PUT_INTERVAL        (HZ/100)
 #define ERROR_RESET_COUNT   100
 
-#define STAT_TIMER_INIT     0x01
-#define STAT_MC_LOAD        0x02
-#define STAT_ISR_REG        0x04
-#define STAT_VF_HOOK        0x08
-#define STAT_TIMER_ARM      0x10
-#define STAT_VDEC_RUN       0x20
+
 
 extern void amvenc_dos_top_reg_fix(void);
 
@@ -810,13 +805,13 @@ static void vh264_4k2k_put_timer_func(unsigned long arg)
         (READ_VREG(VDEC2_MS_ID) & 0x100)) {                   // with both decoder have started decoding
         if (++error_watchdog_count == ERROR_RESET_COUNT) {    // and it lasts for a while
             printk("H264 4k2k decoder fatal error watchdog.\n");
-            fatal_error = 0x10;
+            fatal_error = DECODER_FATAL_ERROR_UNKNOW;
         }
     }
 
     if (READ_VREG(FATAL_ERROR) != 0) {
         printk("H264 4k2k decoder ucode fatal error.\n");
-        fatal_error = 0x10;
+        fatal_error = DECODER_FATAL_ERROR_UNKNOW;
         WRITE_VREG(FATAL_ERROR, 0);
     }
 
@@ -848,7 +843,7 @@ int vh264_4k2k_dec_status(struct vdec_status *vstatus)
         vstatus->fps = -1;
     }
     vstatus->error_count = 0;
-    vstatus->status = stat | (fatal_error << 16);
+    vstatus->status = stat | fatal_error;
     return 0;
 }
 

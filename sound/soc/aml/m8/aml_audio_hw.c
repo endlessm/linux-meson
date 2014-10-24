@@ -11,6 +11,9 @@
 
 #include "aml_audio_hw.h"
 
+#define MPLL_I2S_CNTL		HHI_MPLL_CNTL7
+#define MPLL_958_CNTL		HHI_MPLL_CNTL8
+
 #ifndef MREG_AIU_958_chstat0
 #define AIU_958_chstat0	AIU_958_CHSTAT_L0
 #endif
@@ -758,7 +761,7 @@ void audio_set_clk(unsigned freq, unsigned fs_config)
 	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL, 3, 9, 3);
 
 	// Configure Multi-Phase PLL2
-	WRITE_MPEG_REG(HHI_MPLL_CNTL9, audio_clock_config[index][0]);
+	WRITE_MPEG_REG(MPLL_I2S_CNTL, audio_clock_config[index][0]);
 	// Set the XD value
 	WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL, audio_clock_config[index][1], 0, 8);
 	// delay 5uS
@@ -879,7 +882,7 @@ void audio_set_i2s_clk(unsigned freq, unsigned fs_config)
 	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL, 3, 9, 2);
 
 	// Configure Multi-Phase PLL2
-	WRITE_MPEG_REG(HHI_MPLL_CNTL9, audio_clock_config[index][0]);
+	WRITE_MPEG_REG(MPLL_I2S_CNTL, audio_clock_config[index][0]);
 	// Set the XD value
 	WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL, audio_clock_config[index][1], 0, 8);
 
@@ -1000,7 +1003,7 @@ void audio_set_958_clk(unsigned freq, unsigned fs_config)
 	WRITE_MPEG_REG_BITS( HHI_AUD_CLK_CNTL2, 2, 25, 2);
 
 	// Configure Multi-Phase PLL1
-	WRITE_MPEG_REG(HHI_MPLL_CNTL8, audio_clock_config[index][0]);
+	WRITE_MPEG_REG(MPLL_958_CNTL, audio_clock_config[index][0]);
 	// Set the XD value
 #if IEC958_OVERCLOCK	==1
 	WRITE_MPEG_REG_BITS(HHI_AUD_CLK_CNTL2, (audio_clock_config[index][1]+1)/2 -1, 16, 8);
@@ -1265,14 +1268,14 @@ unsigned int audio_hdmi_init_ready()
 unsigned audio_spdifout_pg_enable(unsigned char enable)
 {
 	if(enable){
-			WRITE_MPEG_REG_BITS( HHI_MPLL_CNTL8, 1,14, 1);					
+			WRITE_MPEG_REG_BITS( MPLL_958_CNTL, 1,14, 1);					
 			AUDIO_CLK_GATE_ON(AIU_IEC958);
 			AUDIO_CLK_GATE_ON(AIU_ICE958_AMCLK);
 	}
 	else{
 			AUDIO_CLK_GATE_OFF(AIU_IEC958);
 			AUDIO_CLK_GATE_OFF(AIU_ICE958_AMCLK);	
-			WRITE_MPEG_REG_BITS( HHI_MPLL_CNTL8, 0,14, 1);								
+			WRITE_MPEG_REG_BITS( MPLL_958_CNTL, 0,14, 1);								
 	}
 	return 0;
 }
@@ -1291,11 +1294,13 @@ unsigned audio_aiu_pg_enable(unsigned char enable)
 		AUDIO_CLK_GATE_ON(AIU_AOCLK);   		
 		AUDIO_CLK_GATE_ON(AIU_I2S_OUT);
 		AUDIO_CLK_GATE_ON(AIU_ADC);		
-        AUDIO_CLK_GATE_ON(AUD_IN);
-        AUDIO_CLK_GATE_ON(AIU_IEC958);
-        AUDIO_CLK_GATE_ON(AIU_PCLK);
-        AUDIO_CLK_GATE_ON(AIU_ICE958_AMCLK);
-        AUDIO_CLK_GATE_ON(AIU_TOP_LEVEL);
+		AUDIO_CLK_GATE_ON(AUD_IN);
+		AUDIO_CLK_GATE_ON(AIU_IEC958);
+	#if MESON_CPU_TYPE != MESON_CPU_TYPE_MESON8B  	
+		AUDIO_CLK_GATE_ON(AIU_PCLK);
+	#endif
+		AUDIO_CLK_GATE_ON(AIU_ICE958_AMCLK);
+		AUDIO_CLK_GATE_ON(AIU_TOP_LEVEL);
 	}
 	else{
 		AUDIO_CLK_GATE_OFF(AIU_AMCLK_MEASURE);
@@ -1306,11 +1311,13 @@ unsigned audio_aiu_pg_enable(unsigned char enable)
 		AUDIO_CLK_GATE_OFF(AIU_AOCLK);   		
 		AUDIO_CLK_GATE_OFF(AIU_I2S_OUT);
 		AUDIO_CLK_GATE_OFF(AIU_ADC);			
-        AUDIO_CLK_GATE_OFF(AUD_IN);
-        AUDIO_CLK_GATE_OFF(AIU_IEC958);
-        AUDIO_CLK_GATE_OFF(AIU_PCLK);
-        AUDIO_CLK_GATE_OFF(AIU_ICE958_AMCLK);   
-        AUDIO_CLK_GATE_OFF(AIU_TOP_LEVEL);
+		AUDIO_CLK_GATE_OFF(AUD_IN);
+		AUDIO_CLK_GATE_OFF(AIU_IEC958);
+	#if MESON_CPU_TYPE != MESON_CPU_TYPE_MESON8B  
+		AUDIO_CLK_GATE_OFF(AIU_PCLK);  
+	#endif 
+		AUDIO_CLK_GATE_OFF(AIU_ICE958_AMCLK);   
+		AUDIO_CLK_GATE_OFF(AIU_TOP_LEVEL);
 	}
     return 0;
 }

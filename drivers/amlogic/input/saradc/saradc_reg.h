@@ -204,7 +204,9 @@ enum {
 #define select_temp()       set_bits(SAR_ADC_DELTA_10, 1, 27, 1)
 #define unselect_temp()     set_bits(SAR_ADC_DELTA_10, 0, 27, 1)
 #endif
-
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+#define set_trimming1(x)     set_bits(HHI_DPLL_TOP_0, x, 9, 1)
+#endif
 #define XN_OFF		(0<<0)
 #define XN_ON		(1<<0)
 #define YN_OFF		(0<<1)

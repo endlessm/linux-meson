@@ -51,12 +51,7 @@
 #define ERROR_LOCAL_RESET_COUNT   100
 #define ERROR_SYSTEM_RESET_COUNT   200
 
-#define STAT_TIMER_INIT     0x01
-#define STAT_MC_LOAD        0x02
-#define STAT_ISR_REG        0x04
-#define STAT_VF_HOOK        0x08
-#define STAT_TIMER_ARM      0x10
-#define STAT_VDEC_RUN       0x20
+
 
 static int  vh265_vf_states(vframe_states_t *states, void*);
 static vframe_t *vh265_vf_peek(void*);
@@ -580,7 +575,7 @@ static void init_buff_spec(BuffInfo_t* buf_spec)
     buf_spec->mpred_mv.buf_start    = buf_spec->mpred_above.buf_start + buf_spec->mpred_above.buf_size;
 
     buf_spec->end_adr = buf_spec->mpred_mv.buf_start + buf_spec->mpred_mv.buf_size;
-    printk("%s workspace (%x %x) size = %x\n", __func__,buf_spec->start_adr, buf_spec->end_adr, buf_spec->end_adr-buf_spec->start_adr);
+    if(debug)printk("%s workspace (%x %x) size = %x\n", __func__,buf_spec->start_adr, buf_spec->end_adr, buf_spec->end_adr-buf_spec->start_adr);
     
 }
 
@@ -683,6 +678,7 @@ typedef struct hevc_state_{
     PIC_t* col_pic;
     int skip_flag;
     int decode_idx;
+    int slice_idx;    
     unsigned char have_vps;
     unsigned char have_sps;
     unsigned char have_pps;
@@ -704,6 +700,7 @@ static void hevc_init_stru(hevc_stru_t* hevc, BuffInfo_t* buf_spec_i, buff_t* mc
 
     hevc->pic_list_init_flag = 0;
     hevc->decode_idx = 0;
+    hevc->slice_idx = 0;
     hevc->new_pic=0;
     hevc->new_tile=0;
     hevc->iPrevPOC=0;
@@ -824,7 +821,7 @@ static PIC_t* get_ref_pic_by_POC(hevc_stru_t* hevc, int POC)
 		pic = pic->next;
 	}
 	if(pic==NULL){
-		printk("Wrong, POC of %d is not in referenced list\n", POC);		
+		if(debug) printk("Wrong, POC of %d is not in referenced list\n", POC);		
 		pic = hevc->decode_pic_list;
 		while(pic){
 			if(pic->POC==POC)
@@ -870,12 +867,12 @@ static void init_pic_list(hevc_stru_t* hevc)
 		mc_buffer_size_u_v_h+=1;
 	}
 
-	printk("[Buffer Management] init_pic_list (%d %d):\n", hevc->pic_w, hevc->pic_h);	
+	if(debug)printk("[Buffer Management] init_pic_list (%d %d):\n", hevc->pic_w, hevc->pic_h);	
 
 	WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR, 0x0);
 	for(i=0; i<MAX_REF_PIC_NUM; i++){
 		if(((i+1)*(mc_buffer_size_u_v_h<<16)*3) > hevc->mc_buf->buf_size){
-                      printk("%s maximum buf size is used\n", __func__);
+                      if(debug)printk("%s maximum buf size is used\n", __func__);
                       break;
                 }
 
@@ -889,7 +886,7 @@ static void init_pic_list(hevc_stru_t* hevc)
 
 		if(((m_PIC[i].mc_y_adr+((mc_buffer_size_u_v_h<<16)*3)) > mc_buffer_end)||
 			((m_PIC[i].mpred_mv_wr_start_addr+(lcu_total*MV_MEM_UNIT)) > mpred_mv_end)){
-	    printk("Max mc buffer or mpred_mv buffer is used\n");		
+	    if(debug) printk("Max mc buffer or mpred_mv buffer is used\n");		
 			break;
 		}
 		in_q(&hevc->free_pic_list, &m_PIC[i]);
@@ -977,7 +974,7 @@ static int config_mc_buffer(hevc_stru_t* hevc, PIC_t* cur_pic)
             printk("refid %x mc_canvas_u_v %x mc_canvas_y %x\n", i,pic->mc_canvas_u_v,pic->mc_canvas_y);
 			}
 			else{
-				printk("Error %s, %dth poc (%d) of RPS is not in the pic list0\n", __func__, i, cur_pic->m_aiRefPOCList0[cur_pic->slice_idx][i]);
+				if(debug) printk("Error %s, %dth poc (%d) of RPS is not in the pic list0\n", __func__, i, cur_pic->m_aiRefPOCList0[cur_pic->slice_idx][i]);
 				return -1;
 				//dump_lmem();
 			}
@@ -996,7 +993,7 @@ static int config_mc_buffer(hevc_stru_t* hevc, PIC_t* cur_pic)
                 }
 			}
 			else{
-				printk("Error %s, %dth poc (%d) of RPS is not in the pic list1\n", __func__, i, cur_pic->m_aiRefPOCList1[cur_pic->slice_idx][i]);
+				if(debug) printk("Error %s, %dth poc (%d) of RPS is not in the pic list1\n", __func__, i, cur_pic->m_aiRefPOCList1[cur_pic->slice_idx][i]);
 				return -1;
 				//dump_lmem();
 			}
@@ -1249,7 +1246,7 @@ static int get_tile_index(hevc_stru_t* hevc, int cu_adr, int pic_width_lcu)
 	int tile_y = 0;
 	int i;
 	if(pic_width_lcu == 0){
-	    printk("%s Error, pic_width_lcu is 0, pic_w %d, pic_h %d\n", __func__, hevc->pic_w, hevc->pic_h);
+	    if(debug) printk("%s Error, pic_width_lcu is 0, pic_w %d, pic_h %d\n", __func__, hevc->pic_w, hevc->pic_h);
 	    return -1;
   }
 	cu_x = cu_adr%pic_width_lcu;
@@ -1277,14 +1274,14 @@ static int get_tile_index(hevc_stru_t* hevc, int cu_adr, int pic_width_lcu)
 
 static void print_scratch_error(int error_num)
 {
-  printk(" ERROR : HEVC_ASSIST_SCRATCH_TEST Error : %d\n", error_num);
+  if(debug) printk(" ERROR : HEVC_ASSIST_SCRATCH_TEST Error : %d\n", error_num);
 }
 
 static void hevc_config_work_space_hw(hevc_stru_t* hevc)
 {
     BuffInfo_t* buf_spec = hevc->work_space_buf;
     
-    printk("%s %x %x %x %x %x %x %x %x %x %x %x %x\n", __func__,
+    if(debug) printk("%s %x %x %x %x %x %x %x %x %x %x %x %x\n", __func__,
 			buf_spec->ipp.buf_start,
 			buf_spec->start_adr,
 			buf_spec->short_term_rps.buf_start,
@@ -1429,7 +1426,7 @@ static void hevc_init_decoder_hw(int decode_pic_begin, int decode_pic_num)
     WRITE_VREG(HEVC_DECODE_PIC_NUM_REG, decode_pic_num);
 
     // Send parser_cmd
-    printk("[test.c] SEND Parser Command ...\n");
+    if(debug) printk("[test.c] SEND Parser Command ...\n");
     WRITE_VREG(HEVC_PARSER_CMD_WRITE, (1<<16) | (0<<0));
     for(i=0; i<PARSER_CMD_NUMBER; i++){
       WRITE_VREG(HEVC_PARSER_CMD_WRITE, parser_cmd[i]);
@@ -1454,7 +1451,7 @@ static void hevc_init_decoder_hw(int decode_pic_begin, int decode_pic_num)
         ); 
     */
 
-    printk("[test.c] Reset IPP\n");
+    if(debug) printk("[test.c] Reset IPP\n");
     WRITE_VREG(HEVCD_IPP_TOP_CNTL, 
               (0 << 1) | // enable ipp
               (1 << 0)   // software reset ipp and mpp
@@ -2148,7 +2145,7 @@ static int hevc_slice_segment_header_process(hevc_stru_t* hevc, param_t* rpm_par
         hevc->pic_w           =rpm_param->p.pic_width_in_luma_samples;
         hevc->pic_h           =rpm_param->p.pic_height_in_luma_samples;
         if(hevc->pic_w == 0 || hevc->pic_h == 0 ){ //it will cause divide 0 error
-            printk("Fatal Error, pic_w = %d, pic_h = %d\n", hevc->pic_w, hevc->pic_h);
+            if(debug) printk("Fatal Error, pic_w = %d, pic_h = %d\n", hevc->pic_w, hevc->pic_h);
             return 3;
         }
         hevc->lcu_size        = 1<<(rpm_param->p.log2_min_coding_block_size_minus3+3+rpm_param->p.log2_diff_max_min_coding_block_size);
@@ -2226,7 +2223,7 @@ static int hevc_slice_segment_header_process(hevc_stru_t* hevc, param_t* rpm_par
             hevc->m_pocRandomAccess = hevc->curr_POC;
         }
         else if((hevc->curr_POC<hevc->m_pocRandomAccess)&&(hevc->m_nalUnitType == NAL_UNIT_CODED_SLICE_RASL_N || hevc->m_nalUnitType == NAL_UNIT_CODED_SLICE_TFD)){ //skip
-            printk("RASL picture with POC %d < %d (RandomAccess point POC), skip it\n", hevc->curr_POC, hevc->m_pocRandomAccess);
+            if(debug) printk("RASL picture with POC %d < %d (RandomAccess point POC), skip it\n", hevc->curr_POC, hevc->m_pocRandomAccess);
             return 1;
         }
     
@@ -2450,7 +2447,7 @@ static int hevc_slice_segment_header_process(hevc_stru_t* hevc, param_t* rpm_par
         if(hevc->Col_POC != INVALID_POC){
             hevc->col_pic = get_ref_pic_by_POC(hevc, hevc->Col_POC);
             if(hevc->col_pic == NULL){
-                printk("WRONG, fail to get the picture of Col_POC\n");
+                if(debug) printk("WRONG, fail to get the picture of Col_POC\n");
                 return 2;
             }
         }
@@ -2786,7 +2783,8 @@ static irqreturn_t vh265_isr(int irq, void *dev_id)
         if(hevc->wait_buf == 0){
             get_rpm_param(&rpm_param);      
             if(debug&H265_DEBUG_PARAM){
-                printk("rpm_param:\n");
+                printk("rpm_param: (%d)\n", hevc->slice_idx);
+                hevc->slice_idx++;
                 for(i=0; i<0x80; i++){
                     printk("%04x ", rpm_param.l.data[i]);
                     if(((i+1)&0xf)==0)
@@ -2853,7 +2851,7 @@ static void vh265_put_timer_func(unsigned long arg)
         else if (error_watchdog_count == ERROR_SYSTEM_RESET_COUNT) {    // and it lasts for a while
             if((debug&H265_DEBUG_DIS_SYS_ERROR_PROC)==0){
                 printk("H265 decoder fatal error watchdog.\n");
-                fatal_error = 0x10;
+                fatal_error = DECODER_FATAL_ERROR_UNKNOW;
             }
             else{
                 error_watchdog_count = 0;
@@ -2881,7 +2879,7 @@ int vh265_dec_status(struct vdec_status *vstatus)
         vstatus->fps = -1;
     }
     vstatus->error_count = 0;
-    vstatus->status = stat | (fatal_error << 16);
+    vstatus->status = stat | fatal_error;
     return 0;
 }
 
@@ -3071,8 +3069,6 @@ static int amvdec_h265_probe(struct platform_device *pdev)
     struct resource *mem;
     int i;
 
-    printk("amvdec_h265 probe start.\n");
-
     mutex_lock(&vh265_mutex);
     
     fatal_error = 0;
@@ -3088,7 +3084,7 @@ static int amvdec_h265_probe(struct platform_device *pdev)
         amvh265_workbuff_spec[i].start_adr = mem->start;
     }
 
-    printk("H.265 decoder mem resource 0x%x -- 0x%x\n", mem->start, mem->end + 1);
+    if(debug) printk("H.265 decoder mem resource 0x%x -- 0x%x\n", mem->start, mem->end + 1);
 
     if (mem[1].start != 0) {
         memcpy(&vh265_amstream_dec_info, (void *)mem[1].start, sizeof(vh265_amstream_dec_info));
@@ -3114,7 +3110,7 @@ static int amvdec_h265_probe(struct platform_device *pdev)
 
 static int amvdec_h265_remove(struct platform_device *pdev)
 {
-    printk("amvdec_h265_remove\n");
+    if(debug) printk("amvdec_h265_remove\n");
 
     mutex_lock(&vh265_mutex);
 

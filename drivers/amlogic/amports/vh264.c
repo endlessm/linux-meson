@@ -102,12 +102,7 @@ static DEFINE_MUTEX(vh264_mutex);
 #define PUT_INTERVAL        (HZ/100)
 #define NO_DISP_WD_COUNT    (3 * HZ / PUT_INTERVAL)
 
-#define STAT_TIMER_INIT     0x01
-#define STAT_MC_LOAD        0x02
-#define STAT_ISR_REG        0x04
-#define STAT_VF_HOOK        0x08
-#define STAT_TIMER_ARM      0x10
-#define STAT_VDEC_RUN       0x20
+
 
 #define DEC_CONTROL_FLAG_FORCE_2997_1080P_INTERLACE 0x0001
 #define DEC_CONTROL_FLAG_FORCE_2500_576P_INTERLACE  0x0002
@@ -1147,7 +1142,7 @@ static void vh264_isr(void)
         WRITE_VREG(AV_SCRATCH_0, 0);
     } else if ((cpu_cmd & 0xff) == 6) {
         vh264_running = 0;
-        fatal_error_flag = 0x10;
+        fatal_error_flag = DECODER_FATAL_ERROR_UNKNOW;
         // this is fatal error, need restart
         printk("fatal error happend\n");
         if (!fatal_error_reset) {
@@ -1157,12 +1152,12 @@ static void vh264_isr(void)
         vh264_running = 0;
         frame_width = (READ_VREG(AV_SCRATCH_1) + 1) * 16;
         printk("Over decoder supported size, width = %d\n", frame_width);
-        fatal_error_flag = 0x10;
+        fatal_error_flag = DECODER_FATAL_ERROR_SIZE_OVERFLOW;
     } else if ((cpu_cmd & 0xff) == 8) {
         vh264_running = 0;
         frame_height = (READ_VREG(AV_SCRATCH_1) + 1) * 16;
         printk("Over decoder supported size, height = %d\n", frame_height);
-        fatal_error_flag = 0x10;
+        fatal_error_flag = DECODER_FATAL_ERROR_SIZE_OVERFLOW;
     }
 
 #ifdef HANDLE_H264_IRQ

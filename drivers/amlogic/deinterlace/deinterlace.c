@@ -181,7 +181,7 @@ static dev_t di_id;
 static struct class *di_class;
 
 #define INIT_FLAG_NOT_LOAD 0x80
-static char version_s[] = "2014-05-16a";
+static char version_s[] = "2014-05-05a";
 static unsigned char boot_init_flag=0;
 static int receiver_is_amvideo = 1;
 

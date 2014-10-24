@@ -33,13 +33,9 @@ enum {
 	CMD_SET_PENIRQ,
 	CMD_CLEAR_PENIRQ,
 };
-#define  NOT_WRITE_EFUSE 0x0
-#define EFUSE_MIGHT_WRONG 0x8
-#define EFUEE_MUST_RIGHT 0x4
-#define EFUSE_FIXED 0xa
+
 
 extern int get_adc_sample(int chan);
 extern int saradc_ts_service(int cmd);
-extern int  get_cpu_temp(void);
-extern int  read_efuse_flag();
+extern void  temp_sensor_adc_init(int triming);
 #endif

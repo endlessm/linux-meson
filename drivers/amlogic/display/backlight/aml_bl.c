@@ -751,7 +751,7 @@ static inline struct aml_bl_platform_data *bl_get_driver_data(struct platform_de
     const struct of_device_id *match;
 
     if(pdev->dev.of_node) {
-        DPRINT("***of_device: get backlight driver data.***\n");
+        //DPRINT("***of_device: get backlight driver data.***\n");
         match = of_match_node(backlight_dt_match, pdev->dev.of_node);
         return (struct aml_bl_platform_data *)match->data;
     }
@@ -815,225 +815,231 @@ static inline int _get_backlight_config(struct platform_device *pdev)
         ret = of_property_read_u32(pdev->dev.of_node, "bl_ctrl_method", &val);
         if (ret) {
             printk("faild to get bl_ctrl_method\n");
-#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)
-            bl_config.method = BL_CTL_GPIO;
-#elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
-            bl_config.method = BL_CTL_PWM_NEGATIVE;
-#endif
+            bl_config.method = BL_CTL_MAX;
         }
         else {
-            val = (val >= BL_CTL_MAX) ? (BL_CTL_MAX-1) : val;
+            val = (val >= BL_CTL_MAX) ? BL_CTL_MAX : val;
             bl_config.method = (unsigned char)val;
         }
         DPRINT("bl control_method: %s(%u)\n", bl_ctrl_method_table[bl_config.method], bl_config.method);
 
-        ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_port_gpio_used", 1, &str);
-        if (ret) {
-            printk("faild to get bl_pwm_port_gpio_used!\n");
-            bl_config.pwm_gpio_used = 0;
-        }
-        else {
-            if (strncmp(str, "1", 1) == 0)
-                bl_config.pwm_gpio_used = 1;
-            else
-                bl_config.pwm_gpio_used = 0;
-            DPRINT("bl_pwm gpio_used: %u\n", bl_config.pwm_gpio_used);
-        }
-        ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_port_gpio_used", 0, &str);
-        if (ret) {
-            printk("faild to get bl_pwm_port_gpio_used!\n");
-#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)
-            bl_config.pwm_port = BL_PWM_D;
-#elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
-            bl_config.pwm_port = BL_PWM_C;
-#endif
-        }
-        else {
-            if (strcmp(str, "PWM_A") == 0)
-                bl_config.pwm_port = BL_PWM_A;
-            else if (strcmp(str, "PWM_B") == 0)
-                bl_config.pwm_port = BL_PWM_B;
-            else if (strcmp(str, "PWM_C") == 0)
-                bl_config.pwm_port = BL_PWM_C;
-            else if (strcmp(str, "PWM_D") == 0)
-                bl_config.pwm_port = BL_PWM_D;
-            DPRINT("bl pwm_port: %s(%u)\n", str, bl_config.pwm_port);
-        }
-        if ((bl_config.method == BL_CTL_GPIO) || ((bl_config.pwm_gpio_used == 1) && ((bl_config.method == BL_CTL_PWM_NEGATIVE) || (bl_config.method == BL_CTL_PWM_POSITIVE)))) {
-            ret = of_property_read_string(pdev->dev.of_node, "bl_gpio_port", &str);
+        if ((bl_config.method == BL_CTL_PWM_NEGATIVE) || (bl_config.method == BL_CTL_PWM_POSITIVE)) {
+            ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_port_gpio_used", 1, &str);
             if (ret) {
-                printk("faild to get bl_gpio_port!\n");
-#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)
-                str = "GPIOD_1";
-#elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
-                str = "GPIODV_28";
-#endif
-            }
-            val = amlogic_gpio_name_map_num(str);
-            if (val > 0) {
-                ret = bl_gpio_request(val);
-                if (ret) {
-                  printk("faild to alloc bl gpio (%s)!\n", str);
-                }
-                bl_config.gpio = val;
-                DPRINT("bl gpio = %s(%d)\n", str, bl_config.gpio);
+                printk("faild to get bl_pwm_port_gpio_used!\n");
+                bl_config.pwm_gpio_used = 0;
             }
             else {
-                bl_config.gpio = -1;
+                if (strncmp(str, "1", 1) == 0)
+                    bl_config.pwm_gpio_used = 1;
+                else
+                    bl_config.pwm_gpio_used = 0;
+                DPRINT("bl_pwm gpio_used: %u\n", bl_config.pwm_gpio_used);
             }
-        }
-        ret = of_property_read_u32_array(pdev->dev.of_node,"bl_gpio_dim_max_min",&bl_para[0],2);
-        if (ret) {
-            printk("faild to get bl_gpio_dim_max_min\n");
-            bl_config.dim_max = 0x0;
-            bl_config.dim_min = 0xf;
-        }
-        else {
-            bl_config.dim_max = bl_para[0];
-            bl_config.dim_min = bl_para[1];
-        }
-        DPRINT("bl dim max=%u, min=%u\n", bl_config.dim_max, bl_config.dim_min);
-        ret = of_property_read_u32(pdev->dev.of_node,"bl_pwm_freq",&val);
-        if (ret) {
+            ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_port_gpio_used", 0, &str);
+            if (ret) {
+                printk("faild to get bl_pwm_port_gpio_used!\n");
 #if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)
-            pwm_freq = 1000;
+                bl_config.pwm_port = BL_PWM_D;
 #elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
-            pwm_freq = 300000;
+                bl_config.pwm_port = BL_PWM_C;
+#elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B)
+                bl_config.pwm_port = BL_PWM_MAX;
 #endif
-            printk("faild to get bl_pwm_freq, default set to %u\n", pwm_freq);
+            }
+            else {
+                if (strcmp(str, "PWM_A") == 0)
+                    bl_config.pwm_port = BL_PWM_A;
+                else if (strcmp(str, "PWM_B") == 0)
+                    bl_config.pwm_port = BL_PWM_B;
+                else if (strcmp(str, "PWM_C") == 0)
+                    bl_config.pwm_port = BL_PWM_C;
+                else if (strcmp(str, "PWM_D") == 0)
+                    bl_config.pwm_port = BL_PWM_D;
+                else
+                    bl_config.pwm_port = BL_PWM_MAX;
+                DPRINT("bl pwm_port: %s(%u)\n", str, bl_config.pwm_port);
+            }
+            if ((bl_config.method == BL_CTL_GPIO) || ((bl_config.pwm_gpio_used == 1) && ((bl_config.method == BL_CTL_PWM_NEGATIVE) || (bl_config.method == BL_CTL_PWM_POSITIVE)))) {
+                ret = of_property_read_string(pdev->dev.of_node, "bl_gpio_port", &str);
+                if (ret) {
+                    printk("faild to get bl_gpio_port!\n");
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)
+                    str = "GPIOD_1";
+#elif ((MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8) || (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B))
+                    str = "GPIODV_28";
+#endif
+                }
+                val = amlogic_gpio_name_map_num(str);
+                if (val > 0) {
+                    ret = bl_gpio_request(val);
+                    if (ret) {
+                      printk("faild to alloc bl gpio (%s)!\n", str);
+                    }
+                    bl_config.gpio = val;
+                    DPRINT("bl gpio = %s(%d)\n", str, bl_config.gpio);
+                }
+                else {
+                    bl_config.gpio = -1;
+                }
+            }
+            ret = of_property_read_u32_array(pdev->dev.of_node,"bl_gpio_dim_max_min",&bl_para[0],2);
+            if (ret) {
+                printk("faild to get bl_gpio_dim_max_min\n");
+                bl_config.dim_max = 0x0;
+                bl_config.dim_min = 0xf;
+            }
+            else {
+                bl_config.dim_max = bl_para[0];
+                bl_config.dim_min = bl_para[1];
+            }
+            DPRINT("bl dim max=%u, min=%u\n", bl_config.dim_max, bl_config.dim_min);
+            ret = of_property_read_u32(pdev->dev.of_node,"bl_pwm_freq",&val);
+            if (ret) {
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6)
+                pwm_freq = 1000;
+#elif (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)
+                pwm_freq = 300000;
+#endif
+                printk("faild to get bl_pwm_freq, default set to %u\n", pwm_freq);
+            }
+            else {
+                pwm_freq = ((val >= (FIN_FREQ * 500)) ? (FIN_FREQ * 500) : val);
+            }
+            for (i=0; i<0x7f; i++) {
+                pwm_pre_div = i;
+                pwm_cnt = FIN_FREQ * 1000 / (pwm_freq * (pwm_pre_div + 1)) - 2;
+                if (pwm_cnt <= 0xffff)
+                    break;
+            }
+            bl_config.pwm_cnt = pwm_cnt;
+            bl_config.pwm_pre_div = pwm_pre_div;
+            DPRINT("bl pwm_frequency=%u, cnt=%u, div=%u\n", pwm_freq, bl_config.pwm_cnt, bl_config.pwm_pre_div);
+            ret = of_property_read_u32_array(pdev->dev.of_node,"bl_pwm_duty_max_min",&bl_para[0],2);
+            if (ret) {
+                printk("faild to get bl_pwm_duty_max_min\n");
+                bl_para[0] = 100;
+                bl_para[1] = 20;
+            }
+            bl_config.pwm_max = (bl_config.pwm_cnt * bl_para[0] / 100);
+            bl_config.pwm_min = (bl_config.pwm_cnt * bl_para[1] / 100);
+            DPRINT("bl pwm_duty max=%u\%, min=%u\%\n", bl_para[0], bl_para[1]);
         }
-        else {
-            pwm_freq = ((val >= (FIN_FREQ * 500)) ? (FIN_FREQ * 500) : val);
-        }
-        for (i=0; i<0x7f; i++) {
-            pwm_pre_div = i;
-            pwm_cnt = FIN_FREQ * 1000 / (pwm_freq * (pwm_pre_div + 1)) - 2;
-            if (pwm_cnt <= 0xffff)
-                break;
-        }
-        bl_config.pwm_cnt = pwm_cnt;
-        bl_config.pwm_pre_div = pwm_pre_div;
-        DPRINT("bl pwm_frequency=%u, cnt=%u, div=%u\n", pwm_freq, bl_config.pwm_cnt, bl_config.pwm_pre_div);
-        ret = of_property_read_u32_array(pdev->dev.of_node,"bl_pwm_duty_max_min",&bl_para[0],2);
-        if (ret) {
-            printk("faild to get bl_pwm_duty_max_min\n");
-            bl_para[0] = 100;
-            bl_para[1] = 20;
-        }
-        bl_config.pwm_max = (bl_config.pwm_cnt * bl_para[0] / 100);
-        bl_config.pwm_min = (bl_config.pwm_cnt * bl_para[1] / 100);
-        DPRINT("bl pwm_duty max=%u\%, min=%u\%\n", bl_para[0], bl_para[1]);
-
-        //pwm combo
-        ret = of_property_read_u32(pdev->dev.of_node,"bl_pwm_combo_high_low_level_switch",&val);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_high_low_level_switch\n");
-            val = bl_config.level_mid;
-        }
-        if (val > bl_config.level_mid)
-            val = ((val - bl_config.level_mid) * (bl_config.level_max - bl_config.level_mid_mapping)) / (bl_config.level_max - bl_config.level_mid) + bl_config.level_mid_mapping;
-        else
-            val = ((val - bl_config.level_min) * (bl_config.level_mid_mapping - bl_config.level_min)) / (bl_config.level_mid - bl_config.level_min) + bl_config.level_min;
-        bl_config.combo_level_switch = val;
-        DPRINT("bl pwm_combo level switch =%u\n", bl_config.combo_level_switch);
-        ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_high_port_method", 0, &str);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_high_port_method!\n");
-            str = "PWM_C";
-            bl_config.combo_high_port = BL_PWM_C;
-        }
-        else {
-            if (strcmp(str, "PWM_A") == 0)
-                bl_config.combo_high_port = BL_PWM_A;
-            else if (strcmp(str, "PWM_B") == 0)
-                bl_config.combo_high_port = BL_PWM_B;
-            else if (strcmp(str, "PWM_C") == 0)
+        else if (bl_config.method == BL_CTL_PWM_COMBO) {
+            ret = of_property_read_u32(pdev->dev.of_node,"bl_pwm_combo_high_low_level_switch",&val);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_high_low_level_switch\n");
+                val = bl_config.level_mid;
+            }
+            if (val > bl_config.level_mid)
+                val = ((val - bl_config.level_mid) * (bl_config.level_max - bl_config.level_mid_mapping)) / (bl_config.level_max - bl_config.level_mid) + bl_config.level_mid_mapping;
+            else
+                val = ((val - bl_config.level_min) * (bl_config.level_mid_mapping - bl_config.level_min)) / (bl_config.level_mid - bl_config.level_min) + bl_config.level_min;
+            bl_config.combo_level_switch = val;
+            DPRINT("bl pwm_combo level switch =%u\n", bl_config.combo_level_switch);
+            ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_high_port_method", 0, &str);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_high_port_method!\n");
+                str = "PWM_C";
                 bl_config.combo_high_port = BL_PWM_C;
-            else if (strcmp(str, "PWM_D") == 0)
-                bl_config.combo_high_port = BL_PWM_D;
-        }
-        DPRINT("bl pwm_combo high port: %s(%u)\n", str, bl_config.combo_high_port);
-        ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_high_port_method", 1, &str);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_high_port_method!\n");
-            str = "1";
-            bl_config.combo_high_method = BL_CTL_PWM_NEGATIVE;
-        }
-        else {
-            if (strncmp(str, "1", 1) == 0)
+            }
+            else {
+                if (strcmp(str, "PWM_A") == 0)
+                    bl_config.combo_high_port = BL_PWM_A;
+                else if (strcmp(str, "PWM_B") == 0)
+                    bl_config.combo_high_port = BL_PWM_B;
+                else if (strcmp(str, "PWM_C") == 0)
+                    bl_config.combo_high_port = BL_PWM_C;
+                else if (strcmp(str, "PWM_D") == 0)
+                    bl_config.combo_high_port = BL_PWM_D;
+                else
+                    bl_config.combo_high_port = BL_PWM_MAX;
+            }
+            DPRINT("bl pwm_combo high port: %s(%u)\n", str, bl_config.combo_high_port);
+            ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_high_port_method", 1, &str);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_high_port_method!\n");
+                str = "1";
                 bl_config.combo_high_method = BL_CTL_PWM_NEGATIVE;
-            else
-                bl_config.combo_high_method = BL_CTL_PWM_POSITIVE;
-        }
-        DPRINT("bl pwm_combo high method: %s(%u)\n", bl_ctrl_method_table[bl_config.combo_high_method], bl_config.combo_high_method);
-        ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_low_port_method", 0, &str);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_low_port_method!\n");
-            str = "PWM_D";
-            bl_config.combo_low_port = BL_PWM_D;
-        }
-        else {
-            if (strcmp(str, "PWM_A") == 0)
-                bl_config.combo_low_port = BL_PWM_A;
-            else if (strcmp(str, "PWM_B") == 0)
-                bl_config.combo_low_port = BL_PWM_B;
-            else if (strcmp(str, "PWM_C") == 0)
-                bl_config.combo_low_port = BL_PWM_C;
-            else if (strcmp(str, "PWM_D") == 0)
+            }
+            else {
+                if (strncmp(str, "1", 1) == 0)
+                    bl_config.combo_high_method = BL_CTL_PWM_NEGATIVE;
+                else
+                    bl_config.combo_high_method = BL_CTL_PWM_POSITIVE;
+            }
+            DPRINT("bl pwm_combo high method: %s(%u)\n", bl_ctrl_method_table[bl_config.combo_high_method], bl_config.combo_high_method);
+            ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_low_port_method", 0, &str);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_low_port_method!\n");
+                str = "PWM_D";
                 bl_config.combo_low_port = BL_PWM_D;
-        }
-        DPRINT("bl pwm_combo high port: %s(%u)\n", str, bl_config.combo_low_port);
-        ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_low_port_method", 1, &str);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_low_port_method!\n");
-            str = "1";
-            bl_config.combo_low_method = BL_CTL_PWM_NEGATIVE;
-        }
-        else {
-            if (strncmp(str, "1", 1) == 0)
+            }
+            else {
+                if (strcmp(str, "PWM_A") == 0)
+                    bl_config.combo_low_port = BL_PWM_A;
+                else if (strcmp(str, "PWM_B") == 0)
+                    bl_config.combo_low_port = BL_PWM_B;
+                else if (strcmp(str, "PWM_C") == 0)
+                    bl_config.combo_low_port = BL_PWM_C;
+                else if (strcmp(str, "PWM_D") == 0)
+                    bl_config.combo_low_port = BL_PWM_D;
+                else
+                    bl_config.combo_low_port = BL_PWM_MAX;
+            }
+            DPRINT("bl pwm_combo high port: %s(%u)\n", str, bl_config.combo_low_port);
+            ret = of_property_read_string_index(pdev->dev.of_node, "bl_pwm_combo_low_port_method", 1, &str);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_low_port_method!\n");
+                str = "1";
                 bl_config.combo_low_method = BL_CTL_PWM_NEGATIVE;
-            else
-                bl_config.combo_low_method = BL_CTL_PWM_POSITIVE;
+            }
+            else {
+                if (strncmp(str, "1", 1) == 0)
+                    bl_config.combo_low_method = BL_CTL_PWM_NEGATIVE;
+                else
+                    bl_config.combo_low_method = BL_CTL_PWM_POSITIVE;
+            }
+            DPRINT("bl pwm_combo low method: %s(%u)\n", bl_ctrl_method_table[bl_config.combo_low_method], bl_config.combo_low_method);
+            ret = of_property_read_u32_array(pdev->dev.of_node,"bl_pwm_combo_high_freq_duty_max_min",&bl_para[0],3);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_high_freq_duty_max_min\n");
+                bl_para[0] = 300000;  //freq=300k
+                bl_para[1] = 100;
+                bl_para[2] = 50;
+            }
+            pwm_freq = ((bl_para[0] >= (FIN_FREQ * 500)) ? (FIN_FREQ * 500) : bl_para[0]);
+            for (i=0; i<0x7f; i++) {
+                pwm_pre_div = i;
+                pwm_cnt = FIN_FREQ * 1000 / (pwm_freq * (pwm_pre_div + 1)) - 2;
+                if (pwm_cnt <= 0xffff)
+                    break;
+            }
+            bl_config.combo_high_cnt = pwm_cnt;
+            bl_config.combo_high_pre_div = pwm_pre_div;
+            bl_config.combo_high_duty_max = (bl_config.combo_high_cnt * bl_para[1] / 100);
+            bl_config.combo_high_duty_min = (bl_config.combo_high_cnt * bl_para[2] / 100);
+            DPRINT("bl pwm_combo high freq=%uHz, duty_max=%u\%, duty_min=%u\%\n", pwm_freq, bl_para[1], bl_para[2]);
+            ret = of_property_read_u32_array(pdev->dev.of_node,"bl_pwm_combo_low_freq_duty_max_min",&bl_para[0],3);
+            if (ret) {
+                printk("faild to get bl_pwm_combo_low_freq_duty_max_min\n");
+                bl_para[0] = 1000;    //freq=1k
+                bl_para[1] = 100;
+                bl_para[2] = 50;
+            }
+            pwm_freq = ((bl_para[0] >= (FIN_FREQ * 500)) ? (FIN_FREQ * 500) : bl_para[0]);
+            for (i=0; i<0x7f; i++) {
+                pwm_pre_div = i;
+                pwm_cnt = FIN_FREQ * 1000 / (pwm_freq * (pwm_pre_div + 1)) - 2;
+                if (pwm_cnt <= 0xffff)
+                    break;
+            }
+            bl_config.combo_low_cnt = pwm_cnt;
+            bl_config.combo_low_pre_div = pwm_pre_div;
+            bl_config.combo_low_duty_max = (bl_config.combo_low_cnt * bl_para[1] / 100);
+            bl_config.combo_low_duty_min = (bl_config.combo_low_cnt * bl_para[2] / 100);
+            DPRINT("bl pwm_combo low freq=%uHz, duty_max=%u\%, duty_min=%u\%\n", pwm_freq, bl_para[1], bl_para[2]);
         }
-        DPRINT("bl pwm_combo low method: %s(%u)\n", bl_ctrl_method_table[bl_config.combo_low_method], bl_config.combo_low_method);
-        ret = of_property_read_u32_array(pdev->dev.of_node,"bl_pwm_combo_high_freq_duty_max_min",&bl_para[0],3);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_high_freq_duty_max_min\n");
-            bl_para[0] = 300000;  //freq=300k
-            bl_para[1] = 100;
-            bl_para[2] = 50;
-        }
-        pwm_freq = ((bl_para[0] >= (FIN_FREQ * 500)) ? (FIN_FREQ * 500) : bl_para[0]);
-        for (i=0; i<0x7f; i++) {
-            pwm_pre_div = i;
-            pwm_cnt = FIN_FREQ * 1000 / (pwm_freq * (pwm_pre_div + 1)) - 2;
-            if (pwm_cnt <= 0xffff)
-                break;
-        }
-        bl_config.combo_high_cnt = pwm_cnt;
-        bl_config.combo_high_pre_div = pwm_pre_div;
-        bl_config.combo_high_duty_max = (bl_config.combo_high_cnt * bl_para[1] / 100);
-        bl_config.combo_high_duty_min = (bl_config.combo_high_cnt * bl_para[2] / 100);
-        DPRINT("bl pwm_combo high freq=%uHz, duty_max=%u\%, duty_min=%u\%\n", pwm_freq, bl_para[1], bl_para[2]);
-        ret = of_property_read_u32_array(pdev->dev.of_node,"bl_pwm_combo_low_freq_duty_max_min",&bl_para[0],3);
-        if (ret) {
-            printk("faild to get bl_pwm_combo_low_freq_duty_max_min\n");
-            bl_para[0] = 1000;    //freq=1k
-            bl_para[1] = 100;
-            bl_para[2] = 50;
-        }
-        pwm_freq = ((bl_para[0] >= (FIN_FREQ * 500)) ? (FIN_FREQ * 500) : bl_para[0]);
-        for (i=0; i<0x7f; i++) {
-            pwm_pre_div = i;
-            pwm_cnt = FIN_FREQ * 1000 / (pwm_freq * (pwm_pre_div + 1)) - 2;
-            if (pwm_cnt <= 0xffff)
-                break;
-        }
-        bl_config.combo_low_cnt = pwm_cnt;
-        bl_config.combo_low_pre_div = pwm_pre_div;
-        bl_config.combo_low_duty_max = (bl_config.combo_low_cnt * bl_para[1] / 100);
-        bl_config.combo_low_duty_min = (bl_config.combo_low_cnt * bl_para[2] / 100);
-        DPRINT("bl pwm_combo low freq=%uHz, duty_max=%u\%, duty_min=%u\%\n", pwm_freq, bl_para[1], bl_para[2]);
 
         //pinmux
         bl_config.p = devm_pinctrl_get(&pdev->dev);

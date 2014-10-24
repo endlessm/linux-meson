@@ -840,6 +840,32 @@
 
         lcd_extern_init=<1>;/** lcd extern init command control(0=disable, 1=enable) */
     };
+
+//$$ MATCH "lcd_model_config_match" = <&lcd_IVO785H4026172>
+//$$ L2 PROP_STR = "model_name"
+//$$ L2 PROP_STR = "interface"
+//$$ L2 PROP_U32 2 = "active_area"
+//$$ L2 PROP_U32 2 = "lcd_bits_option"
+//$$ L2 PROP_U32 2 = "resolution"
+//$$ L2 PROP_U32 2 = "period"
+//$$ L2 PROP_U32 2 = "clock_hz_pol"
+//$$ L2 PROP_U32 2 = "hsync_width_backporch"
+//$$ L2 PROP_U32 2 = "vsync_width_backporch"
+//$$ L2 PROP_U32 2 = "pol_hsync_vsync"
+    lcd_IVO785H4026172:lcd_IVO785H4026172{
+        model_name="IVO785H4026172"; /** lcd model name */
+        interface="lvds";            /** lcd_interface(mipi, lvds, ttl) */
+        active_area=<120 160>;       /** lcd active_area or display_area horizontal size, vertical size : (unit in mm, you can find them on the home page of lcd spec) */
+        lcd_bits_option=<8 0>;       /** lcd_bits(6,8), bits_option(0=only support one mode as lcd_bits define, 1=both support 6/8bit) */
+
+        resolution=<768 1024>;    /** horizontal resolution, vertical resolution */
+        period=<928 1065>;        /** horizontal period(htotal), vertical period(vtotal) */
+
+        clock_hz_pol=<59300000 0>;    /** clock_hz(unit in Hz, both support clk and frame_rate, >200 regard as clk, <200 regard as frame_rate), clk_pol(only valid for TTL) */
+        hsync_width_backporch=<10 80>; /** hsync_width, hsync_backporch(include hsync_width) */
+        vsync_width_backporch=<2 23>;  /** vsync_width, vsync_backporch(include vsync_width) */
+        pol_hsync_vsync=<0 0>;    /** hsync_polarity, vsync_polarity : (0=negative, 1=positive) */
+    };
 //******************************************************************************
 //ttl
 //******************************************************************************
@@ -864,7 +890,7 @@
         period=<1344 635>;		/** horizontal period(htotal), vertical period(vtotal) */
 
         clock_hz_pol=<42700000 0>;	/** clock_hz(unit in Hz, both support clk and frame_rate, >200 regard as clk, <200 regard as frame_rate), clk_pol(only valid for TTL) */
-        hsync_width_backporch=<10 160>;	/** hsync_width, hsync_backporch(include hsync_width) */
+        hsync_width_backporch=<10 170>;	/** hsync_width, hsync_backporch(include hsync_width) */
         vsync_width_backporch=<5 23>;	/** vsync_width, vsync_backporch(include vsync_width) */
         pol_hsync_vsync=<0 0>;	/** hsync_polarity, vsync_polarity : (0=negative, 1=positive) */
     };

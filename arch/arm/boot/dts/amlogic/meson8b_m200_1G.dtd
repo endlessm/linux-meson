@@ -135,8 +135,7 @@ void root_func(){
 		compatible = "amlogic,deinterlace";
 		dev_name = "deinterlace";
 		status = "ok";
-		reserve-memory = <0x02300000>; 	 
-
+		reserve-memory = <0x01800000>; //8x1920x1088x3/2=24M
 	};
 
 /// ***************************************************************************************
@@ -149,7 +148,7 @@ void root_func(){
 		compatible = "amlogic,mesonstream";
 		dev_name = "mesonstream.0";
 		status = "okay";
-		reserve-memory = <0x02000000>;
+		reserve-memory = <0x02000000>; // 32M
 		reserve-iomap = "true";
 	};
 
@@ -163,7 +162,7 @@ void root_func(){
                 compatible = "amlogic,vdec";
                 dev_name = "vdec.0";
                 status = "okay";
-                reserve-memory = <0x10000000>;
+                reserve-memory = <0x04000000>; // 64M
                 reserve-iomap = "true";
         };
 
@@ -177,7 +176,7 @@ void root_func(){
 		compatible = "amlogic,ppmgr";
 		dev_name = "ppmgr";
 		status = "okay";
-		reserve-memory = <0x03000000>;
+		reserve-memory = <0x01000000>; // 16M
 	};
 
 /// ***************************************************************************************
@@ -204,7 +203,7 @@ void root_func(){
 //		compatible = "amlogic,amvdec_656in";
 //		dev_name = "amvdec_656in";
 //		status = "ok";
-//		reg = <0x1a600000 0x00100000>;
+//		reg = <0x1e400000 0x00100000>;
 //	};
 //	
 /// ***************************************************************************************
@@ -215,28 +214,30 @@ void root_func(){
 //$$ L2 PROP_U32 2 = "reg"
 //$$ L2 PROP_U32 = "irq"
 //$$ L2 PROP_U32 = "vdin_id"
-    vdin0{
-        compatible = "amlogic,vdin";
-        dev_name = "vdin0";
-        status = "ok";
-	 reserve-memory = <0x04000000>;
-        irq = <115>;
-        vdin_id = <0>;
-	};
+//    vdin0{
+//       compatible = "amlogic,vdin";
+//        dev_name = "vdin0";
+//        status = "ok";
+//	 reserve-memory = <0x04000000>;
+//        irq = <115>;
+//        vdin_id = <0>;
+//	};
 	
 //$$ DEVICE="vdin1"
 //$$ L2 PROP_STR = "status"
 //$$ L2 PROP_U32 2 = "reg"
 //$$ L2 PROP_U32 = "irq"
 //$$ L2 PROP_U32 = "vdin_id"
-    vdin1{
-        compatible = "amlogic,vdin";
-        dev_name = "vdin1";
-        status = "ok";
-	 reserve-memory = <0x04000000>;
-        irq = <117>;
-        vdin_id = <1>;
-	};
+//    vdin1{
+//        compatible = "amlogic,vdin";
+//       dev_name = "vdin1";
+//        status = "ok";
+//        reserve-memory = <0x01000000>;
+//	  miracast_size = <1920 1080>;//1920x1080x2x4=17M
+//	  reserve-iomap = "true";
+//        irq = <117>;
+//        vdin_id = <1>;
+//	};
 
 /// ***************************************************************************************
 ///	-	DISP&MM-AMLVIDEO2
@@ -244,26 +245,26 @@ void root_func(){
 //$$ DEVICE="amlvideo2"
 //$$ L2 PROP_STR = "status"
 //$$ L3 PROP_U32 2 ="reg"
-    amlvideo2{
-		compatible = "amlogic,amlvideo2";
-		dev_name = "amlvideo2.0";
-		status = "okay";
-		reserve-memory = <0x01800000>;
-		reserve-iomap = "true";
-	};
+//    amlvideo2{
+//		compatible = "amlogic,amlvideo2";
+//		dev_name = "amlvideo2.0";
+//		status = "okay";
+//		reserve-memory = <0x01800000>;
+//		reserve-iomap = "true";
+//	};
 
 /// ***************************************************************************************
 ///	-	DISP&MM-Video Input Manager
 //$$ MODULE = "DISP&MM-Video Input Manager"
 //$$ DEVICE="vm"
 //$$ L2 PROP_STR = "status"
-    vm{
-		compatible = "amlogic,vm";
-		dev_name = "vm.0";
-		status = "okay";
-		reserve-memory = <0x01800000>;
-		reserve-iomap = "true";
-	};
+//    vm{
+//		compatible = "amlogic,vm";
+//		dev_name = "vm.0";
+//		status = "okay";
+//		reserve-memory = <0x01800000>;
+//		reserve-iomap = "true";
+//	};
 
 /// ***************************************************************************************
 ///	-	ION
@@ -276,7 +277,7 @@ void root_func(){
         status = "ok";
         share-memory-name = "ppmgr0";
         share-memory-offset = <0>;
-        share-memory-size = <0x03000000>;
+        share-memory-size = <0x01000000>; //16M
     };
 /// ***************************************************************************************
 ///	-	DISP&MM-Vout
@@ -352,6 +353,40 @@ void root_func(){
 		status = "ok";
 		dev_name = "uart_3";
 	};
+
+/// ***************************************************************************************
+/// ***************************************************************************************
+///	-	WiFi
+//$$ MODULE="WiFi"
+//$$ DEVICE="aml_broadcm_wifi"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_STR = "interrupt_pin"
+//$$ L2 PROP_U32 = "irq_num"
+//$$ L2 PROP_STR = "irq_trigger_type"
+//$$ L2 PROP_STR = "power_on_pin"
+//$$ L2 PROP_STR = "clock_32k_pin"
+    wifi{
+		compatible = "amlogic,aml_broadcm_wifi";
+		dev_name = "aml_broadcm_wifi";
+		status = "okay";
+		interrupt_pin = "GPIOX_21";
+		irq_num = <4>;
+		irq_trigger_type = "GPIO_IRQ_HIGH";
+		power_on_pin = "GPIOAO_6";
+		power_on_pin2 = "GPIOX_11";
+		clock_32k_pin = "GPIOX_10";
+	};
+	
+//$$ DEVICE="wifi_power"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_STR = "power_gpio"
+	wifi_power{
+            compatible = "amlogic,wifi_power";
+            dev_name = "wifi_power";
+            status = "okay";
+            power_gpio = "GPIOAO_6";
+            power_gpio2 = "GPIOX_11";
+	}; 
 
 /// ***************************************************************************************
 ///	-	MMC
@@ -442,6 +477,17 @@ void root_func(){
 //            gpio_dat3 = "BOOT_3";
 //            card_type = <1>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
 //        };
+			//sdio{
+        //    status = "ok";
+       //     port = <0>;          /*0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
+        //    pinname = "sdio";
+        //    ocr_avail = <0x200000>;          /*VDD voltage 3.3 ~ 3.4 */
+        //    caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE";
+         //   f_min = <300000>;
+         //   f_max = <50000000>;
+         //   max_req_size = <0x20000>;          /**128KB*/
+         //   card_type = <3>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+       // };
     };
 
 /// ***************************************************************************************
@@ -542,17 +588,17 @@ void root_func(){
 //$$ L3 PROP_U32 = "f_max"
 //$$ L3 PROP_U32 = "max_req_size"
 //$$ L2 PROP_U32 = "card_type"
-        // sdio{
-        //     status = "okay";
-        //     port = <3>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
-        //     pinname = "sdio";
-        //     ocr_avail = <0x00200080>; // 3.3:0x200000, 1.8+3.3:0x00200080
-        //     caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE", "MMC_CAP_UHS_SDR12","MMC_CAP_UHS_SDR25","MMC_CAP_UHS_SDR50","MMC_CAP_UHS_SDR104";
-        //     f_min = <300000>;
-        //     f_max = <100000000>;
-        //     max_req_size = <0x20000>;          /**128KB*/
-        //     card_type = <3>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
-        // };
+        sdio{
+             status = "okay";
+             port = <3>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
+             pinname = "sdio";
+             ocr_avail = <0x00200080>; // 3.3:0x200000, 1.8+3.3:0x00200080
+             caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE", "MMC_CAP_UHS_SDR12","MMC_CAP_UHS_SDR25","MMC_CAP_UHS_SDR50","MMC_CAP_UHS_SDR104","MMC_PM_KEEP_POWER";
+             f_min = <300000>;
+             f_max = <200000000>;
+             max_req_size = <0x20000>;          /**128KB*/
+             card_type = <3>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+         };
     };
 
 /// ***************************************************************************************
@@ -668,28 +714,24 @@ void root_func(){
 //$$ L2 PROP_U32 16*3 = "dvfs_table"
         vcck_dvfs {
             dvfs_id     = <1>;                                  /** must be value of (1 << n)            */
-            table_count = <17>;                                 /** must be correct count for dvfs_table */
+            table_count = <13>;                                 /** must be correct count for dvfs_table */
             change-frequent-only;
             dvfs_table  = <
             /* NOTE: frequent in this table must be ascending order */
             /* frequent(Khz)    min_uV      max_uV                  */
-                  24000         825000      825000
                   96000         825000      825000
                  192000         825000      825000
                  312000         825000      825000
                  408000         825000      825000
                  504000         825000      825000
-                 600000         850000      850000
-                 720000         850000      850000
-                 816000         875000      875000
-                 912000         900000      900000
-                1008000         925000      925000
-                1104000         950000      950000
-                1200000         975000      975000
+                 600000         825000      825000
+                 720000         825000      825000
+                 816000         850000      850000
+                1008000         875000      875000
+                1200000         925000      925000
                 1320000        1000000     1000000
-                1416000        1025000     1025000
-                1512000        1050000     1050000
-                1608000        1100000     1100000
+                1488000        1075000     1075000
+                1608000        1150000     1150000
             >;
         };
     };
@@ -855,12 +897,12 @@ void root_func(){
 			lm-periph-id = <0>; /** lm name */
 			clock-src = "usb0"; /** clock src */
 			port-id = <0>;  /** ref to mach/usb.h */
-			port-type = <1>;	/** 0: otg, 1: host, 2: slave */
+			port-type = <0>;	/** 0: otg, 1: host, 2: slave */
 			port-speed = <0>; /** 0: default, high, 1: full */
 			port-config = <0>; /** 0: default */
 			port-dma = <0>; /** 0: default, 1: single, 2: incr, 3: incr4, 4: incr8, 5: incr16, 6: disable*/
 			port-id-mode = <0>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
-//			gpio-vbus-power = "GPIOZ_1";
+			gpio-vbus-power = "PMU";
 			gpio-work-mask	= <1>; /**0: work on pulldown,1:work on pullup*/
 			status = "okay";
 		};
@@ -928,6 +970,11 @@ void root_func(){
     audio_m8_audio{
         compatible = "amlogic,m8_audio_codec";
         dev_name = "aml_m8_codec.0";
+        status = "disable";
+    };
+    audio_pmu3_audio{
+        compatible = "amlogic,aml_pmu3_codec";
+        dev_name = "aml_pmu3_codec.0";
         status = "okay";
     };
 
@@ -958,6 +1005,10 @@ void root_func(){
             capless = <1>;
 	    status = "disable";
         };
+        pmu3:pmu3{
+        	codec_name = "amlpmu3";
+			status = "okay";
+        };
     };
 
 //$$ DEVICE="aml_m8_sound_card"
@@ -972,7 +1023,7 @@ void root_func(){
     aml_m8_sound_card{
         compatible = "sound_card, aml_snd_m8";
         aml,sound_card = "AML-M8AUDIO";
-        aml,codec_dai = "AML-M8","rt5616-aif1","rt5631-hifi","wm8960-hifi";
+        aml,codec_dai = "AML-M8","rt5616-aif1","rt5631-hifi","wm8960-hifi","pmu3-hifi";
         //aml,codec_name = "aml_m8_codec.0","rt5616.4-001b";
         //aml,audio-codec = <&rt5616>;
         aml,audio-routing-rt5616 = 
@@ -989,6 +1040,14 @@ void root_func(){
             "HP","HP_R",
             "MICBIAS","MAIN MIC",
             "LINPUT1","MICBIAS";
+        aml,audio-routing-amlpmu3 = 
+            "Ext Spk","LINEOUTL1",
+            "Ext Spk","LINEOUTR1",
+            "HP","HP_L",
+            "HP","HP_R",
+            "Mic Bias1","MAIN MIC",
+            "LINEINLP","Mic Bias1";
+        sleep_time = <130>;
         mute_gpio = "GPIO_BSD_EN";
         //mute_inv;
         hp_paraments = <800 300 0 5 1>;
@@ -1106,6 +1165,7 @@ void root_func(){
 		scan_period = <20>;
 		key_num = <1>;
         key_name = "power";
+        gpio_high_z;
 		key_code = <116>;
 		key_pin = "GPIOAO_3";
         irq_keyup = <6>;
@@ -1802,16 +1862,11 @@ void root_func(){
 //$$ L2 PROP_U32 10 = "amlogic,clrmask"
 //$$ L2 PROP_STR 6 = "amlogic,pins"
         audio_pins:audio_pin{
-            amlogic,setmask=<1 0x80
-                             1 0x75>;
-            amlogic,clrmask=<1 0x10000
-                             1 0x0a
-                             3 0x389
-                             4 0x3c00000
-                             9 0xd>;
-            amlogic,pins = "GPIOY_3","GPIOY_4","GPIOY_5","GPIOY_6","GPIOY_7","GPIOY_8";
+            amlogic,setmask=<10 0x78000008
+                              1 0x2000>;   // I2s_in
+            amlogic,clrmask=<10 0x8001a000>;
+            amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_6","GPIOAO_13";
         };
-
 //$$ MATCH "Spi_pin_0_match" = "&aml_spi_nor_pins"
 //$$ L2 PROP_U32 2 = "amlogic,setmask"
 //$$ L2 PROP_U32 2 = "amlogic,clrmask"
@@ -1821,6 +1876,24 @@ void root_func(){
 			amlogic,clrmask=<2 0x380000>;
 			amlogic,pins = "BOOT_11","BOOT_12","BOOT_13","BOOT_18";
 		};
+
+	};
+/// ***************************************************************************************
+///	-	Ethernet
+//$$ MODULE="Ethernet"
+//$$ DEVICE="meson-eth"
+//$$ L2 PROP_STR = "status"
+    meson-eth{
+		compatible = "amlogic,meson-eth";
+		dev_name = "meson-eth";
+		status = "okay";
+		ethbaseaddr = <0xfe0c0000>;
+		interruptnum = <40>;
+                savepowermode = <0>;
+                phy_interface = <0>;
+                reset_pin_enable = <0>;
+                reset_pin = "GPI0H_4";
+                reset_delay = <100>;
 	};
 
 }; /* end of / */

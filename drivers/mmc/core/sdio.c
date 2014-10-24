@@ -1115,7 +1115,6 @@ int mmc_attach_sdio(struct mmc_host *host)
 		       mmc_hostname(host));
 		ocr &= ~0x7F;
 	}
-
 	host->ocr = mmc_select_voltage(host, ocr);
 
 	/*
@@ -1269,6 +1268,15 @@ int sdio_reset_comm(struct mmc_card *card)
     }
 
 	mmc_claim_host(host);
+
+	/*
+		for 8189ETV wifi restart
+	*/
+
+	if(588 == card->cis.vendor)	
+		sdio_reset(host);
+
+		
 
 	mmc_go_idle(host);
 

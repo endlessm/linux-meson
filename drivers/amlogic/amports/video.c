@@ -631,6 +631,11 @@ char file_name[512];
 #define FREERUN_DUR     2   // freerun with duration
 static u32 freerun_mode;
 
+void set_freerun_mode(int mode){
+	freerun_mode = mode;	
+}
+EXPORT_SYMBOL(set_freerun_mode);
+
 static const f2v_vphase_type_t vpp_phase_table[4][3] = {
     {F2V_P2IT,  F2V_P2IB,  F2V_P2P },   /* VIDTYPE_PROGRESSIVE */
     {F2V_IT2IT, F2V_IT2IB, F2V_IT2P},   /* VIDTYPE_INTERLACE_TOP */

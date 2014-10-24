@@ -362,11 +362,14 @@ void di_hw_uninit(void)
 {
 }
 
-#ifdef NEW_DI_V1
+#ifdef NEW_DI_TV
 unsigned int nr2_en = 0x1;
+#else
+unsigned int nr2_en = 0;
+#endif
 module_param(nr2_en,uint,0644);
 MODULE_PARM_DESC(nr2_en,"\n nr2_en\n");
-#endif
+
 
 
 void enable_di_pre_aml (

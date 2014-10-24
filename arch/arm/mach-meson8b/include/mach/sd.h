@@ -89,6 +89,8 @@ struct amlsd_platform {
     int is_sduart;
     bool is_in;
     bool is_tuned;                      /* if card has been tuning */
+    bool need_retuning;
+    struct delayed_work retuning;
 
     /* we used this flag to filter some unnecessary cmd before initialized flow */
     bool is_fir_init; // has been initialized for the first time

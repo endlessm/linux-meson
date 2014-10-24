@@ -1083,7 +1083,7 @@ static ssize_t dsi_debug(struct class *class, struct class_attribute *attr, cons
             ret = sscanf(buf, "read %x %u", &t[0], &num);
             printk("read dsi phy reg:\n");
             for (i=0; i<num; i++) {
-                printk("  0x%04x = 0x%08x\n", t[0]+i, READ_DSI_REG(t[0]+i));
+                printk("  0x%04x = 0x%08x\n", (t[0]+i), READ_DSI_REG((t[0]+i)));
             }
             break;
         case 'w': //write

@@ -62,7 +62,7 @@
 #define GSLX680_I2C_ADDR 	0x40
 #define TOUCH_IRQ INT_GPIO_0
 #define TOUCH_GPIO_SHUTDOWN  amlogic_gpio_name_map_num("GPIOAO_7")
-#define TOUCH_GPIO_INTERRUPT amlogic_gpio_name_map_num("GPIOH_9")
+#define TOUCH_GPIO_INTERRUPT amlogic_gpio_name_map_num("GPIOY_3")
 
 #define CHIP_3680B 1
 #define CHIP_3680A 2

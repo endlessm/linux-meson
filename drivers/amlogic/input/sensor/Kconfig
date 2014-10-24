@@ -84,13 +84,11 @@ config GRAVITY_STK8313
 	help
 	  Say yes here to support Sensortek's STK8313 accelerometer sensor
 
-if(!GRAVITY_STK8313)
 config GRAVITY_STK8312
 	tristate "STK8312 accelerometer sensor driver"
 	depends on I2C
 	help
 	  Say yes here to support Sensortek's STK8312 accelerometer sensor
-endif
 
 config GRAVITY_MM3A310
  		tristate "MM3A310 GSENSOR support"

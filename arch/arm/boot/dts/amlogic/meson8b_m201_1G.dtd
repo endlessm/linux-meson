@@ -352,6 +352,28 @@ void root_func(){
 		port_name = "uart_d";
 		status = "ok";
 		dev_name = "uart_3";
+
+	};
+/// ***************************************************************************************
+///	-	WiFi
+//$$ MODULE="WiFi"
+//$$ DEVICE="aml_broadcm_wifi"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_STR = "interrupt_pin"
+//$$ L2 PROP_U32 = "irq_num"
+//$$ L2 PROP_STR = "irq_trigger_type"
+//$$ L2 PROP_STR = "power_on_pin"
+//$$ L2 PROP_STR = "clock_32k_pin"
+    wifi{
+		compatible = "amlogic,aml_broadcm_wifi";
+		dev_name = "aml_broadcm_wifi";
+		status = "okay";
+		interrupt_pin = "GPIOX_21";
+		irq_num = <4>;
+		irq_trigger_type = "GPIO_IRQ_HIGH";
+//		power_on_pin = "GPIOAO_6";
+		power_on_pin2 = "GPIOX_11";
+		clock_32k_pin = "GPIOX_10";
 	};
 
 /// ***************************************************************************************
@@ -399,7 +421,7 @@ void root_func(){
 //$$ L2 PROP_U32 = "irq_in"
 //$$ L2 PROP_U32 = "irq_out"
 //$$ L2 PROP_U32 = "card_type"
-        sd{
+      sd{
             status = "okay";
             port = <1>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
             pinname = "sd";
@@ -443,7 +465,127 @@ void root_func(){
             gpio_dat3 = "BOOT_3";
             card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
         };
+
+//$$ DEVICE="sdio"
+//$$ L2 PROP_STR = "status"
+//$$ L3 PROP_U32 = "port"
+//$$ L2 PROP_STR = "pinname"
+//$$ L3 PROP_U32 = "ocr_avail"
+//$$ L2 PROP_STR 4 = "caps"
+//$$ L3 PROP_U32 = "f_min"
+//$$ L3 PROP_U32 = "f_max"
+//$$ L3 PROP_U32 = "max_req_size"
+//$$ L2 PROP_U32 = "card_type"    
+        sdio{
+            status = "ok";
+            port = <0>;          /*0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
+            pinname = "sdio";
+            ocr_avail = <0x200000>;          /*VDD voltage 3.3 ~ 3.4 */
+            caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_SDIO_IRQ","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE";
+            f_min = <300000>;
+            f_max = <50000000>;
+            max_req_size = <0x20000>;          /**128KB*/
+            card_type = <3>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+        };
     };
+
+//    sdhc{
+//        compatible = "amlogic,aml_sdhc";
+//        dev_name = "aml_sdhc.0";
+//        reg = <0xc1108e00 0x3c>;
+//        pinctrl-names = "sdhc_sd_clk_cmd_pins", "sdhc_sd_all_pins", "sdhc_emmc_clk_cmd_pins", "sdhc_emmc_all_pins", "sdhc_sdio_clk_cmd_pins", "sdhc_sdio_all_pins";
+//        pinctrl-0 = <&sdhc_sd_clk_cmd_pins>;
+//        pinctrl-1 = <&sdhc_sd_all_pins>;
+//        pinctrl-2 = <&sdhc_emmc_clk_cmd_pins>;
+//        pinctrl-3 = <&sdhc_emmc_all_pins>;
+//        pinctrl-4 = <&sdhc_sdio_clk_cmd_pins>;
+//        pinctrl-5 = <&sdhc_sdio_all_pins>;
+//        //pinctrl-6 = <&sd_1bit_pins>;
+
+//$$ DEVICE="sd"
+//$$ L2 PROP_STR = "status"
+//$$ L3 PROP_U32 = "port"
+//$$ L2 PROP_STR = "pinname"
+//$$ L3 PROP_U32 = "ocr_avail"
+//$$ L2 PROP_STR 3 = "caps"
+//$$ L3 PROP_U32 = "f_min"
+//$$ L3 PROP_U32 = "f_max"
+//$$ L3 PROP_U32 = "f_max_w"
+//$$ L3 PROP_U32 = "max_req_size"
+//$$ L2 PROP_STR = "gpio_dat3"
+//$$ L2 PROP_STR = "jtag_pin"
+//$$ L2 PROP_STR = "gpio_cd"
+//$$ L2 PROP_STR = "gpio_ro"
+//$$ L2 PROP_U32 = "irq_in"
+//$$ L2 PROP_U32 = "irq_out"
+//$$ L2 PROP_U32 = "card_type"
+//         sd{
+//             status = "okay";
+//             port = <4>;          /**0:sdhc_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
+//             pinname = "sd";
+//             ocr_avail = <0x00200080>; // 3.3:0x200000, 1.8+3.3:0x00200080
+//             caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED","MMC_CAP_UHS_SDR12","MMC_CAP_UHS_SDR25","MMC_CAP_UHS_SDR50","MMC_CAP_UHS_SDR104";
+//             f_min = <300000>;
+//             f_max = <100000000>;
+//             max_req_size = <0x20000>;          /**128KB*/
+//             gpio_dat3 = "CARD_4";
+//             //jtag_pin = "CARD_0";
+//             gpio_cd = "CARD_6";
+//             //gpio_ro = "GPIOZ_0";
+//             irq_in = <3>;
+//             irq_out = <5>;
+//             card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+//         };
+
+//$$ DEVICE="emmc"
+//$$ L2 PROP_STR = "status"
+//$$ L3 PROP_U32 = "port"
+//$$ L2 PROP_STR = "pinname"
+//$$ L3 PROP_U32 = "ocr_avail"
+//$$ L2 PROP_STR 4 = "caps"
+//$$ L3 PROP_U32 = "f_min"
+//$$ L3 PROP_U32 = "f_max"
+//$$ L3 PROP_U32 = "f_max_w"
+//$$ L3 PROP_U32 = "max_req_size"
+//$$ L2 PROP_STR = "gpio_dat3"
+//$$ L2 PROP_U32 = "card_type"
+//        emmc{
+//            status = "okay";
+//            port = <5>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
+//            pinname = "emmc";
+//            ocr_avail = <0x00200080>; // 3.3:0x200000, 1.8+3.3:0x00200080
+//            caps = "MMC_CAP_8_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE"; // MMC_CAP_NEEDS_POLL -- for detect, MMC_CAP_NONREMOVABLE -- for eMMC/TSD
+//            caps2 = "MMC_CAP2_HS200_1_8V_SDR";
+//            f_min = <300000>;
+//            f_max = <100000000>;
+//            max_req_size = <0x20000>;          /**128KB*/
+//            gpio_dat3 = "BOOT_3";
+//            card_type = <1>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+//        };  
+
+//$$ DEVICE="sdio"
+//$$ L2 PROP_STR = "status"
+//$$ L3 PROP_U32 = "port"
+//$$ L2 PROP_STR = "pinname"
+//$$ L3 PROP_U32 = "ocr_avail"
+//$$ L2 PROP_STR 4 = "caps"
+//$$ L3 PROP_U32 = "f_min"
+//$$ L3 PROP_U32 = "f_max"
+//$$ L3 PROP_U32 = "max_req_size"    
+//$$ L2 PROP_U32 = "card_type"    
+        // sdio{
+        //     status = "okay";
+        //     port = <3>;          /**0:sdio_a, 1:sdio_b, 2:sdio_c, 3:sdhc_a, 4:sdhc_b, 5:sdhc_c */
+        //     pinname = "sdio";
+        //     ocr_avail = <0x00200080>; // 3.3:0x200000, 1.8+3.3:0x00200080
+        //     caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE", "MMC_CAP_UHS_SDR12","MMC_CAP_UHS_SDR25","MMC_CAP_UHS_SDR50","MMC_CAP_UHS_SDR104";
+        //     f_min = <300000>;
+        //     f_max = <100000000>;
+        //     max_req_size = <0x20000>;          /**128KB*/
+        //     card_type = <3>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
+        // };
+//    };
+    
 
 /// ***************************************************************************************
 ///	-	I2C
@@ -558,31 +700,85 @@ void root_func(){
 //$$ L2 PROP_U32 16*3 = "dvfs_table"
         vcck_dvfs {
             dvfs_id     = <1>;                                  /** must be value of (1 << n)            */
-            table_count = <17>;                                 /** must be correct count for dvfs_table */
+            table_count = <12>;                                 /** must be correct count for dvfs_table */
             change-frequent-only;
             dvfs_table  = <
             /* NOTE: frequent in this table must be ascending order */
             /* frequent(Khz)    min_uV      max_uV                  */
-                  24000         825000      825000
-                  96000         825000      825000
-                 192000         825000      825000
-                 312000         825000      825000
-                 408000         825000      825000
-                 504000         825000      825000
-                 600000         850000      850000
-                 720000         850000      850000
-                 816000         875000      875000
-                 912000         900000      900000
-                1008000         925000      925000
-                1104000         950000      950000
-                1200000         975000      975000
-                1320000        1000000     1000000
-                1416000        1025000     1025000
-                1512000        1050000     1050000
-                1608000        1100000     1100000
+                  96000         875000      875000
+                 192000         875000      875000
+                 312000         875000      875000
+                 408000         875000      875000
+                 504000         875000      875000
+                 600000         900000      900000
+                 720000         900000      900000
+                 816000         925000      925000
+                1008000         975000      975000
+                1200000        1025000     1025000
+                1416000        1075000     1075000
+                1608000        1140000     1140000
             >;
         };
     };
+//$$ DEVICE="meson_vcck_dvfs_driver"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_STR = "pinctrl-names"
+//$$ L2 PROP_CHOICE "meson_vcck_dvfs_pin_0_match" = "pinctrl-0"
+//$$ L2 PROP_U32 = "use_pwm"
+//$$ L2 PROP_U32 = "table_count"
+//$$ L2 PROP_U32 16*2 = "cs_voltage_table"
+	meson_vcck_dvfs_driver{
+        compatible = "amlogic, meson_vcck_dvfs";
+        dev_name = "meson_vcck_dvfs_driver";
+        status = "ok";
+        pinctrl-names = "default";
+        pinctrl-0 = <&aml_pwm_pins>;
+        use_pwm = <1>; 
+        pmw_controller = "PWM_C";
+        table_count = <29>;
+        cs_voltage_table = <
+        /*   
+         * Note: This table is hardware depended, If your hardware use PWM method,
+         * then first line in this table is PWM register value, second line is
+         * voltage of VCCK according this PWM register value. If your platform use
+         * constant-current source to adjust vcck voltage, then the first line should 
+         * set to 0, means not valid, member 'use_pwm' in this node should set to 0.
+         *
+         *  ---- This table must be in ascending order by voltage ----
+         *    
+         *  PWM value       VCCK voltage 
+         */ 
+		0x1c0000        860000
+		0x1b0001        870000
+		0x1a0002        880000
+		0x190003        890000		
+		0x180004        900000			
+		0x170005        910000
+		0x160006        920000
+		0x150007        930000
+		0x140008        940000			
+		0x130009        950000		
+		0x12000a        960000			
+		0x11000b        970000		
+		0x10000c        980000			
+		0x0f000d        990000			
+		0x0e000e        1000000			
+		0x0d000f        1010000		
+		0x0c0010        1020000			
+		0x0b0011        1030000			
+		0x0a0012        1040000			
+		0x090013        1050000
+		0x080014        1060000
+		0x070015        1070000			
+		0x060016        1080000
+		0x050017        1090000
+		0x040018        1100000
+		0x030019        1110000			
+		0x02001a        1120000			
+		0x01001b        1130000
+		0x00001c        1140000
+        >;   
+    };   	
 
 //$$ DEVICE="arm_pmu"
 //$$ L2 PROP_STR = "status"
@@ -594,163 +790,6 @@ void root_func(){
                       0     138     0x04
                       0     153     0x04
                       0     154     0x04>;
-    };
-
-//$$ DEVICE="Battery_parameter"
-//$$ MATCH "battery_parameter_match" = <&battery_parameter>
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "pmu_twi_id"
-//$$ L2 PROP_U32 = "pmu_irq_id"
-//$$ L2 PROP_U32 = "pmu_twi_addr"
-//$$ L2 PROP_U32 = "pmu_battery_rdc"
-//$$ L2 PROP_U32 = "pmu_battery_cap"
-//$$ L2 PROP_U32 = "pmu_battery_technology"
-//$$ L2 PROP_STR = "pmu_battery_name"
-//$$ L2 PROP_U32 = "pmu_init_chgvol"
-//$$ L2 PROP_U32 = "pmu_init_chgend_rate"
-//$$ L2 PROP_U32 = "pmu_init_chg_enabled"
-//$$ L2 PROP_U32 = "pmu_init_adc_freq"
-//$$ L2 PROP_U32 = "pmu_init_adc_freqc"
-//$$ L2 PROP_U32 = "pmu_init_chg_pretime"
-//$$ L2 PROP_U32 = "pmu_init_chg_csttime"
-//$$ L2 PROP_U32 = "pmu_init_chgcur"
-//$$ L2 PROP_U32 = "pmu_suspend_chgcur"
-//$$ L2 PROP_U32 = "pmu_resume_chgcur"
-//$$ L2 PROP_U32 = "pmu_shutdown_chgcur"
-//$$ L2 PROP_U32 = "pmu_usbcur_limit"
-//$$ L2 PROP_U32 = "pmu_usbcur"
-//$$ L2 PROP_U32 = "pmu_usbvol_limit"
-//$$ L2 PROP_U32 = "pmu_usbvol"
-//$$ L2 PROP_U32 = "pmu_pwroff_vol"
-//$$ L2 PROP_U32 = "pmu_pwron_vol"
-//$$ L2 PROP_U32 = "pmu_pekoff_time"
-//$$ L2 PROP_U32 = "pmu_pekoff_en"
-//$$ L2 PROP_U32 = "pmu_peklong_time"
-//$$ L2 PROP_U32 = "pmu_pwrok_time"
-//$$ L2 PROP_U32 = "pmu_pwrnoe_time"
-//$$ L2 PROP_U32 = "pmu_intotp_en"
-//$$ L2 PROP_U32 = "pmu_pekon_time"
-//$$ L2 PROP_U32 = "pmu_charge_efficiency"
-//$$ L2 PROP_U32 16*3 ="pmu_bat_curve"
-    battery_parameter:battery_parameter{
-        status = "okay";
-        pmu_twi_id = <2>;                   /** PMU i2c bus                          */
-        pmu_irq_id = <0>;                   /** INT_WATCHDOG                         */
-        pmu_twi_addr = <0x32>;              /** PMU i2c addr                         */
-        pmu_battery_rdc = <94>;             /** battery internal resistor            */
-        pmu_battery_cap = <9250>;           /** battery capacity                     */
-        pmu_battery_technology = <4>;       /** POWER_SUPPLY_TECHNOLOGY_LiFe         */
-        pmu_battery_name = "PTI PL336078";  /** battery name                         */
-        pmu_init_chgvol = <4200000>;        /** target charge voltage                */
-        pmu_init_chgend_rate = <10>;        /** set initial charing end current rate */
-        pmu_init_chg_enabled = <1>;         /** set initial charing enabled          */
-        pmu_init_adc_freq = <25>;           /** set initial adc frequency            */
-        pmu_init_adc_freqc = <100>;         /** set initial coulomb adc coufrequency */
-        pmu_init_chg_pretime = <80>;        /** set initial pre-charging time        */
-        pmu_init_chg_csttime = <300>;       /** set initial rapid-charging time      */
-        pmu_init_chgcur = <300000>;         /** set initial charging current limite  */
-        pmu_suspend_chgcur = <1300000>;     /** set suspend charging current limite  */
-        pmu_resume_chgcur = <300000>;       /** set resume charging current limite   */
-        pmu_shutdown_chgcur = <1300000>;    /** set shutdown charging current limite */
-        pmu_usbcur_limit = <1>;             /** enable usb current limit?            */
-        pmu_usbcur = <500>;                 /** usb limit current value if enabled   */
-        pmu_usbvol_limit = <1>;             /** enable usb vbus voltage limit        */
-        pmu_usbvol = <4400>;                /** voltage limit value if enabled       */
-        pmu_pwroff_vol = <3200>;            /** hardware force power off voltage     */
-        pmu_pwron_vol = <2900>;             /** power on when battery voltage above  */
-        pmu_pekoff_time = <6000>;           /** long press to power off system       */
-        pmu_pekoff_en  = <1>;               /** enable long press to PWR OFF system  */
-        pmu_peklong_time = <1500>;          /** threshold to detect long press       */
-        pmu_pwrok_time   = <64>;            /** delay to detect pwr ok signal        */
-        pmu_pwrnoe_time = <2000>;           /**                                      */
-        pmu_intotp_en = <1>;                /** over temperature protection enable   */
-        pmu_pekon_time = <128>;             /** powerkey hold time for power on      */
-        pmu_charge_efficiency = <99>;       /** efficient of charging                */
-        pmu_bat_curve = <
-         /* ocv, charge, discharge */
-            3132      0       0
-            3273      0       0
-            3414      0       0
-            3555      0       0  
-            3625      1       3  
-            3660      2       7  
-            3696      7      14 
-            3731     12      22 
-            3766     18      37 
-            3801     37      49 
-            3836     51      57
-            3872     57      63
-            3942     69      73
-            4012     80      82
-            4083     89      90
-            4153    100     100>;
-	};
-
-    pmu {
-        compatible = "amlogic, aml_pmu_prober";                 /* fixed for pmu driver, don't change   */
-        #address-cells = <1>;
-        #size-cells = <0>;
-//$$ DEVICE = "Pmu_axp202"
-//$$ L2 PROP_STR = "sub_type"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_U32 = "reg"
-//$$ L2 PROP_U32 = "soft_limit_to99"
-//$$ L2 PROP_U32 = "ddr_voltage"
-//$$ L2 PROP_U32 = "vddao_voltage"
-//$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
-//$$ L2 PROP_STR = "status"
-        axp202 { /* PMU for AXP */
-            compatible = "axp_mfd";                             /* for driver probe, must have          */
-            sub_type = "axp20_mfd";                             /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x34>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
-            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
-            board_battery = <&battery_parameter>;               /** battery parameter used, must have    */
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
-//$$ DEVICE = "Pmu_aml1212"
-//$$ L2 PROP_STR = "sub_type"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_U32 = "reg"
-//$$ L2 PROP_U32 = "soft_limit_to99"
-//$$ L2 PROP_U32 = "ddr_voltage"
-//$$ L2 PROP_U32 = "vddao_voltage"
-//$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
-//$$ L2 PROP_STR = "status"
-        aml1212{                                                /* PMU for AML1212, see comment above   */
-            compatible = "aml_pmu";                             /* for driver probe, must have          */
-            sub_type = "aml1212";                               /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x35>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
-            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
-            board_battery = <&battery_parameter>;               /** battery parameter used, must have    */
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
-//$$ DEVICE = "Pmu_rn5t618"
-//$$ L2 PROP_STR = "sub_type"
-//$$ L2 PROP_STR = "i2c_bus"
-//$$ L2 PROP_U32 = "reg"
-//$$ L2 PROP_U32 = "soft_limit_to99"
-//$$ L2 PROP_U32 = "ddr_voltage"
-//$$ L2 PROP_U32 = "vddao_voltage"
-//$$ L2 PROP_CHOICE "battery_parameter_match" = "board_battery"
-//$$ L2 PROP_STR = "status"
-        rn5t618{                                                /* PMU for RN5T618, see comment above   */
-            compatible = "ricoh_pmu";                           /* for driver probe, must have          */
-            sub_type = "rn5t618";                               /** sub type of pmu family, must have    */
-            i2c_bus = "i2c_bus_ao";                             /** attached i2c bus, must have          */
-            reg = <0x32>;                                       /** device i2c address, must have        */
-            soft_limit_to99 = <0>;                              /** optional                             */
-            ddr_voltage   = <1500000>;                          /** default voltage for DDR, optional    */
-            vddao_voltage = <1200000>;                          /** default voltage for AO, optional     */
-            board_battery = <&battery_parameter>;               /** battery parameter used, must have    */
-            vbus_dcin_short_connect = <1>;
-            status = "disable";                                 /** status of pmu, only one should be OK */
-        };
     };
 
 /// ***************************************************************************************
@@ -934,6 +973,7 @@ void root_func(){
             "MICBIAS","MAIN MIC",
             "LINPUT1","MICBIAS";
         mute_gpio = "GPIO_BSD_EN";
+        hp_disable;
         //mute_inv;
         hp_paraments = <800 300 0 5 1>;
         pinctrl-names = "aml_snd_m8";
@@ -1569,6 +1609,70 @@ void root_func(){
             amlogic,pullup=<1>;
             amlogic,pullupen=<1>;
         };
+sdhc_sd_clk_cmd_pins:sdhc_sd_clk_cmd_pins{
+            amlogic,setmask=<2 0x00000030>;         /*sdhc b*/
+            amlogic,clrmask=<5 0x00007c00           /*sdhc a*/
+                                4 0x7c000000        /*sdhc c*/
+                                2 0x0000fc00        /*sdio b*/
+                                8 0x00000600>;      /*UART*/
+            amlogic,pins = "CARD_2","CARD_3"; /* CARD_2:CLK, CARD_3:CMD */
+            amlogic,enable-output=<1>; /* 0:output, 1:input */
+            amlogic,pullup=<1>;
+            amlogic,pullupen=<1>;
+        };
+        sdhc_sd_all_pins:sdhc_sd_all_pins{
+            amlogic,setmask=<2 0x000000f0>;         /*sdhc b*/
+            amlogic,clrmask=<5 0x00007c00           /*sdhc a*/
+                                4 0x7c000000        /*sdhc c*/
+                                2 0x0000fc00        /*sdio b*/
+                                8 0x00000600>;      /*UART*/
+            amlogic,pins="CARD_0","CARD_1","CARD_2","CARD_3","CARD_4","CARD_5";
+            amlogic,enable-output=<1>; /* 0:output, 1:input */
+            amlogic,pullup=<1>;
+            amlogic,pullupen=<1>;
+        };
+
+        sdhc_emmc_clk_cmd_pins:sdhc_emmc_clk_cmd_pins{
+            amlogic,setmask=<4 0x0c000000>;         /*bit[26-27] */
+            amlogic,clrmask=<2 0x04c000f0           /*sdhc b & nand*/
+                                5 0x00007c00        /*sdhc a*/
+                                6 0x3f000000>;        /*sdio c*/
+            amlogic,pins = "BOOT_16","BOOT_17"; /** BOOT_16:CMD, BOOT_17:CLK */
+            amlogic,enable-output=<1>; /** 0:output, 1:input */
+            amlogic,pullup=<1>;
+            amlogic,pullupen=<1>;
+        };
+        sdhc_emmc_all_pins:sdhc_emmc_all_pins{
+            amlogic,setmask=<4 0x7c000000>;         /*sdhc c*/
+            amlogic,clrmask=<2 0x04c000f0           /*sdhc b & nand*/
+                                5 0x00007c00        /*sdhc a*/
+                                6 0x3f000000>;        /*sdio c*/
+            amlogic,pins = "BOOT_0","BOOT_1","BOOT_2","BOOT_3","BOOT_4","BOOT_5","BOOT_6","BOOT_7","BOOT_16","BOOT_17";
+            amlogic,enable-output=<1>; /** 0:output, 1:input */
+            amlogic,pullup=<1>;
+            amlogic,pullupen=<1>;
+        };
+
+        sdhc_sdio_clk_cmd_pins:sdhc_sdio_clk_cmd_pins{
+            amlogic,setmask=<5 0x00000c00>;         /*sdhc a bit[10-11] */
+            amlogic,clrmask=<2 0x058000f0           /*sdhc b*/
+                                4 0x7c000000        /*sdhc c */
+                                8 0x0000003f>;        /*sdio a*/
+            amlogic,pins = "GPIOX_8","GPIOX_9"; /** BOOT_16:CMD, BOOT_17:CLK */
+            amlogic,enable-output=<1>; /** 0:output, 1:input */
+            amlogic,pullup=<1>;
+            amlogic,pullupen=<1>;
+        };
+        sdhc_sdio_all_pins:sdhc_sdio_all_pins{
+            amlogic,setmask=<5 0x00006c00>;         /*sdhc a*/
+            amlogic,clrmask=<2 0x058000f0           /*sdhc b*/
+                                4 0x7c000000        /*sdhc c */
+                                8 0x0000003f>;        /*sdio a*/
+            amlogic,pins = "GPIOX_0","GPIOX_1","GPIOX_2","GPIOX_3","GPIOX_8","GPIOX_9";
+            amlogic,enable-output=<1>; /** 0:output, 1:input */
+            amlogic,pullup=<1>;
+            amlogic,pullupen=<1>;
+        };
 
 //$$ MATCH "Camera_pin_0_match" = "&aml_cam_gpio_pins"
 //$$ L2 PROP_U32 4 = "amlogic,setmask"
@@ -1655,6 +1759,16 @@ void root_func(){
 			amlogic,setmask=<5 0xf>;
 			amlogic,clrmask=<2 0x380000>;
 			amlogic,pins = "BOOT_11","BOOT_12","BOOT_13","BOOT_18";
+		};
+//$$ MATCH "meson_vcck_dvfs_pin_0_match" = "&aml_pwm_pins"
+//$$ L2 PROP_U32 2 = "amlogic,setmask"
+//$$ L2 PROP_U32 2 = "amlogic,clrmask"
+//$$ L2 PROP_STR = "amlogic,pins"
+		aml_pwm_pins:aml_pwm{
+		    	amlogic,setmask=<3 0x1000000>;
+			amlogic,clrmask=<0 0x48
+					 7 0x10000020>;
+			amlogic,pins="GPIODV_9";
 		};
 
 	};

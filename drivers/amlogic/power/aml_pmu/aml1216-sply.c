@@ -416,11 +416,11 @@ int aml1216_set_charge_end_rate(int rate)
     aml1216_read(AML1216_CHG_CTRL6, &val);
     switch (rate) {
     case 10:
-        val &= ~(0x01 << 3);
+        val &= ~(0x10);
         break;
 
     case 20:
-        val |= (0x01 << 3);
+        val |= (0x10);
         break;
 
     default:
@@ -1236,11 +1236,17 @@ static int aml1216_update_state(struct aml_charger *charger)
 
     if (vsys_voltage >= 4350)
     {
+        aml1216_set_bits(0x0035, 0x00, 0x07);
+        aml1216_set_bits(0x003e, 0x00, 0x07);
+        aml1216_set_bits(0x0047, 0x00, 0x07);
         aml1216_set_bits(0x004f, 0x08, 0x08);
     }
     else
     {
         aml1216_set_bits(0x004f, 0x00, 0x08);
+        aml1216_set_bits(0x0035, 0x04, 0x07);
+        aml1216_set_bits(0x003e, 0x04, 0x07);
+        aml1216_set_bits(0x0047, 0x04, 0x07);
     } 
     charger->vbat = aml1216_get_battery_voltage();
     charger->ocv  = aml1216_cal_ocv(charger->ibat, charger->vbat, charger->charge_status);

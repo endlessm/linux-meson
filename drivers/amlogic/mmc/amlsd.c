@@ -922,7 +922,7 @@ static int aml_is_card_insert (struct amlsd_platform * pdata)
 	return ret;
 }
 
-#ifdef CONFIG_ARCH_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 static int aml_is_sdjtag(struct amlsd_platform * pdata)
 {
     int card0;
@@ -1071,7 +1071,7 @@ void aml_sd_uart_detect_clr (struct amlsd_platform* pdata)
 
 void aml_sd_uart_detect (struct amlsd_platform* pdata)
 {
-#ifdef CONFIG_ARCH_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     static bool is_jtag = false;
 
     if (aml_is_card_insert(pdata)){
@@ -1169,7 +1169,7 @@ irqreturn_t aml_sd_irq_cd(int irq, void *dev_id)
 void aml_sduart_pre (struct amlsd_platform* pdata)
 {
     if (((pdata->port == MESON_SDIO_PORT_B) || (pdata->port == MESON_SDIO_PORT_XC_B))) {
-#ifdef CONFIG_ARCH_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
         // clear pinmux of CARD_0 and CARD_4 to make them used as gpio
         CLEAR_CBUS_REG_MASK(PERIPHS_PIN_MUX_2, 0x00005040);
         CLEAR_CBUS_REG_MASK(PERIPHS_PIN_MUX_8, 0x00000400);
@@ -1212,11 +1212,12 @@ int aml_check_unsupport_cmd(struct mmc_host* mmc, struct mmc_request* mrq)
     if (mmc->caps & MMC_CAP_NONREMOVABLE) { // nonremovable device
         if (pdata->is_fir_init) { // init for the first time
             if (aml_card_type_sdio(pdata)) {
-                if (mrq->cmd->opcode == SD_IO_RW_DIRECT
-                        || mrq->cmd->opcode == SD_IO_RW_EXTENDED
-                        || mrq->cmd->opcode == SD_SEND_IF_COND) { // filter cmd 52/53/8 for a sdio device before init
-                    return aml_cmd_invalid(mmc, mrq);
-                }
+               // if (mrq->cmd->opcode == SD_IO_RW_DIRECT
+               //         || mrq->cmd->opcode == SD_IO_RW_EXTENDED
+               //         || mrq->cmd->opcode == SD_SEND_IF_COND) { // filter cmd 52/53/8 for a sdio device before init
+               //     return aml_cmd_invalid(mmc, mrq);
+               // }
+			   return 0; //for 8189ETV needs ssdio reset when starts
             } else if (aml_card_type_mmc(pdata)) {
                 if (mrq->cmd->opcode == SD_IO_SEND_OP_COND
                         || mrq->cmd->opcode == SD_IO_RW_DIRECT

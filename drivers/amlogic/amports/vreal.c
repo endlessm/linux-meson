@@ -63,9 +63,7 @@
 #define RM_DEF_BUFFER_ADDR        0x01000000
 /* protocol registers */
 #define STATUS_AMRISC   AV_SCRATCH_4
-#define PARSER_ERROR_WRONG_PACKAGE_SIZE 0x80
-#define PARSER_ERROR_WRONG_HEAD_VER     0x40
-#define DECODER_ERROR_VLC_DECODE_TBL    0x20
+
 
 #define RV_PIC_INFO     AV_SCRATCH_5
 #define VPTS_TR         AV_SCRATCH_6
@@ -97,14 +95,9 @@
 #define VF_BUF_NUM          4
 #define PUT_INTERVAL        HZ/100
 
-#define STAT_TIMER_INIT     0x01
-#define STAT_MC_LOAD        0x02
-#define STAT_ISR_REG        0x04
-#define STAT_VF_HOOK        0x08
-#define STAT_TIMER_ARM      0x10
-#define STAT_VDEC_RUN       0x20
 
-#define PARSER_FATAL_ERROR  0x10
+
+
 
 static vframe_t *vreal_vf_peek(void*);
 static vframe_t *vreal_vf_get(void*);
@@ -474,7 +467,7 @@ int vreal_dec_status(struct vdec_status *vstatus)
         vstatus->fps = 96000;
     }
     vstatus->error_count = real_err_count;
-    vstatus->status = ((READ_VREG(STATUS_AMRISC) | fatal_flag)<< 16) | stat;
+    vstatus->status = ((READ_VREG(STATUS_AMRISC)<<16) | fatal_flag ) | stat;
     //printk("vreal_dec_status 0x%x\n", vstatus->status);
     return 0;
 }

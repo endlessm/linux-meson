@@ -113,6 +113,7 @@ obj-$(CONFIG_AM_JPEGDEC) += jpegdec.o
 
 obj-$(CONFIG_AM_ENCODER) += encoder.o
 obj-$(CONFIG_AM_JPEG_ENCODER) += jpegenc.o
+obj-$(CONFIG_AM_PIC_DEC) += picdec.o
 obj-$(CONFIG_AM_VIDEO) += amvideo.o
 ifeq ($(CONFIG_ARCH_MESON8),y)
 amvideo-objs := video.o vpp.o video_prot.o

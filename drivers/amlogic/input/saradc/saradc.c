@@ -9,7 +9,7 @@
 #ifdef CONFIG_MESON_CPU_TEMP_SENSOR
 #include <mach/cpu.h>
 #endif
-#include <linux/amlogic/efuse.h>
+
 #define ENABLE_CALIBRATION
 #ifndef CONFIG_OF
 #define CONFIG_OF
@@ -21,12 +21,7 @@ struct saradc {
 	int ref_nominal;
 	int coef;
 #endif
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-	int flag;
-	int trimming;
-	int adc_efuse;
-	int efuse_flag;
-#endif
+
 };
 
 static struct saradc *gp_saradc;
@@ -142,7 +137,18 @@ static int saradc_get_cal_value(struct saradc *saradc, int val)
 #endif
 
 static u8 print_flag = 0; //(1<<CHAN_4)
-
+#ifdef CONFIG_AMLOGIC_THERMAL
+void temp_sensor_adc_init(int triming)
+{
+	select_temp();
+	set_trimming(triming&0xf);
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	set_trimming1(triming>>4);
+#endif
+	enable_temp();
+	enable_temp__();
+}
+#endif
 int get_adc_sample(int chan)
 {
 	int count;
@@ -417,38 +423,7 @@ static struct class saradc_class = {
     .name = "saradc",
     .class_attrs = saradc_class_attrs,
 };
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-int read_efuse_flag()
-{
-	if(gp_saradc)
-		return gp_saradc->efuse_flag;
-	else 
-		return -2;
-}
-#else
-int read_efuse_flag()
-{
-	printk("read_efuse_flag() function is not implement! \n");
-	return -2;
-}
-#endif
 
-int get_cpu_temp(void)
-{
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-	int ret=-1,tempa;
-	if(gp_saradc->flag){
-		ret=get_adc_sample(6);
-		if(ret>=0){
-			tempa=(18*(ret-gp_saradc->adc_efuse)*10000)/1024/10/85+27;
-			ret=tempa;
-		}
-	}
-	return ret;
-#else
-	return NOT_WRITE_EFUSE;
-#endif
-}
 static int saradc_probe(struct platform_device *pdev)
 {
 	int err;
@@ -465,45 +440,6 @@ static int saradc_probe(struct platform_device *pdev)
 #ifdef ENABLE_CALIBRATION
 	saradc->coef = 0;
   saradc_internal_cal(saradc);
-#endif
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-	char buf[4]={0};
-	int temp=-1,TS_C=-1,flag=0;
-	err=efuse_read_intlItem("temper_cvbs",buf,4);
-	if(err>=0){
-		printk("buf[0]=%x,buf[1]=%x,err=%d\n",buf[0],buf[1],err);
-		temp=0;TS_C=0;
-		temp=buf[1];
-		temp=(temp<<8)|buf[0];
-		TS_C=temp&0xf;
-		flag=0;
-		flag=(temp&0x8000)>>15;
-		temp=(temp&0x7fff)>>4;
-		printk("adc=%d,TS_C=%d,flag=%d\n",temp,TS_C,flag);
-		saradc->flag=flag;
-		saradc->trimming=TS_C;
-		saradc->adc_efuse=temp;
-		saradc->efuse_flag=buf[3]>>4;
-		if(saradc->efuse_flag==EFUEE_MUST_RIGHT ||saradc->efuse_flag==EFUSE_FIXED){
-			if(saradc->flag){
-				saradc->flag=1;
-			}
-		}else{
-			saradc->flag=0;
-		}
-	}
-	else{
-		saradc->flag=flag;
-		saradc->trimming=TS_C;
-		saradc->adc_efuse=temp;
-		saradc->efuse_flag=-1;
-	}
-	if(gp_saradc->flag){
-		select_temp();
-		set_trimming(gp_saradc->trimming);
-		enable_temp();
-		enable_temp__();
-	}
 #endif
 	set_cal_voltage(7);
 	spin_lock_init(&saradc->lock);	

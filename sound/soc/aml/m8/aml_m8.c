@@ -514,72 +514,79 @@ static int aml_asoc_init(struct snd_soc_pcm_runtime *rtd)
                 ARRAY_SIZE(aml_m8_controls));
     if (ret)
        return ret;
-#if HP_DET
-
-    p_aml_audio->sdev.name = "h2w";//for report headphone to android
-    ret = switch_dev_register(&p_aml_audio->sdev);
-    if (ret < 0){
-        printk(KERN_ERR "ASoC: register hp switch dev failed\n");
-        return ret;
-    }
-
-    p_aml_audio->mic_sdev.name = "mic_dev";//for micphone detect
-    ret = switch_dev_register(&p_aml_audio->mic_sdev);
-    if (ret < 0){
-        printk(KERN_ERR "ASoC: register mic switch dev failed\n");
-        return ret;
-    }
-
     /* Add specific widgets */
     snd_soc_dapm_new_controls(dapm, aml_asoc_dapm_widgets,
                   ARRAY_SIZE(aml_asoc_dapm_widgets));
-    ret = snd_soc_jack_new(codec, "hp switch", SND_JACK_HEADPHONE, &p_aml_audio->jack);
-    if (ret < 0) {
-        printk(KERN_WARNING "Failed to alloc resource for hp switch\n");
-    } else {
-        ret = snd_soc_jack_add_pins(&p_aml_audio->jack, ARRAY_SIZE(jack_pins), jack_pins);
-        if (ret < 0) {
-            printk(KERN_WARNING "Failed to setup hp pins\n");
+#if HP_DET
+
+    p_aml_audio->hp_disable = of_property_read_bool(card->dev->of_node,"hp_disable");
+
+    printk(KERN_INFO "p_aml_audio->hp_disable=%d\n",p_aml_audio->hp_disable);
+
+    if(!p_aml_audio->hp_disable){
+
+        p_aml_audio->sdev.name = "h2w";//for report headphone to android
+        ret = switch_dev_register(&p_aml_audio->sdev);
+        if (ret < 0){
+            printk(KERN_ERR "ASoC: register hp switch dev failed\n");
+            return ret;
         }
+
+        p_aml_audio->mic_sdev.name = "mic_dev";//for micphone detect
+        ret = switch_dev_register(&p_aml_audio->mic_sdev);
+        if (ret < 0){
+            printk(KERN_ERR "ASoC: register mic switch dev failed\n");
+            return ret;
+        }
+        ret = snd_soc_jack_new(codec, "hp switch", SND_JACK_HEADPHONE, &p_aml_audio->jack);
+        if (ret < 0) {
+            printk(KERN_WARNING "Failed to alloc resource for hp switch\n");
+        } else {
+            ret = snd_soc_jack_add_pins(&p_aml_audio->jack, ARRAY_SIZE(jack_pins), jack_pins);
+            if (ret < 0) {
+                printk(KERN_WARNING "Failed to setup hp pins\n");
+            }
+        }
+
+        p_aml_audio->hp_det_status = true;
+        p_aml_audio->mic_det = of_property_read_bool(card->dev->of_node,"mic_det");
+
+        printk("entern %s : mic_det=%d \n",__func__,p_aml_audio->mic_det);
+        ret = of_property_read_u32_array(card->dev->of_node, "hp_paraments", &hp_paraments[0], 5);
+        if(ret){
+            printk("falied to get hp detect paraments from dts file\n");
+        }else{
+            p_aml_audio->hp_val_h  = hp_paraments[0];  // hp adc value higher base, hp unplugged
+            p_aml_audio->hp_val_l  = hp_paraments[1];  // hp adc value low base, 3 section hp plugged.
+            p_aml_audio->mic_val   = hp_paraments[2];  // hp adc value mic detect value.
+            p_aml_audio->hp_detal  = hp_paraments[3];  // hp adc value test toerance
+            p_aml_audio->hp_adc_ch = hp_paraments[4];  // get adc value from which adc port for hp detect
+
+            printk("hp detect paraments: h=%d,l=%d,mic=%d,det=%d,ch=%d \n",p_aml_audio->hp_val_h,p_aml_audio->hp_val_l,
+                p_aml_audio->mic_val,p_aml_audio->hp_detal,p_aml_audio->hp_adc_ch);
+        }
+        
+        init_timer(&p_aml_audio->timer);
+        p_aml_audio->timer.function = aml_asoc_timer_func;
+        p_aml_audio->timer.data = (unsigned long)p_aml_audio;
+        p_aml_audio->data= (void*)card;
+
+        INIT_WORK(&p_aml_audio->work, aml_asoc_work_func);
+        mutex_init(&p_aml_audio->lock);
+
+        mutex_lock(&p_aml_audio->lock);
+        if (!p_aml_audio->timer_en) {
+            aml_audio_start_timer(p_aml_audio, msecs_to_jiffies(100));
+        }
+        mutex_unlock(&p_aml_audio->lock);
     }
 
-    p_aml_audio->hp_det_status = true;
-    p_aml_audio->mic_det = of_property_read_bool(card->dev->of_node,"mic_det");
+#endif
 
-    printk("entern %s : mic_det=%d \n",__func__,p_aml_audio->mic_det);
-    ret = of_property_read_u32_array(card->dev->of_node, "hp_paraments", &hp_paraments[0], 5);
-    if(ret){
-        printk("falied to get hp detect paraments from dts file\n");
-    }else{
-        p_aml_audio->hp_val_h  = hp_paraments[0];  // hp adc value higher base, hp unplugged
-        p_aml_audio->hp_val_l  = hp_paraments[1];  // hp adc value low base, 3 section hp plugged.
-        p_aml_audio->mic_val   = hp_paraments[2];  // hp adc value mic detect value.
-        p_aml_audio->hp_detal  = hp_paraments[3];  // hp adc value test toerance
-        p_aml_audio->hp_adc_ch = hp_paraments[4];  // get adc value from which adc port for hp detect
-
-        printk("hp detect paraments: h=%d,l=%d,mic=%d,det=%d,ch=%d \n",p_aml_audio->hp_val_h,p_aml_audio->hp_val_l,
-            p_aml_audio->mic_val,p_aml_audio->hp_detal,p_aml_audio->hp_adc_ch);
-    }
     ret = of_property_read_u32(card->dev->of_node, "sleep_time", &p_aml_audio->sleep_time);
     if(ret)
         printk("falied to get spk event delay time paraments from dts file\n");
-    printk("***delay_time = %d****\n",p_aml_audio->sleep_time);
-    
-    init_timer(&p_aml_audio->timer);
-    p_aml_audio->timer.function = aml_asoc_timer_func;
-    p_aml_audio->timer.data = (unsigned long)p_aml_audio;
-    p_aml_audio->data= (void*)card;
-
-    INIT_WORK(&p_aml_audio->work, aml_asoc_work_func);
-    mutex_init(&p_aml_audio->lock);
-
-    mutex_lock(&p_aml_audio->lock);
-    if (!p_aml_audio->timer_en) {
-        aml_audio_start_timer(p_aml_audio, msecs_to_jiffies(100));
-    }
-    mutex_unlock(&p_aml_audio->lock);
-
-#endif
+    printk(KERN_INFO "spk_event delay_time = %d\n",p_aml_audio->sleep_time);
 
     return 0;
 }

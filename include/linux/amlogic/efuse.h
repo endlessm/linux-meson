@@ -3,7 +3,7 @@
 
 #include <linux/ioctl.h>
 #include <mach/efuse.h>
-
+#include <linux/types.h>
 #define EFUSE_ENCRYPT_DISABLE   _IO('f', 0x10)
 #define EFUSE_ENCRYPT_ENABLE    _IO('f', 0x20)
 #define EFUSE_ENCRYPT_RESET     _IO('f', 0x30)

@@ -205,6 +205,23 @@ struct buf_status {
         unsigned int write_pointer;
 };
 
+/*struct vdec_status.status*/
+#define STAT_TIMER_INIT     0x01
+#define STAT_MC_LOAD        0x02
+#define STAT_ISR_REG        0x04
+#define STAT_VF_HOOK        0x08
+#define STAT_TIMER_ARM      0x10
+#define STAT_VDEC_RUN       0x20
+//-/*struct vdec_status.status on error*/
+
+#define PARSER_FATAL_ERROR              (0x10<<16)
+#define DECODER_ERROR_VLC_DECODE_TBL    (0x20<<16)
+#define PARSER_ERROR_WRONG_HEAD_VER     (0x40<<16)
+#define PARSER_ERROR_WRONG_PACKAGE_SIZE (0x80<<16)
+#define DECODER_FATAL_ERROR_SIZE_OVERFLOW     (0x100<<16)
+#define DECODER_FATAL_ERROR_UNKNOW             (0x200<<16)
+#define DECODER_ERROR_MASK	(0xffff<<16)
+
 
 struct vdec_status {
         unsigned int width;

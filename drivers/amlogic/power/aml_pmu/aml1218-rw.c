@@ -363,7 +363,8 @@ int aml1218_get_dcdc_voltage(int dcdc, uint32_t *uV)
     int addr;
     uint8_t val;
     int ret;
-
+    int start;
+	
     if (dcdc == 4) {
         ret = aml1218_read(addr, &val);
         if (ret) {
@@ -381,14 +382,15 @@ int aml1218_get_dcdc_voltage(int dcdc, uint32_t *uV)
     if (ret) {
         return ret;    
     }
+    val &= 0x7e;
+    val >>= 1;
     if (dcdc == 3)
     {
-        *uV = (1450 * 1000 + val * 50000); //step: 50 mv
-       
+        *uV = (3600000 - val * 50000); //step: 50 mv
     }
     else
     {
-        *uV = (680 * 1000 + val * 20000); //step: 20 mv
+        *uV = (1881300 - val * 18750); //step: 20 mv
     }
     
     return 0;

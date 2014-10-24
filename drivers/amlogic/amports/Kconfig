@@ -124,6 +124,13 @@ config AM_JPEG_ENCODER
 	select AM_PTSSERVER
 	help
 	  Driver for jpeg encoder.	  
+config AM_PIC_DEC
+	tristate "Amlogic picture decoder"
+	default y
+	
+	select AM_PTSSERVER
+	help
+	  Driver for picture decoder.	  	  
 config AM_VDEC_REAL
 	tristate "Amlogic Real Video Decoder"
     default y

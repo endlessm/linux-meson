@@ -139,7 +139,6 @@ static int amlogic_set_mode(struct thermal_zone_device *thermal,
 	struct  amlogic_thermal_platform_data *pdata= thermal->devdata;
 	struct cpucore_cooling_device *cpucore_device =NULL;
 	struct gpucore_cooling_device *gpucore_device = NULL;
-	
 	if(!pdata)
 		return -EINVAL;
 	
@@ -930,35 +929,26 @@ static int amlogic_thermal_probe(struct platform_device *pdev)
 	int ret;
 	struct amlogic_thermal_platform_data *pdata=NULL;
 	//pdata = amlogic_get_driver_data(pdev);
-	ret=read_efuse_flag();
-	printk("thermal efuse version 0x%x\n",ret);
-	if(ret<0){
-		printk("read efuse error or adc error ret=%d\n",ret);
-		return -1;
-	}
 #ifdef CONFIG_AML_VIRTUAL_THERMAL
-	if(NOT_WRITE_EFUSE==ret  || EFUSE_MIGHT_WRONG){
+	ret=thermal_firmware_init();
+	if(ret<0){
 		printk("%s, this chip is not trimmed, use virtual thermal\n", __func__);
 		trim_flag = 0;
-	} else {
+	}else{
 		printk("%s, this chip is trimmed, use thermal\n", __func__);
-        trim_flag = 1;    
-    }
-    aml_virtaul_thermal_probe(pdev);
-    INIT_DELAYED_WORK(&freq_collect_work, collect_freq_work); 
-    schedule_delayed_work(&freq_collect_work, msecs_to_jiffies(100)); 
-    atomic_set(&freq_update_flag, 0);
+		trim_flag = 1;
+	}
+	if(!trim_flag){
+		aml_virtaul_thermal_probe(pdev);
+		INIT_DELAYED_WORK(&freq_collect_work, collect_freq_work);
+		schedule_delayed_work(&freq_collect_work, msecs_to_jiffies(100));
+		atomic_set(&freq_update_flag, 0);
+	}
 #else
-	if(NOT_WRITE_EFUSE==ret){
-		printk("%s, this chip is not trimmed\n", __func__);
-		return -1;
-	}
-	if(EFUSE_MIGHT_WRONG==ret){
-		printk("%s, this chip is not trimmed, stop thermal\n", __func__);
-		return -1;
-	}
+	ret=thermal_firmware_init();
+	if(ret<0)
+		return ret;
 #endif
-	
 	dev_info(&pdev->dev, "amlogic thermal probe start\n");
 	pdata = amlogic_thermal_initialize(pdev);
 	if (!pdata) {

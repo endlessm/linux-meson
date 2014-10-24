@@ -60,7 +60,7 @@ static DEFINE_MUTEX(clock_ops_lock);
 #define SYS_PLL_TABLE_MIN	 24000000
 #define SYS_PLL_TABLE_MAX	2112000000
 
-#define CPU_FREQ_LIMIT 1488000000
+#define CPU_FREQ_LIMIT 1608000000
 
 struct sys_pll_s {
     unsigned int freq;
@@ -565,9 +565,10 @@ int meson_enable(struct clk *clk)
 			if(ret == 0){	
 				if(clk->enable)
 					ret = clk->enable(clk);
-				else if(clk->clk_gate_reg_adr != 0)
+				else if(clk->clk_gate_reg_adr != 0){
 					aml_set_reg32_mask(clk->clk_gate_reg_adr,clk->clk_gate_reg_mask);
 					ret = 0;
+				}
 			}
 				
 			p = clk->clk_ops;

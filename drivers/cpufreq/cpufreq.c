@@ -95,6 +95,7 @@ static int __cpufreq_governor(struct cpufreq_policy *policy,
 		unsigned int event);
 static unsigned int __cpufreq_get(unsigned int cpu);
 static void handle_update(struct work_struct *work);
+static void handle_up_cpu(struct work_struct *work);
 
 /**
  * Two notifier lists: the "policy" list is involved in the
@@ -924,6 +925,7 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 
 	init_completion(&policy->kobj_unregister);
 	INIT_WORK(&policy->update, handle_update);
+	INIT_WORK(&policy->up_cpu, handle_up_cpu);
 
 	/* call driver. From then on the cpufreq must be able
 	 * to accept all calls to ->verify and ->setpolicy for this CPU
@@ -1141,6 +1143,17 @@ static void handle_update(struct work_struct *work)
 	unsigned int cpu = policy->cpu;
 	pr_debug("handle_update for cpu %u called\n", cpu);
 	cpufreq_update_policy(cpu);
+}
+static void handle_up_cpu(struct work_struct *work)
+{
+	int i;
+
+	for(i = 0; i < NR_CPUS; i++){
+		if(cpu_online(i))
+			continue;
+		cpu_up(i);
+		break;
+	}
 }
 
 /**

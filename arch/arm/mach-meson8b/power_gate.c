@@ -93,8 +93,8 @@ static mod_record_t mod_records[MOD_MAX_NUM + 1] = {
 		.flag = 1,
 		.dc_en = 0,
 	},{
-		.name = "uart3",
-		.type = MOD_UART3,
+		.name = "sana",
+		.type = MOD_SANA,
 		.ref = 0,
 		.flag = 1,
 		.dc_en = 0,
@@ -230,7 +230,7 @@ static int _switch_gate(mod_type_t type, int flag)
 			__CLK_GATE_ON(AIU_MIXER_REG);
 			__CLK_GATE_ON(AIU_ADC);
 			__CLK_GATE_ON(AIU_TOP_LEVEL);
-			__CLK_GATE_ON(AIU_PCLK);
+			//__CLK_GATE_ON(AIU_PCLK);
 			__CLK_GATE_ON(AIU_AOCLK);
 			__CLK_GATE_ON(AIU_ICE958_AMCLK);
 		} else { 
@@ -243,7 +243,7 @@ static int _switch_gate(mod_type_t type, int flag)
 			__CLK_GATE_OFF(AIU_MIXER_REG);
 			__CLK_GATE_OFF(AIU_ADC);
 			__CLK_GATE_OFF(AIU_TOP_LEVEL);
-			__CLK_GATE_OFF(AIU_PCLK);
+			//__CLK_GATE_OFF(AIU_PCLK);
 			__CLK_GATE_OFF(AIU_AOCLK);
 			__CLK_GATE_OFF(AIU_ICE958_AMCLK);
 	  
@@ -254,11 +254,11 @@ static int _switch_gate(mod_type_t type, int flag)
 		PRINT_INFO("turn %s hdmi module\n", flag?"on":"off");
 		if (flag) {
 			__CLK_GATE_ON(HDMI_INTR_SYNC);
-			__CLK_GATE_ON(HDMI_RX);
+			//__CLK_GATE_ON(HDMI_RX);
 			__CLK_GATE_ON(HDMI_PCLK);
 		} else {
 			__CLK_GATE_OFF(HDMI_INTR_SYNC);
-			__CLK_GATE_OFF(HDMI_RX);
+			//__CLK_GATE_OFF(HDMI_RX);
 			__CLK_GATE_OFF(HDMI_PCLK);
 		}			
 		break;
@@ -299,23 +299,23 @@ static int _switch_gate(mod_type_t type, int flag)
 		}
 		break;
 	case MOD_TCON:
-		PRINT_INFO("turn %s tcon module\n", flag?"on":"off");
-		if (flag) {
-			__CLK_GATE_ON(VCLK2_ENCT);
+		//PRINT_INFO("turn %s tcon module\n", flag?"on":"off");
+		/*if (flag) {
+			//__CLK_GATE_ON(VCLK2_ENCT);
 		} else {
-			__CLK_GATE_OFF(VCLK2_ENCT);
-		}
+			//__CLK_GATE_OFF(VCLK2_ENCT);
+		}*/
 		break;
 	case MOD_LCD:
 		PRINT_INFO("turn %s lcd module\n", flag?"on":"off");
 		if (flag) {
-			__CLK_GATE_ON(VCLK2_ENCL);
+			//__CLK_GATE_ON(VCLK2_ENCL);
 			__CLK_GATE_ON(VCLK2_VENCL);
 			__CLK_GATE_ON(EDP_CLK);
 		} else {
 			__CLK_GATE_OFF(EDP_CLK);
 			__CLK_GATE_OFF(VCLK2_VENCL);
-			__CLK_GATE_OFF(VCLK2_ENCL);
+			//__CLK_GATE_OFF(VCLK2_ENCL);
 		}
 		break;
 	#endif
@@ -353,12 +353,12 @@ static int _switch_gate(mod_type_t type, int flag)
 			__CLK_GATE_OFF(UART2);
 		}
 		break;
-	case MOD_UART3:
-		PRINT_INFO("turn %s uart3 module\n", flag?"on":"off");
+	case MOD_SANA:
+		PRINT_INFO("turn %s sana module\n", flag?"on":"off");
 		if (flag) {
-			__CLK_GATE_ON(UART3);
+			__CLK_GATE_ON(SANA);
 		} else {
-			__CLK_GATE_OFF(UART3);
+			__CLK_GATE_OFF(SANA);
 		}
 		break;
 	case MOD_ROM:
@@ -567,13 +567,13 @@ void switch_lcd_mod_gate(int flag)
 	spin_lock_irqsave(&gate_lock, flags);
 	PRINT_INFO("turn %s lcd module\n", flag?"on":"off");
 	if (flag) {
-		__CLK_GATE_ON(VCLK2_ENCL);
+		//__CLK_GATE_ON(VCLK2_ENCL);
 		__CLK_GATE_ON(VCLK2_VENCL);
 		__CLK_GATE_ON(EDP_CLK);
 	} else {
 		__CLK_GATE_OFF(EDP_CLK);
 		__CLK_GATE_OFF(VCLK2_VENCL);
-		__CLK_GATE_OFF(VCLK2_ENCL);
+		//__CLK_GATE_OFF(VCLK2_ENCL);
 	}
 	spin_unlock_irqrestore(&gate_lock, flags);
 }
@@ -586,7 +586,7 @@ void power_gate_init(void)
 	GATE_INIT(AHB_BRIDGE);
 	GATE_INIT(ISA);
 	GATE_INIT(PL310_CBUS);
-	GATE_INIT(_1200XXX);
+	GATE_INIT(PERIPHS_TOP);
 	GATE_INIT(SPICC);
 	GATE_INIT(I2C);
 	GATE_INIT(SAR_ADC);
@@ -599,7 +599,7 @@ void power_gate_init(void)
 	GATE_INIT(SDIO);
 	GATE_INIT(AUD_BUF);
 	GATE_INIT(HIU_PARSER);
-	GATE_INIT(HDMI_RX);
+	//GATE_INIT(HDMI_RX);
 	GATE_INIT(ASSIST_MISC);
 	GATE_INIT(SPI);
 	GATE_INIT(AUD_IN);
@@ -616,7 +616,7 @@ void power_gate_init(void)
 	GATE_INIT(BLK_MOV);
 	GATE_INIT(AIU_TOP_LEVEL);
 	GATE_INIT(UART1);
-	GATE_INIT(CSI_DIG_CLKIN);
+	//GATE_INIT(CSI_DIG_CLKIN);
 	GATE_INIT(GE2D);
 	GATE_INIT(USB0);
 	GATE_INIT(USB1);
@@ -624,6 +624,7 @@ void power_gate_init(void)
 	GATE_INIT(NAND);
 	GATE_INIT(HIU_PARSER_TOP);
 	GATE_INIT(USB_GENERAL);
+	GATE_INIT(VDIN1);
 	GATE_INIT(AHB_ARB0);
 	GATE_INIT(EFUSE);
 	GATE_INIT(ROM_CLK);
@@ -633,11 +634,11 @@ void power_gate_init(void)
 	GATE_INIT(HDMI_PCLK);
 	GATE_INIT(MISC_USB1_TO_DDR);
 	GATE_INIT(MISC_USB0_TO_DDR);
-	GATE_INIT(AIU_PCLK);
+	//GATE_INIT(AIU_PCLK);
 	GATE_INIT(MMC_PCLK);
 	GATE_INIT(MISC_DVIN);
 	GATE_INIT(UART2);
-	GATE_INIT(UART3);
+	GATE_INIT(SANA);
 	GATE_INIT(VPU_INTR);
 	GATE_INIT(SECURE_AHP_APB3);
 	GATE_INIT(CLK81_TO_A9);
@@ -655,8 +656,8 @@ void power_gate_init(void)
 	GATE_INIT(AIU_ICE958_AMCLK);
 	GATE_INIT(ENC480P);
 	GATE_INIT(RANDOM_NUM_GEN1);
-	GATE_INIT(VCLK2_ENCT);
-	GATE_INIT(VCLK2_ENCL);
+	GATE_INIT(GCLK_VENCL_INT);
+	//GATE_INIT(VCLK2_ENCL);
 	GATE_INIT(MMC_CLK);
 	GATE_INIT(VCLK2_VENCL);
 	GATE_INIT(VCLK2_OTHER1);

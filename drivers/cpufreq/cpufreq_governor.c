@@ -472,6 +472,8 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			gov_queue_work(dbs_data, policy,
 					delay_for_sampling_rate(sampling_rate), true);
 
+		if((dbs_data->cdata->governor != GOV_HOTPLUG) && (num_online_cpus() < NR_CPUS))
+			schedule_work(&policy->up_cpu);
 		break;
 
 	case CPUFREQ_GOV_STOP:

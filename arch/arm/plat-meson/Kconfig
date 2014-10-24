@@ -36,6 +36,8 @@ endchoice
 menu "Meson development boards"
 
 source "arch/arm/mach-meson6/Kconfig.boards"
+source "arch/arm/mach-meson6tv/Kconfig.boards"
+source "arch/arm/mach-meson6tvd/Kconfig.boards"
 source "arch/arm/mach-meson8/Kconfig.boards"
 source "arch/arm/mach-meson8b/Kconfig.boards"
 
@@ -116,20 +118,6 @@ config MESON_CUSTOM_BOARD_SUPPORT
 	default n
 	help
 	  This enables board definition from external customer directory
-
-menu "Meson development boards"
-
-source "arch/arm/mach-meson6/Kconfig.boards"
-source "arch/arm/mach-meson6tv/Kconfig.boards"
-source "arch/arm/mach-meson6tvd/Kconfig.boards"
-source "arch/arm/mach-meson8/Kconfig.boards"
-source "arch/arm/mach-meson8b/Kconfig.boards"
-
-#if MESON_CUSTOM_BOARD_SUPPORT
-#isource "customer/meson/dt/Kconfig"
-#endif # MESON_CUSTOM_BOARD_SUPPORT
-
-endmenu # "Meson reference boards"
 
 menu "Meson customer board drivers"
 depends on MESON_CUSTOM_BOARD_SUPPORT

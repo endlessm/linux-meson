@@ -222,6 +222,7 @@ static int gpio_key_probe(struct platform_device *pdev)
     int irq_keyup;
     int irq_keydown;
 #endif
+    int gpio_highz = 0;
 
 		printk("==%s==\n", __func__);
 
@@ -244,6 +245,12 @@ static int gpio_key_probe(struct platform_device *pdev)
         goto get_key_node_fail;
     }
    
+    ret = of_property_read_bool(pdev->dev.of_node, "gpio_high_z");
+    if (ret) {
+        gpio_highz = 1;     
+        printk("gpio request set to High-Z status\n");
+    }
+
 		pdata->key = kzalloc(sizeof(*(pdata->key))*key_size, GFP_KERNEL);
 		if (!(pdata->key)) {
 			dev_err(&pdev->dev, "platform key is required!\n");
@@ -306,8 +313,10 @@ static int gpio_key_probe(struct platform_device *pdev)
 				pdata->key[i].pin = ret;
 				
 				amlogic_gpio_request(pdata->key[i].pin, MOD_NAME);
-				amlogic_gpio_direction_input(pdata->key[i].pin, MOD_NAME);
-				amlogic_set_pull_up_down(pdata->key[i].pin, 1, MOD_NAME);
+                if (!gpio_highz) {
+    				amlogic_gpio_direction_input(pdata->key[i].pin, MOD_NAME);
+	    			amlogic_set_pull_up_down(pdata->key[i].pin, 1, MOD_NAME);
+                }
 
 #ifdef USE_IRQ
                 amlogic_gpio_to_irq(pdata->key[i].pin, MOD_NAME,

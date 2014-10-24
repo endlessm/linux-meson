@@ -1119,6 +1119,8 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		cpufreq_register_notifier(
 			&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
 		mutex_unlock(&gov_lock);
+		if(num_online_cpus() < NR_CPUS)
+			schedule_work(&policy->up_cpu);
 		break;
 
 	case CPUFREQ_GOV_STOP:
