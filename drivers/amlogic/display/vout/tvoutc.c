@@ -351,6 +351,38 @@ void cvbs_cntl_output(unsigned int open)
 }
 #endif
 
+static unsigned int cvbs_performance_index = 0xff;// 0xff for none config from uboot
+void cvbs_performance_config(unsigned int index)
+{
+	cvbs_performance_index = index;
+	return ;
+}
+
+#ifdef CONFIG_CVBS_PERFORMANCE_COMPATIBLITY_SUPPORT
+static void cvbs_performance_enhancement(tvmode_t mode)
+{
+	const reg_t *s;
+	unsigned int index = cvbs_performance_index;
+	unsigned int max = sizeof(tvregs_576cvbs_performance)/sizeof(reg_t*);
+
+	if( TVMODE_576CVBS != mode )
+		return ;
+
+	if( 0xff == index )
+		return ;
+
+	index = (index>=max)?0:index;
+	printk("cvbs performance use table = %d\n", index);
+	s = tvregs_576cvbs_performance[index];
+	while (MREG_END_MARKER != s->reg)
+	{
+    	setreg(s++);
+	}
+	return ;
+}
+
+#endif// end of CVBS_PERFORMANCE_COMPATIBLITY_SUPPORT
+
 int tvoutc_setmode(tvmode_t mode)
 {
     const  reg_t *s;
@@ -414,6 +446,10 @@ int tvoutc_setmode(tvmode_t mode)
     while (MREG_END_MARKER != s->reg)
         setreg(s++);
     printk("%s[%d]\n", __func__, __LINE__);
+
+#ifdef CONFIG_CVBS_PERFORMANCE_COMPATIBLITY_SUPPORT
+	cvbs_performance_enhancement(mode);
+#endif
 
     if(mode >= TVMODE_VGA && mode <= TVMODE_SXGA){
         aml_write_reg32(P_PERIPHS_PIN_MUX_0,aml_read_reg32(P_PERIPHS_PIN_MUX_0)|(3<<20));

@@ -511,7 +511,7 @@ static void aml_sdhc_reg_init(struct amlsd_host* host)
 
     /*Send Stop Cmd automatically*/
     if(IS_MESON_M8M2_CPU)
-         misc.txstart_thres = 4; // [29:31] = 7
+         misc.txstart_thres = 6;//4; // [29:31] = 7
     else
          misc.txstart_thres = 7; // [29:31] = 7
     misc.manual_stop = 0;
@@ -1239,7 +1239,7 @@ timeout_handle:
         //spin_lock_irqsave(&host->mrq_lock, flags);
         aml_sdhc_send_stop(host);                
         //spin_unlock_irqrestore(&host->mrq_lock, flags);
-        schedule_delayed_work(&host->timeout, 1);
+        //schedule_delayed_work(&host->timeout, 50);
     }
     else{
         spin_lock_irqsave(&host->mrq_lock, flags);        
@@ -1551,7 +1551,8 @@ static irqreturn_t aml_sdhc_irq(int irq, void *dev_id)
 
 static void aml_sdhc_com_err_handler (struct amlsd_host* host)
 {
-    cancel_delayed_work(&host->timeout);
+    if(delayed_work_pending(&host->timeout))
+        cancel_delayed_work(&host->timeout);
     aml_sdhc_read_response(host->mmc, host->mrq->cmd);
     aml_sdhc_print_err(host);
     aml_sdhc_host_reset(host);
@@ -1583,6 +1584,7 @@ void aml_sdhc_send_stop(struct amlsd_host* host)
     // sdhc_err("before cmd12\n");
    
     /*Already in mrq_lock*/
+    schedule_delayed_work(&host->timeout, 50);
     spin_lock_irqsave(&host->mrq_lock, flags);
     sdhc_err_bak = host->mrq->cmd->error;
     host->mrq->cmd->error = 0;
@@ -1643,6 +1645,8 @@ irqreturn_t aml_sdhc_data_thread(int irq, void *data)
         host->cmd_is_stop = 0;
         mrq->cmd->error = sdhc_err_bak;
         spin_unlock_irqrestore(&host->mrq_lock, flags);
+        if(delayed_work_pending(&host->timeout))
+            cancel_delayed_work(&host->timeout);
         msleep(delay);
         sdhc_err("delay %dms\n", delay);
         aml_sdhc_request_done(host->mmc, host->mrq);
@@ -1656,7 +1660,8 @@ irqreturn_t aml_sdhc_data_thread(int irq, void *data)
         case HOST_TASKLET_DATA:
             sdhc_error_flag = 0;
             BUG_ON(!mrq->data);
-            cancel_delayed_work(&host->timeout);
+            if(delayed_work_pending(&host->timeout))
+                cancel_delayed_work(&host->timeout);
 
             xfer_bytes = mrq->data->blksz*mrq->data->blocks;
             /* copy buffer from dma to data->sg in read cmd*/
@@ -1740,7 +1745,8 @@ irqreturn_t aml_sdhc_data_thread(int irq, void *data)
         case HOST_TASKLET_CMD:
             sdhc_error_flag = 0;
             if(!host->mrq->data){
-                cancel_delayed_work(&host->timeout);
+                if(delayed_work_pending(&host->timeout))
+                    cancel_delayed_work(&host->timeout);
                 spin_lock_irqsave(&host->mrq_lock, flags);
                 host->mrq->cmd->error = 0;
                 host->xfer_step = XFER_TASKLET_CMD;
@@ -1759,7 +1765,8 @@ irqreturn_t aml_sdhc_data_thread(int irq, void *data)
         case HOST_RX_FIFO_FULL:   
         case HOST_RSP_TIMEOUT_ERR:
         case HOST_DAT_TIMEOUT_ERR:                                 
-            cancel_delayed_work(&host->timeout);
+            if(delayed_work_pending(&host->timeout))                            
+                cancel_delayed_work(&host->timeout);
             //aml_sdhc_wait_ready(host, STAT_POLL_TIMEOUT);
             if(aml_sdhc_wait_ready(host, (STAT_POLL_TIMEOUT<<2))){ /*Wait command busy*/
             	sdhc_err("aml_sdhc_wait_ready error fifo or timeout thread\n");

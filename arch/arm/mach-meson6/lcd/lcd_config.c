@@ -1906,7 +1906,19 @@ static void lcd_config_assign(Lcd_Config_t *pConf)
     pConf->lcd_power_ctrl.ports_ctrl = lcd_ports_ctrl;
 
     pConf->lcd_misc_ctrl.vpp_sel = 0;
-    pConf->lcd_misc_ctrl.lcd_status = 1;
+    if (pConf->lcd_basic.lcd_type == LCD_DIGITAL_TTL) {
+        if (READ_LCD_REG(ENCT_VIDEO_EN) & 1)
+            pConf->lcd_misc_ctrl.lcd_status = 1;
+        else
+            pConf->lcd_misc_ctrl.lcd_status = 0;
+
+    }
+    else {
+        if (READ_LCD_REG(ENCL_VIDEO_EN) & 1)
+            pConf->lcd_misc_ctrl.lcd_status = 1;
+        else
+            pConf->lcd_misc_ctrl.lcd_status = 0;
+    }
     pConf->lcd_misc_ctrl.module_enable = lcd_module_enable;
     pConf->lcd_misc_ctrl.module_disable = lcd_module_disable;
     pConf->lcd_misc_ctrl.lcd_test = lcd_test;

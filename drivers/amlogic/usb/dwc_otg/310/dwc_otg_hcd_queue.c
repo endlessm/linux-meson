@@ -588,8 +588,6 @@ void dwc_otg_hcd_qh_deactivate(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh,
 		if (qh->do_split) {
 			/* Schedule the next continuing periodic split transfer */
 			if (sched_next_periodic_split) {
-				if(qh->start_split_frame == 0xffff)
-					printk("##### %s bug!!! start_split_frame error\n",__func__);
 				qh->sched_frame = frame_number;
 				if (dwc_frame_num_le(frame_number,
 						     dwc_frame_num_inc
@@ -617,7 +615,7 @@ void dwc_otg_hcd_qh_deactivate(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh,
 					qh->sched_frame = frame_number;
 				}
 				qh->sched_frame |= 0x7;
-				qh->start_split_frame = 0xffff;//qh->sched_frame;
+				qh->start_split_frame = qh->sched_frame;
 			}
 		} else {
 			qh->sched_frame =

@@ -54,14 +54,15 @@ static void aml_i2c_set_clk(struct aml_i2c *i2c, unsigned int speed)
 	unsigned int sys_clk_rate;
 	struct clk *sys_clk;
 	struct aml_i2c_reg_ctrl* ctrl;
-	
-	BUG_ON(!speed);
-	ctrl = (struct aml_i2c_reg_ctrl*)&(i2c->master_regs->i2c_ctrl);
+
 	sys_clk = clk_get_sys("clk81", NULL);
 	sys_clk_rate = clk_get_rate(sys_clk);
-	i2c_clock_set = sys_clk_rate / speed;	
+	//sys_clk_rate = get_mpeg_clk();
+
+	i2c_clock_set = sys_clk_rate / speed;
 #if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8
 	i2c_clock_set >>= 1;
+	ctrl = (struct aml_i2c_reg_ctrl*)&(i2c->master_regs->i2c_ctrl);
 	if (i2c_clock_set > 0xfff) i2c_clock_set = 0xfff;
 	ctrl->clk_delay = i2c_clock_set & 0x3ff;
 	ctrl->clk_delay_ext = i2c_clock_set >> 10;
@@ -71,8 +72,9 @@ static void aml_i2c_set_clk(struct aml_i2c *i2c, unsigned int speed)
 	i2c->master_regs->i2c_slave_addr &= ~(0x3f<<8); //no filter on scl&sda
 #else
 	i2c_clock_set >>= 2;
-	if (i2c_clock_set > 0x3ff) i2c_clock_set = 0x3ff;
-	ctrl->clk_delay = i2c_clock_set;
+
+	ctrl = (struct aml_i2c_reg_ctrl*)&(i2c->master_regs->i2c_ctrl);
+	ctrl->clk_delay = i2c_clock_set & AML_I2C_CTRL_CLK_DELAY_MASK;
 #endif
 }
 
@@ -249,8 +251,12 @@ static void aml_i2c_start_token_xfer(struct aml_i2c *i2c)
 static int aml_i2c_do_address(struct aml_i2c *i2c, unsigned int addr)
 {
 	i2c->cur_slave_addr = addr&0x7f;
+#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8
 	i2c->master_regs->i2c_slave_addr &= ~0xff;
 	i2c->master_regs->i2c_slave_addr |= i2c->cur_slave_addr<<1;
+#else
+	i2c->master_regs->i2c_slave_addr = i2c->cur_slave_addr<<1;
+#endif
 	return 0;
 }
 
@@ -267,7 +273,11 @@ static void aml_i2c_stop(struct aml_i2c *i2c)
 	i2c->token_tag[0]=TOKEN_STOP;
 	aml_i2c_set_token_list(i2c);
 	aml_i2c_start_token_xfer(i2c);
+#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8
 	aml_i2c_wait_ack(i2c);
+#else
+  	udelay(i2c->wait_xfer_interval);
+#endif
   }
 	aml_i2c_clear_token_list(i2c);	
 }
@@ -1259,7 +1269,7 @@ static struct platform_driver aml_i2c_driver = {
 static int __init aml_i2c_init(void)
 {
     int ret;
-    //printk(KERN_INFO "%s : %s\n", __FILE__, __FUNCTION__);
+    printk(KERN_INFO "aml_i2c version: 20140813\n");
     ret = platform_driver_register(&aml_i2c_driver);
     return ret;
 }

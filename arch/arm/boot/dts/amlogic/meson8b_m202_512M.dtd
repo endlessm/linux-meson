@@ -461,7 +461,7 @@ void root_func(){
             gpio_dat3 = "CARD_4";
             jtag_pin = "CARD_0";
             gpio_cd = "CARD_6";
-            gpio_ro = "GPIODV_25";
+//            gpio_ro = "GPIODV_25";
             irq_in = <3>;
             irq_out = <5>;
             card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
@@ -937,6 +937,14 @@ void root_func(){
     audio_m8_audio{
         compatible = "amlogic,m8_audio_codec";
         dev_name = "aml_m8_codec.0";
+        status = "disable";
+    };
+
+//$$ DEVICE="dummy_codec"
+//$$ L2 PROP_STR = "status"
+    dummy_codec{
+        compatible = "amlogic,aml_dummy_codec";
+        dev_name = "dummy_codec.0";
         status = "okay";
     };
 
@@ -965,7 +973,12 @@ void root_func(){
             i2c_addr = <0x1A>;
             i2c_bus = "i2c_bus_b";
             capless = <1>;
-	    status = "disable";
+            status = "disable";
+        };
+
+        dummy:dummy{
+          codec_name = "dummy_codec";
+          status = "okay";
         };
     };
 
@@ -981,7 +994,7 @@ void root_func(){
     aml_m8_sound_card{
         compatible = "sound_card, aml_snd_m8";
         aml,sound_card = "AML-M8AUDIO";
-        aml,codec_dai = "AML-M8","rt5616-aif1","rt5631-hifi","wm8960-hifi";
+        aml,codec_dai = "AML-M8","rt5616-aif1","rt5631-hifi","wm8960-hifi","dummy_codec";
         //aml,codec_name = "aml_m8_codec.0","rt5616.4-001b";
         //aml,audio-codec = <&rt5616>;
         aml,audio-routing-rt5616 = 
@@ -998,6 +1011,9 @@ void root_func(){
             "HP","HP_R",
             "MICBIAS","MAIN MIC",
             "LINPUT1","MICBIAS";
+        aml,audio-routing-dummy=
+            "Ext Spk","LOUTL",
+            "Ext Spk","LOUTR";
         mute_gpio = "GPIO_BSD_EN";
         hp_disable;
         //mute_inv;
@@ -1180,10 +1196,10 @@ void root_func(){
 		compatible = "amlogic-thermal";
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
-		trip_point=<60 1488001 1488001 511 511 2 2
-			    70 1200001 1200001 435 435 2 2
-			    80  800001 800001  328 328 1 1
-			    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
+        trip_point=<70 1488001 1488001 511 511 3 2
+                    80 1200001 1200001 435 435 2 2
+                    90  800001  800001 328 328 1 1
+                    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
         use_virtual_thermal;

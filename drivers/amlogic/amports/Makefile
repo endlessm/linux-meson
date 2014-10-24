@@ -106,10 +106,16 @@ obj-$(CONFIG_AM_VDEC_AVS) += amvdec_avs.o
 amvdec_avs-objs := vavs.o
 amvdec_avs-y    := vavs.o
 else
+ifeq ($(CONFIG_ARCH_MESON8B),y)
+obj-$(CONFIG_AM_VDEC_AVS) += amvdec_avs.o
+amvdec_avs-objs := vavs.o
+amvdec_avs-y    := vavs.o
+else
 ifeq ($(CONFIG_ARCH_MESON8),y)
 obj-$(CONFIG_AM_VDEC_AVS) += amvdec_avs.o
 amvdec_avs-objs := vavs.o
 amvdec_avs-y    := vavs.o
+endif
 endif
 endif
 endif

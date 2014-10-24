@@ -410,6 +410,7 @@ void sii_signal_notify(unsigned int status)
     return ;
 }
 
+extern void sii9293_cable_status_notify(unsigned int cable_status);
 void SiiRxInterruptHandler(void)
 {
     uint8_t interrupts[NMB_OF_RX_INTERRUPTS];
@@ -548,6 +549,7 @@ void SiiRxInterruptHandler(void)
             rx_isr.shadow_interrupt_mask[INT8] |= RX_M__INTR8__CABLE_IN;            // Enable 5v plug-in interrupt
             SiiRegWrite(RX_A__INTR6_MASK, rx_isr.shadow_interrupt_mask[INT6]);
             SiiRegWrite(RX_A__INTR8_MASK, rx_isr.shadow_interrupt_mask[INT8]);
+            sii9293_cable_status_notify(0);
             
         }
             
@@ -562,6 +564,7 @@ void SiiRxInterruptHandler(void)
             rx_isr.shadow_interrupt_mask[INT8] &= ~RX_M__INTR8__CABLE_IN;           // Disable 5v plug-in interrupt
             SiiRegWrite(RX_A__INTR6_MASK, rx_isr.shadow_interrupt_mask[INT6]);
             SiiRegWrite(RX_A__INTR8_MASK, rx_isr.shadow_interrupt_mask[INT8]);
+			sii9293_cable_status_notify(1);
         }
     }
 }

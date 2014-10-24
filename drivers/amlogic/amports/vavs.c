@@ -837,7 +837,10 @@ static int amvdec_avs_probe(struct platform_device *pdev)
 
         buf_start = mem->start;
         buf_size = mem->end - mem->start + 1;
-        buf_offset = buf_start - ORI_BUFFER_START_ADDR;
+        if(buf_start>ORI_BUFFER_START_ADDR)
+            buf_offset = buf_start - ORI_BUFFER_START_ADDR;
+        else
+            buf_offset = buf_start;
 
         memcpy(&vavs_amstream_dec_info, (void *)mem[1].start, sizeof(vavs_amstream_dec_info));
 

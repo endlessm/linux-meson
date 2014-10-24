@@ -41,6 +41,8 @@
 #include <linux/clk.h>
 #include <linux/amlogic/logo/logo.h>
 
+#define CONFIG_RDMA_IN_RDMAIRQ
+
 #ifndef MESON_CPU_TYPE_MESON8
 #define MESON_CPU_TYPE_MESON8 (MESON_CPU_TYPE_MESON6TV+1)
 #endif
@@ -288,6 +290,11 @@ void vsync_rdma_config(void)
     }
     
     if(enable_ == 1){
+#ifdef CONFIG_RDMA_IN_RDMAIRQ
+        if(pre_enable_!=enable_){
+            rdma_config(1); //triggered by next vsync    
+        }
+#else        
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
         rdma_config(1); //triggered by next vsync    
         vsync_cfg_count++;
@@ -301,6 +308,7 @@ void vsync_rdma_config(void)
             rdma_isr_cfg_count++;
         }
 #endif        
+#endif
     }
     else if( enable_ == 2){
         rdma_config(0); //manually in cur vsync
@@ -334,6 +342,13 @@ EXPORT_SYMBOL(vsync_rdma_config_pre);
 
 static irqreturn_t rdma_isr(int irq, void *dev_id)
 {
+#ifdef CONFIG_RDMA_IN_RDMAIRQ
+     int enable_ = ((enable&enable_mask)|(enable_mask>>8))&0xff;
+     if(enable_ == 1){
+        rdma_config(1); //triggered by next vsync    
+     }
+    irq_count++;
+#else
     int enc_line;
     u32 data32;
 
@@ -370,6 +385,7 @@ static irqreturn_t rdma_isr(int irq, void *dev_id)
     if(enc_line > rdma_done_line_max){
         rdma_done_line_max = enc_line;
     }
+#endif    
     return IRQ_HANDLED;
 }
 
@@ -415,11 +431,18 @@ static int __init rmda_early_init(void)
     rmda_rd_table = kmalloc(RDMA_TABLE_SIZE, GFP_KERNEL);
 #endif
 
+#ifdef CONFIG_RDMA_IN_RDMAIRQ
+    request_irq(INT_RDMA, &rdma_isr,
+                    IRQF_SHARED, "rdma",
+                    (void *)"rdma");
+
+#else
 #if MESON_CPU_TYPE < MESON_CPU_TYPE_MESON8
     request_irq(INT_RDMA, &rdma_isr,
                     IRQF_SHARED, "rdma",
                     (void *)"rdma");
 #endif    
+#endif
     //printk("%s phy_addr %x remap %x table %x\n", __func__, rmda_table_phy_addr, rmda_table_addr_remap, rmda_table); 
     
     return 0;        

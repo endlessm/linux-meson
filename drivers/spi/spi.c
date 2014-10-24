@@ -1351,7 +1351,7 @@ static int __spi_async(struct spi_device *spi, struct spi_message *message)
 	struct spi_master *master = spi->master;
 	struct spi_transfer *xfer;
 
-#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8)
+#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8) && !defined(CONFIG_ARCH_MESON8B)
 	unsigned long flags;
 	spin_lock_irqsave(&master->bus_lock_spinlock, flags);
 #endif
@@ -1396,7 +1396,7 @@ static int __spi_async(struct spi_device *spi, struct spi_message *message)
 	message->spi = spi;
 	message->status = -EINPROGRESS;
 	
-#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8)
+#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8) && !defined(CONFIG_ARCH_MESON8B)
 	spin_unlock_irqrestore(&master->bus_lock_spinlock, flags);
 #endif
 	return master->transfer(spi, message);
@@ -1482,7 +1482,7 @@ EXPORT_SYMBOL_GPL(spi_async);
 int spi_async_locked(struct spi_device *spi, struct spi_message *message)
 {
 	int ret;
-#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8)
+#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8) && !defined(CONFIG_ARCH_MESON8B)
 	unsigned long flags;
 	struct spi_master *master = spi->master;
 
@@ -1490,7 +1490,7 @@ int spi_async_locked(struct spi_device *spi, struct spi_message *message)
 #endif
 	ret = __spi_async(spi, message);
 
-#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8)
+#if !defined(CONFIG_ARCH_MESON6) && !defined(CONFIG_ARCH_MESON8) && !defined(CONFIG_ARCH_MESON8B)
 	spin_unlock_irqrestore(&master->bus_lock_spinlock, flags);
 #endif
 	return ret;

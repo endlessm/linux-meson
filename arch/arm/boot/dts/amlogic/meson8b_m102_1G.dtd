@@ -281,9 +281,8 @@ void root_func(){
         compatible = "amlogic,ion_dev";
         dev_name = "ion_dev";
         status = "ok";
-        share-memory-name = "ppmgr0";
-        share-memory-offset = <0>;
-        share-memory-size = <0x01000000>;//ion_dev use same buffer with ppmgr0
+	reserve-memory = <0x01000000>;
+	reserve-iomap = "true";
     };
 /// ***************************************************************************************
 ///	-	DISP&MM-Vout
@@ -466,7 +465,8 @@ void root_func(){
         //    ocr_avail = <0x200000>;          /*VDD voltage 3.3 ~ 3.4 */
         //    caps = "MMC_CAP_4_BIT_DATA","MMC_CAP_SDIO_IRQ","MMC_CAP_MMC_HIGHSPEED","MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE";
         //    f_min = <300000>;
-        //    f_max = <50000000>;
+        //    //f_max = <50000000>;
+        //    f_max = <30000000>;
         //    max_req_size = <0x20000>;          /**128KB*/
         //    card_type = <3>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
         //};
@@ -1587,6 +1587,29 @@ void root_func(){
             power_gpio = "GPIOX_11";
             valid = "low";
 	};  
+	
+/// ***************************************************************************************
+///	-	WiFi
+//$$ MODULE="WiFi"
+//$$ DEVICE="aml_broadcm_wifi"
+//$$ L2 PROP_STR = "status"
+//$$ L2 PROP_STR = "interrupt_pin"
+//$$ L2 PROP_U32 = "irq_num"
+//$$ L2 PROP_STR = "irq_trigger_type"
+//$$ L2 PROP_STR = "power_on_pin"
+//$$ L2 PROP_STR = "clock_32k_pin"
+//    wifi{
+//		compatible = "amlogic,aml_broadcm_wifi";
+//		dev_name = "aml_broadcm_wifi";
+//		status = "okay";
+//		interrupt_pin = "GPIOX_21";
+//		irq_num = <4>;
+//		irq_trigger_type = "GPIO_IRQ_HIGH";
+// //		power_on_pin = "GPIOAO_6";
+//		power_on_pin2 = "GPIOX_11";
+//		clock_32k_pin = "GPIOX_10";
+//	};	
+	
     
 /// ***************************************************************************************
 ///	-	Nand
@@ -1653,10 +1676,10 @@ void root_func(){
 		compatible = "amlogic-thermal";
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
-		trip_point=<60 1488001 1488001 511 511 2 2
-			    70 1200001 1200001 435 435 2 2
-			    80  800001 800001  328 328 1 1
-			    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
+        trip_point=<70 1488001 1488001 511 511 3 2
+                    80 1200001 1200001 435 435 2 2
+                    90  800001  800001 328 328 1 1
+                    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
         use_virtual_thermal;

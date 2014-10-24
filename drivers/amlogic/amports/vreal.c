@@ -71,6 +71,7 @@
 #define FROM_AMRISC     AV_SCRATCH_8
 #define TO_AMRISC       AV_SCRATCH_9
 #define SKIP_B_AMRISC   AV_SCRATCH_A
+#define INT_REASON      AV_SCRATCH_B
 #define WAIT_BUFFER     AV_SCRATCH_E
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6  
@@ -228,6 +229,7 @@ static irqreturn_t vreal_isr(int irq, void *dev_id)
     unsigned int info;
     unsigned int tr;
     unsigned int pictype;
+    u32 r = READ_VREG(INT_REASON);
 
     if (decoder_state == 0) {
         return IRQ_HANDLED;
@@ -238,6 +240,20 @@ static irqreturn_t vreal_isr(int irq, void *dev_id)
         // decoder or parser error
         real_err_count++;
         //printk("real decoder or parser error, status 0x%x\n", status);
+    }
+
+    if (r == 2) {
+        printk("first vpts = 0x%x\n", READ_VREG(VDTS));
+        pts_checkin_offset(PTS_TYPE_AUDIO, 0, READ_VREG(VDTS) * 90);
+        WRITE_VREG(AV_SCRATCH_B, 0);
+        WRITE_VREG(ASSIST_MBOX1_CLR_REG, 1);
+        return IRQ_HANDLED;
+    } else if (r == 3) {
+        printk("first apts = 0x%x\n", READ_VREG(VDTS));
+        pts_checkin_offset(PTS_TYPE_VIDEO, 0, READ_VREG(VDTS) * 90);
+        WRITE_VREG(AV_SCRATCH_B, 0);
+        WRITE_VREG(ASSIST_MBOX1_CLR_REG, 1);
+        return IRQ_HANDLED;
     }
 
     from = READ_VREG(FROM_AMRISC);

@@ -262,6 +262,9 @@ static int aml_asoc_hw_params(struct snd_pcm_substream *substream,
         printk(KERN_ERR "%s: set cpu dai fmt failed!\n", __func__);
         return ret;
     }
+    if(!strncmp(codec_info.name_bus,"dummy_codec",11)){
+        goto cpu_dai;
+    }
 #if 1
     /* set codec DAI clock */
     ret = snd_soc_dai_set_sysclk(codec_dai, 0, params_rate(params) * 256, SND_SOC_CLOCK_IN);
@@ -269,7 +272,7 @@ static int aml_asoc_hw_params(struct snd_pcm_substream *substream,
         printk(KERN_ERR "%s: set codec dai sysclk failed (rate: %d)!\n", __func__, params_rate(params));
         return ret;
     }
-
+cpu_dai:
     /* set cpu DAI clock */
     ret = snd_soc_dai_set_sysclk(cpu_dai, 0, params_rate(params) * 256, SND_SOC_CLOCK_OUT);
     if (ret < 0) {
@@ -464,28 +467,31 @@ static int i2s_gpio_set(struct snd_soc_card *card)
 }
 static int aml_suspend_post(struct snd_soc_card *card)
 {
-    printk(KERN_INFO "enter %s\n", __func__);   
-    i2s_gpio_set(card);
+    printk(KERN_INFO "enter %s\n", __func__);
+    if(ext_codec)
+        i2s_gpio_set(card);
     return 0;
 }
 
 static int aml_resume_pre(struct snd_soc_card *card)
 {
     printk(KERN_INFO "enter %s\n", __func__);
-    struct aml_audio_private_data *p_aml_audio;
-    p_aml_audio = snd_soc_card_get_drvdata(card);  
+    if(ext_codec){
+        struct aml_audio_private_data *p_aml_audio;
+        p_aml_audio = snd_soc_card_get_drvdata(card);  
 
-    if(p_aml_audio->gpio_i2s_m)
-        amlogic_gpio_free(p_aml_audio->gpio_i2s_m,"low_mclk");
-    if(p_aml_audio->gpio_i2s_s)
-        amlogic_gpio_free(p_aml_audio->gpio_i2s_s,"low_sclk");
-    if(p_aml_audio->gpio_i2s_r)
-        amlogic_gpio_free(p_aml_audio->gpio_i2s_r,"low_lrclk");
-    if(p_aml_audio->gpio_i2s_o)
-        amlogic_gpio_free(p_aml_audio->gpio_i2s_o,"low_odata");
-   
+        if(p_aml_audio->gpio_i2s_m)
+            amlogic_gpio_free(p_aml_audio->gpio_i2s_m,"low_mclk");
+        if(p_aml_audio->gpio_i2s_s)
+            amlogic_gpio_free(p_aml_audio->gpio_i2s_s,"low_sclk");
+        if(p_aml_audio->gpio_i2s_r)
+            amlogic_gpio_free(p_aml_audio->gpio_i2s_r,"low_lrclk");
+        if(p_aml_audio->gpio_i2s_o)
+            amlogic_gpio_free(p_aml_audio->gpio_i2s_o,"low_odata");
+       
 
-    p_aml_audio->pin_ctl = devm_pinctrl_get_select(card->dev, "aml_snd_m8");
+        p_aml_audio->pin_ctl = devm_pinctrl_get_select(card->dev, "aml_snd_m8");
+    }
     return 0;
 }
 
@@ -505,11 +511,15 @@ static int speaker_events(struct snd_soc_dapm_widget *w,
 {
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+        printk("speaker_events--mute =1\n");
 		amlogic_set_value(p_audio->gpio_mute, 1, "mute_spk");
+        aml_m8_spk_enabled = 1;
         msleep(p_audio->sleep_time);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+        printk("speaker_events--mute =0\n");
 		amlogic_set_value(p_audio->gpio_mute, 0, "mute_spk");
+        aml_m8_spk_enabled = 0;
 		break;
 	}
 
@@ -535,7 +545,7 @@ static struct snd_soc_jack_pin jack_pins[] = {
 };
 
 static const struct snd_kcontrol_new aml_m8_controls[] = {
-	SOC_DAPM_PIN_SWITCH("Ext Spk"),
+	//SOC_DAPM_PIN_SWITCH("Ext Spk"),
 
     SOC_SINGLE_BOOL_EXT("aml audio i2s mute", 0,
         aml_audio_get_i2s_mute,
@@ -545,9 +555,9 @@ static const struct snd_kcontrol_new aml_m8_controls[] = {
         aml_audio_get_spdif_mute,
         aml_audio_set_spdif_mute),
 
-	SOC_SINGLE_BOOL_EXT("Amp Spk enable", 0,
+	SOC_SINGLE_BOOL_EXT("Ext Spk Switch", 0,
 		aml_m8_get_spk,
-		aml_m8_set_spk),
+		NULL),
    /*
     SOC_SINGLE_BOOL_EXT("Audio MPLL9 Switch", 0,
     aml_m8_get_MPLL9,
@@ -704,8 +714,9 @@ static void aml_m8_pinmux_init(struct snd_soc_card *card)
     p_aml_audio->pin_ctl = devm_pinctrl_get_select(card->dev, "aml_snd_m8");
     
     p_audio = p_aml_audio;
+    printk("-----ext_codec=%d---\n",ext_codec);
 //#if USE_EXTERNAL_DAC
-  //  if(ext_codec){
+    if(ext_codec){
 #ifndef CONFIG_MESON_TRUSTZONE
     //aml_write_reg32(P_AO_SECURE_REG1,0x00000000);
         aml_clr_reg32_mask(P_AO_SECURE_REG1, ((1<<8) | (1<<1)));
@@ -714,7 +725,7 @@ static void aml_m8_pinmux_init(struct snd_soc_card *card)
     //meson_secure_reg_write(P_AO_SECURE_REG1, 0x00000000);
 	meson_secure_reg_write(P_AO_SECURE_REG1, meson_secure_reg_read(P_AO_SECURE_REG1) & (~((1<<8) | (1<<1))));
 #endif /* CONFIG_MESON_TRUSTZONE */
-//    }
+    }
 //#endif
 	ret = of_property_read_string(card->dev->of_node, "mute_gpio", &str);
 	if (ret < 0) {

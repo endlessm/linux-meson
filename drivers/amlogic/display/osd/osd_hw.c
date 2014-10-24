@@ -2680,14 +2680,9 @@ void osd_init_hw(u32  logo_loaded)
 #endif
 
 #ifdef CONFIG_VSYNC_RDMA
-#if MESON_CPU_TYPE < MESON_CPU_TYPE_MESON8
+
 	if (request_irq(INT_RDMA, &osd_rdma_isr,
                     IRQF_SHARED, "osd_rdma", (void *)"osd_rdma"))
-
-#else
-	if (request_irq(INT_RDMA, &osd_rdma_isr,
-                    IRQF_DISABLED, "osd_rdma", (void *)"osd_rdma"))
-#endif
 	{
 		amlog_level(LOG_LEVEL_HIGH,"can't request irq for rdma\r\n");
 	}

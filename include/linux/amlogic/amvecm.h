@@ -91,6 +91,17 @@ struct tcon_rgb_ogo_s     video_rgb_ogo;
 #define AMVECM_IOC_GAMMA_TABLE_B  _IOW(AMVECM_IOC_MAGIC, 0x44, struct tcon_gamma_table_s)
 #define AMVECM_IOC_S_RGB_OGO      _IOW(AMVECM_IOC_MAGIC, 0x45, struct tcon_rgb_ogo_s)
 #define AMVECM_IOC_G_RGB_OGO      _IOR(AMVECM_IOC_MAGIC, 0x46, struct tcon_rgb_ogo_s)
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
+#undef WRITE_CBUS_REG
+#undef WRITE_CBUS_REG_BITS
+#undef READ_CBUS_REG
+#undef READ_CBUS_REG_BITS
+
+#define WRITE_CBUS_REG(x,val)				WRITE_VCBUS_REG(x,val)
+#define WRITE_CBUS_REG_BITS(x,val,start,length)		WRITE_VCBUS_REG_BITS(x,val,start,length)
+#define READ_CBUS_REG(x)				READ_VCBUS_REG(x)
+#define READ_CBUS_REG_BITS(x,start,length)		READ_VCBUS_REG_BITS(x,start,length)
+#endif
 
 #endif /* AMVECM_H */
 

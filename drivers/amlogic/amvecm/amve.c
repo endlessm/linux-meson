@@ -861,7 +861,31 @@ void ve_set_dnlp(struct ve_dnlp_s *p)
     }
 #endif
 }
+void ve_set_dnlp_2(void)
+{
+    ulong i = 0;
 
+    // get command parameters
+    ve_dnlp_method       = 1;
+    ve_dnlp_cliprate     = 6;
+    ve_dnlp_hghrange     = 14;
+    ve_dnlp_lowrange     = 18;
+    ve_dnlp_hghalpha     = 26;
+    ve_dnlp_midalpha     = 28;
+    ve_dnlp_lowalpha     = 18;
+
+	// clear historic luma sum
+	ve_dnlp_luma_sum = 0;
+	// init tgt & lpf
+	for (i = 0; i < 64; i++) {
+	    ve_dnlp_tgt[i] = i << 2;
+	    ve_dnlp_lpf[i] = ve_dnlp_tgt[i] << ve_dnlp_rt;
+	}
+	// calculate dnlp reg data
+	ve_dnlp_calculate_reg();
+	// load dnlp reg data
+	ve_dnlp_load_reg();
+}
 void ve_set_new_dnlp(struct ve_dnlp_table_s *p)
 {
     ulong i = 0;

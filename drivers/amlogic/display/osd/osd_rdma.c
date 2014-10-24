@@ -178,6 +178,7 @@ static int stop_rdma(char channel)
 int reset_rdma(void)
 {
 	item_count=0;
+	aml_write_reg32(END_ADDR,(table_paddr + item_count*8-1));
 	//start_rdma(RDMA_CHANNEL_INDEX);
 	return 0;
 }

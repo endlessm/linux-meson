@@ -7,6 +7,7 @@ config SND_AML_M8
 	depends on SND_AML_M8_SOC && SWITCH
 	select SND_SOC_AML_M8_CODEC if SND_AML_M8
 	select SND_SOC_RT5616 if SND_AML_M8
+	select SND_SOC_DUMMY_CODEC
 	select SND_SOC_WM8960
 	select SND_SOC_RT5631
 	select SND_SOC_AMLPMU3 if AML1218

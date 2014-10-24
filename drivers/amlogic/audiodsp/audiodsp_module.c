@@ -937,9 +937,7 @@ static ssize_t dts_dec_control_show(struct class*cla, struct class_attribute* at
 	char *dmxmode[] = {"Lo/Ro","Lt/Rt"};
 	char *dialnorm[] = {"disable","enable"};	
 	char *pbuf = buf;
-	pbuf += sprintf(pbuf, "\tdts  dmx mode : %s\n", dmxmode[(dts_dec_control>>DTS_DMX_MODE_BIT)&0x1]);
-	pbuf += sprintf(pbuf, "\tdts  drc scale : %d\n", (dts_dec_control>>DTS_DRC_SCALE_BIT)&0xff);
-	pbuf += sprintf(pbuf, "\tdts  dial norm : %s\n", dialnorm[(dts_dec_control>>DTS_DIAL_NORM_BIT)&0x1]);
+	pbuf += sprintf(pbuf, "%d\n",dts_dec_control);
 	return (pbuf-buf);
 }
 static ssize_t dts_dec_control_store(struct class* class, struct class_attribute* attr,
@@ -973,8 +971,10 @@ static ssize_t dts_dec_control_store(struct class* class, struct class_attribute
 		printk("dts  dial norm : set to %s\n",dialnorm[val]);
 		dts_dec_control = (dts_dec_control&(~(0x1<<DTS_DIAL_NORM_BIT)))|(val<<DTS_DIAL_NORM_BIT);
  	}
-	else
-		printk("invalid args\n");
+	else{
+		dts_dec_control=simple_strtoul(tmpbuf, NULL, 10);
+		printk("dts_dec_control/0x%x\n",dts_dec_control);
+	}
 	return count;
 
 }

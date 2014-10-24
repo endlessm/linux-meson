@@ -21,6 +21,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <mach/pinmux_queue.h>
 #include <linux/list.h>
+#include <mach/mod_gate.h>
 
 struct amlogic_spi_user_crtl {
 	unsigned char	user_def_cmd;
@@ -56,7 +57,7 @@ struct amlogic_spi {
 static bool spi_chip_select(bool flag);
 //static DEFINE_SPINLOCK(pinmux_set_lock);
 
-#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8))
+#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8) || defined(CONFIG_ARCH_MESON8B))
 #if 0
 static pinmux_item_t spi_nor_set_pins[] ={
 	{
@@ -148,7 +149,7 @@ static void spi_hw_enable(struct amlogic_spi	*amlogic_spi)
 {
 int retry = 0,ret;
 	//DECLARE_WAITQUEUE(spi_wait, current);
-#if (defined(CONFIG_ARCH_MESON3) || defined(CONFIG_ARCH_MESON6) ||defined(CONFIG_ARCH_MESON8))
+#if (defined(CONFIG_ARCH_MESON3) || defined(CONFIG_ARCH_MESON6) ||defined(CONFIG_ARCH_MESON8) || defined(CONFIG_ARCH_MESON8B))
   /*clear_mio_mux(2,7<<19);
   clear_mio_mux(5,(0xf<<6));
 	set_mio_mux(5, 0xf);*/
@@ -189,7 +190,7 @@ int retry = 0,ret;
 
 static void spi_hw_disable(struct amlogic_spi	*amlogic_spi)
 {
-#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8))
+#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8) || defined(CONFIG_ARCH_MESON8B))
 #ifdef CONFIG_OF
 	int ret=0;
 	if(amlogic_spi->p)
@@ -576,12 +577,12 @@ static int amlogic_spi_transfer(struct spi_device *spi, struct spi_message *m)
 		return -1;
 	}
 
-#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8))
+#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8) || defined(CONFIG_ARCH_MESON8B))
 	spin_unlock(&amlogic_spi->lock);
 #endif
 	//spin_lock_irqsave(&amlogic_spi->lock, flags);
 	spi_hw_enable(amlogic_spi);
-#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8))
+#if (defined(CONFIG_ARCH_MESON6) || defined(CONFIG_ARCH_MESON8) || defined(CONFIG_ARCH_MESON8B))
 	spin_lock(&amlogic_spi->lock);
 #endif
 	if (amlogic_hw_ctl.cmd_have_data_in)
@@ -657,7 +658,7 @@ static int amlogic_spi_nor_probe(struct platform_device *pdev)
 	status = spi_register_master(master);
 	if (status < 0)
 		goto err1;
-
+	switch_mod_gate_by_name("spi", 1);
 	spi_hw_init(amlogic_spi);
 
 	status = spi_add_dev(amlogic_spi, master);
@@ -673,7 +674,7 @@ static int amlogic_spi_nor_remove(struct platform_device *pdev)
 {
 	struct spi_master	*master;
 	struct amlogic_spi	*amlogic_spi;
-
+	switch_mod_gate_by_name("spi", 0);
 	master = dev_get_drvdata(&pdev->dev);
 	amlogic_spi = spi_master_get_devdata(master);
 

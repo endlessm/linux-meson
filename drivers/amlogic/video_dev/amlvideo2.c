@@ -2131,7 +2131,7 @@ static int frame_num_out = 0;
 static struct timeval test_time;
 #endif
 
-static void amlvideo2_thread_tick(struct amlvideo2_fh *fh)
+static int  amlvideo2_thread_tick(struct amlvideo2_fh *fh)
 {
 	struct amlvideo2_node_buffer *buf = NULL;
 	struct amlvideo2_node *node = fh->node;
@@ -2145,18 +2145,11 @@ static void amlvideo2_thread_tick(struct amlvideo2_fh *fh)
 	dprintk(node->vid_dev, 1, "Thread tick\n");
 
 	if (kthread_should_stop())
-		return;
+		return 0;
 
 
 	if( (AML_RECEIVER_NONE != node->r_type) && vfq_full( &q_ready) ){
-		return;
-	}
-
-	wait_event_interruptible_timeout(dma_q->wq, ((vf_peek(node->recv.name)!= NULL)&&(fh->is_streamed_on)&&(node->provide_ready)) || (node->vidq.task_running==0),msecs_to_jiffies(5000));
-
-	if(!node->provide_ready){
-		dprintk(node->vid_dev, 1, "provide is not ready\n");
-		return ;
+		return -1;
 	}
 
 	if(!fh->is_streamed_on){
@@ -2165,7 +2158,14 @@ static void amlvideo2_thread_tick(struct amlvideo2_fh *fh)
 			vf = vf_get(node->recv.name);
 			vf_inqueue(vf, node->recv.name);
 		}
-		return ;
+		return -1;
+	}
+
+	wait_event_interruptible_timeout(dma_q->wq, ((vf_peek(node->recv.name)!= NULL)&&(fh->is_streamed_on)&&(node->provide_ready)) || (node->vidq.task_running==0),msecs_to_jiffies(5000));
+
+	if(!node->provide_ready){
+		dprintk(node->vid_dev, 1, "provide is not ready\n");
+		return -1;
 	}
 
 	spin_lock_irqsave(&node->slock, flags);
@@ -2319,11 +2319,11 @@ static void amlvideo2_thread_tick(struct amlvideo2_fh *fh)
 	}
 #endif
 	dprintk(node->vid_dev, 2, "[%p/%d] wakeup\n", buf, buf->vb.i);
-	return;
+	return 0;
 
 unlock:
 	spin_unlock_irqrestore(&node->slock, flags);
-	return;
+	return 0;
 }
 
 static void amlvideo2_sleep(struct amlvideo2_fh *fh)
@@ -2343,9 +2343,8 @@ static void amlvideo2_sleep(struct amlvideo2_fh *fh)
 	/* Calculate time to wake up */
 	//timeout = msecs_to_jiffies(frames_to_ms(1));
 
-	amlvideo2_thread_tick(fh);
-
-	//schedule_timeout_interruptible(1);
+	if(amlvideo2_thread_tick(fh)<0)
+		schedule_timeout_interruptible(1);
 
 //stop_task:
 	//remove_wait_queue(&dma_q->wq, &wait);
@@ -2972,10 +2971,19 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	dst_w = fh->width;
 	dst_h = fh->height;
 	if(vinfo->width<vinfo->height){
-		dst_w = fh->height;
-		dst_h = fh->width;
+		if((vinfo->width<=768)&&(vinfo->height<=1024)){
+			dst_w = vinfo->width;
+			dst_h = vinfo->height;
+		}else{
+			dst_w = fh->height;
+			dst_h = fh->width;
+		}
 		output_axis_adjust(vinfo->height,vinfo->width, (int *)&dst_h,(int *)&dst_w,0);
 	}else{
+		if((vinfo->height<=768)&&(vinfo->width<=1024)){
+			dst_w = vinfo->width;
+			dst_h = vinfo->height;
+		}
 		output_axis_adjust(vinfo->width,vinfo->height, (int *)&dst_w,(int *)&dst_h,0);	
 	}
 	para.dest_hactive = dst_w;

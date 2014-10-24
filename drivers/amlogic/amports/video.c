@@ -88,11 +88,11 @@ MODULE_AMLOG(LOG_LEVEL_ERROR, 0, LOG_DEFAULT_LEVEL_DESC, LOG_MASK_DESC);
 #include "cm_regs.h"
 #include "amcm.h"
 #include <linux/amlogic/amports/video_prot.h>
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 #include <mach/mod_gate.h>
 #endif
-#include "mach/meson-secure.h"
+//#include "mach/meson-secure.h"
 #endif
 
 static int debugflags=0;
@@ -677,7 +677,7 @@ static int android_clone_rate = 30;
 static int noneseamless_play_clone_rate = 5;
 #endif
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
 static ge2d_context_t *ge2d_video_context = NULL;
 static int ge2d_videotask_init()
 {
@@ -3076,7 +3076,7 @@ static void video_vf_unreg_provider(void)
     video_prot.video_started = 0;
     spin_unlock_irqrestore(&lock, flags);
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
     if (cur_dispbuf)
     {
         switch_mod_gate_by_name("ge2d", 1);
@@ -3294,7 +3294,7 @@ unsigned int vf_keep_current(void)
             Y_BUFFER_SIZE,U_BUFFER_SIZE, V_BUFFER_SIZE, cs0.width,cs0.height,cs1.width,cs1.height);
             return -1;
         }
- #ifdef CONFIG_AM_MEMPROTECT
+ #ifdef CONFIG_GE2D_KEEP_FRAME
         ge2d_keeplastframe_block();
 #else       
         if (keep_phy_addr(keep_y_addr) != canvas_get_addr(y_index) &&
@@ -5416,7 +5416,7 @@ static int __init video_init(void)
     vf_receiver_init(&video4osd_vf_recv, RECEIVER4OSD_NAME, &video4osd_vf_receiver, NULL);
     vf_reg_receiver(&video4osd_vf_recv);
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
    // video_frame_getmem();
     ge2d_videotask_init();
 #endif
@@ -5467,7 +5467,7 @@ static void __exit video_exit(void)
 
     class_unregister(&amvideo_class);
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
     ge2d_videotask_release();
 #endif
 }

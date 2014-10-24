@@ -557,7 +557,7 @@ timeout_handle:
         aml_sdio_send_stop(host);                
         spin_unlock_irqrestore(&host->mrq_lock, flags);
 		is_mmc_stop = 1;
-        schedule_delayed_work(&host->timeout, 1);
+        schedule_delayed_work(&host->timeout, 50);
     }
     else{
             /*request done*/

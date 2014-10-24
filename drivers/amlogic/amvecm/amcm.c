@@ -194,6 +194,7 @@ void am_set_regmap(struct am_regs_s *p)
 					p->am_reg[i].val,p->am_reg[i].val,p->am_reg[i].mask,p->am_reg[i].mask);
                 #endif
             break;
+		#if 0
             case REG_TYPE_AHB:
                 if (p->am_reg[i].mask == 0xffffffff)
                     WRITE_AHB_REG(p->am_reg[i].addr, p->am_reg[i].val);
@@ -205,6 +206,7 @@ void am_set_regmap(struct am_regs_s *p)
 					p->am_reg[i].val,p->am_reg[i].val,p->am_reg[i].mask,p->am_reg[i].mask);
                 #endif
             break;
+		#endif
             case REG_TYPE_INDEX_VPPCHROMA:
 				/*  add for vm2 demo frame size setting */
 				if (p->am_reg[i].addr == 0x20f) {

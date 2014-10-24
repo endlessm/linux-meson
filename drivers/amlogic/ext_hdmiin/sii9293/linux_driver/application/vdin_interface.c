@@ -6,6 +6,13 @@
 #include "../../driver/cra_drv/si_cra.h"
 #include "sii5293_interface.h"
 
+#ifdef HDMIIN_FRAME_SKIP_MECHANISM
+extern unsigned int flag_skip_status ;
+extern unsigned int flag_skip_enable ;
+extern sii9293_frame_skip_t sii9293_skip;
+
+#endif
+
 extern int start_tvin_service(int no ,vdin_parm_t *para);
 extern int stop_tvin_service(int no);
 extern void set_invert_top_bot(bool invert_flag);
@@ -127,6 +134,40 @@ static void sii5293_tvin_stop(struct tvin_frontend_s *fe, enum tvin_port_e port)
 }
 static int sii5293_tvin_isr(struct tvin_frontend_s *fe, unsigned int hcnt64)
 {
+#ifdef HDMIIN_FRAME_SKIP_MECHANISM
+	static unsigned int cnt = 0;
+	unsigned int max = 0;
+
+	if( flag_skip_status >= SKIP_STATUS_MAX )
+		return 0;
+
+	if( SKIP_STATUS_NORMAL == flag_skip_status )
+		max = sii9293_skip.skip_num_normal;
+	else if( SKIP_STATUS_STANDBY == flag_skip_status )
+		max = sii9293_skip.skip_num_standby;
+	else if( SKIP_STATUS_CABLE == flag_skip_status )
+		max = sii9293_skip.skip_num_cable;
+
+	if( flag_skip_enable == 1 )
+	{
+		flag_skip_enable = 0;
+		cnt = 0;
+	}
+
+	if( cnt < max )
+	{
+		cnt ++;
+		printk("sii9293 skip type = %d, cnt = %d, max = %d\n", flag_skip_status, cnt, max);
+		return TVIN_BUF_SKIP;
+	}
+	else if( cnt == max )
+	{
+		cnt = 0xffffffff;
+		flag_skip_status = SKIP_STATUS_NORMAL;
+	}
+	
+#endif
+
 	return 0;
 }
 
@@ -446,6 +487,13 @@ void sii5293_start_vdin(sii5293_vdin *info, int width, int height, int frame_rat
 		para.reserved = 0; //skip_num
 
 		printk("[%s] begin start_tvin_service() !\n",__FUNCTION__);
+
+#ifdef HDMIIN_FRAME_SKIP_MECHANISM
+		if( (SKIP_STATUS_NORMAL==flag_skip_status) ||
+			(SKIP_STATUS_STANDBY==flag_skip_status) ||
+			(SKIP_STATUS_CABLE==flag_skip_status) )
+			flag_skip_enable = 1;
+#endif
 		start_tvin_service(0,&para);
 		info->vdin_started = 1;
 

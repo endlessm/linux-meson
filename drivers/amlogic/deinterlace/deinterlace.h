@@ -22,8 +22,9 @@
 #endif
 #define D2D3_SUPPORT
 #define DET3D
-#define SUPPORT_MPEG_TO_VDIN
+//#define SUPPORT_MPEG_TO_VDIN
 #endif
+#define SUPPORT_MPEG_TO_VDIN //for all ic after m6c@20140731
 
 #if (MESON_CPU_TYPE==MESON_CPU_TYPE_MESON6TV)
 #define NEW_DI_TV

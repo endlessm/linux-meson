@@ -139,6 +139,10 @@ static DEFINE_SPINLOCK(di_lock2);
 
 #endif
 
+int mpeg2vdin_flag = 0;
+module_param(mpeg2vdin_flag,int,0644);
+MODULE_PARM_DESC(mpeg2vdin_flag,"mpeg2vdin_en");
+
 int mpeg2vdin_en = 0;
 module_param(mpeg2vdin_en,int,0644);
 MODULE_PARM_DESC(mpeg2vdin_en,"mpeg2vdin_en");
@@ -181,7 +185,7 @@ static dev_t di_id;
 static struct class *di_class;
 
 #define INIT_FLAG_NOT_LOAD 0x80
-static char version_s[] = "2014-08-4a";//bypass di for vscale skip
+static char version_s[] = "2014-08-11a";//add mpeg2vdin for m8
 static unsigned char boot_init_flag=0;
 static int receiver_is_amvideo = 1;
 
@@ -3435,13 +3439,13 @@ static void pre_de_process(void)
     di_apply_reg_cfg(0);
 #endif
 #ifdef SUPPORT_MPEG_TO_VDIN
-	if(mpeg2vdin_en){
-	    vdin_arg_t vdin_arg;
-	    vdin_v4l2_ops_t *vdin_ops = get_vdin_v4l2_ops();
-	    vdin_arg.cmd = VDIN_CMD_FORCE_GO_FIELD;
-	    if(vdin_ops->tvin_vdin_func)
-	        vdin_ops->tvin_vdin_func(0,&vdin_arg);
-	}
+	    if(mpeg2vdin_flag){
+		vdin_arg_t vdin_arg;
+		vdin_v4l2_ops_t *vdin_ops = get_vdin_v4l2_ops();
+		vdin_arg.cmd = VDIN_CMD_FORCE_GO_FIELD;
+		if(vdin_ops->tvin_vdin_func)
+		    vdin_ops->tvin_vdin_func(0,&vdin_arg);
+	    }
 #endif
 
 }
@@ -3919,7 +3923,7 @@ static unsigned char pre_de_buf_config(void)
             dump_vframe(vframe);
         }
 	#ifdef SUPPORT_MPEG_TO_VDIN
-	if((!is_from_vdin(vframe))&&(vframe->sig_fmt == TVIN_SIG_FMT_NULL)&&mpeg2vdin_en){
+	if((!is_from_vdin(vframe))&&(vframe->sig_fmt == TVIN_SIG_FMT_NULL)&&mpeg2vdin_flag){
 	    vdin_arg_t vdin_arg;
 	    vdin_v4l2_ops_t *vdin_ops = get_vdin_v4l2_ops();
 	    vdin_arg.cmd = VDIN_CMD_GET_HISTGRAM;
@@ -3978,7 +3982,8 @@ static unsigned char pre_de_buf_config(void)
             di_set_para_by_tvinfo(vframe);
 #endif
 #ifdef SUPPORT_MPEG_TO_VDIN
-	    if((!is_from_vdin(vframe))&&(vframe->sig_fmt == TVIN_SIG_FMT_NULL)){
+	    if((!is_from_vdin(vframe))&&(vframe->sig_fmt == TVIN_SIG_FMT_NULL)&&
+	    	(mpeg2vdin_en)){
 		vdin_arg_t vdin_arg;
 		vdin_v4l2_ops_t *vdin_ops = get_vdin_v4l2_ops();
 		vdin_arg.cmd = VDIN_CMD_MPEGIN_START;
@@ -3987,7 +3992,7 @@ static unsigned char pre_de_buf_config(void)
 		if(vdin_ops->tvin_vdin_func){
 		    vdin_ops->tvin_vdin_func(0,&vdin_arg);
 		}
-		mpeg2vdin_en = 1;
+		mpeg2vdin_flag = 1;
 	    }
 #endif
 #ifdef NEW_DI_V1
@@ -6433,14 +6438,14 @@ static int di_receiver_event_fun(int type, void* data, void* arg)
             msleep(10);
 		    }
 #ifdef SUPPORT_MPEG_TO_VDIN
-	if(mpeg2vdin_en){
+	if(mpeg2vdin_flag){
 	    vdin_arg_t vdin_arg;
 	    vdin_v4l2_ops_t *vdin_ops = get_vdin_v4l2_ops();
 	    vdin_arg.cmd = VDIN_CMD_MPEGIN_STOP;
 	    if(vdin_ops->tvin_vdin_func){
 		vdin_ops->tvin_vdin_func(0,&vdin_arg);
 	    }
-	    mpeg2vdin_en = 0;
+	    mpeg2vdin_flag = 0;
 	}
 #endif
         bypass_state = 1;

@@ -43,7 +43,6 @@
 #define AMVECM_MODULE_NAME        "amvecm"
 #define AMVECM_DEVICE_NAME        "amvecm"
 #define AMVECM_CLASS_NAME         "amvecm"
-
 typedef struct amvecm_dev_s {
     dev_t                       devt;
     struct cdev                 cdev;
@@ -56,11 +55,28 @@ static bool hold_cmd_en = 0;
 module_param(hold_cmd_en, bool, 0664);
 MODULE_PARM_DESC(hold_cmd_en, "\n hold_cmd_en \n");
 
+static int cm_level = 0;//0:optimize;1:enhancement
+module_param(cm_level, int, 0664);
+MODULE_PARM_DESC(cm_level, "\n selcet cm lever \n");
+
+static int cm_en = 0;//0:disabel;1:enable
+module_param(cm_en, int, 0664);
+MODULE_PARM_DESC(cm_en, "\n enable or disable cm \n");
+static int cm_level_last = 0;//0:optimize;1:enhancement
+
+static int dnlp_en = 0;//0:disabel;1:enable
+module_param(dnlp_en, int, 0664);
+MODULE_PARM_DESC(dnlp_en, "\n enable or disable dnlp \n");
+static int dnlp_status = 1;//0:done;1:todo
+
 static struct amvecm_dev_s amvecm_dev;
 static struct ve_dnlp_s am_ve_dnlp;
 static struct ve_dnlp_table_s am_ve_new_dnlp;
 
 unsigned int vecm_latch_flag;
+module_param(vecm_latch_flag, uint, 0664);
+MODULE_PARM_DESC(vecm_latch_flag, "\n vecm_latch_flag \n");
+
 unsigned int cm_size,ve_size;
 static int video_rgb_ogo_mode_sw = 0;
 static signed int vd1_brightness = 0, vd1_contrast = 0;
@@ -72,6 +88,902 @@ static struct am_regs_s amregs2;
 static struct am_regs_s amregs3;
 static struct am_regs_s amregs4;
 static struct am_regs_s amregs5;
+struct am_regs_s cmreg_lever1={
+	172,
+	{
+/* optimize */
+{6,	512,	    0xffffffff,	0           },
+{6,	513,	    0xffffffff,	0           },
+{6,	514,	    0xffffffff,	0           },
+{6,	515,	    0xffffffff,	134218752   },
+{6,	516,	    0xffffffff,	144         },
+{6,	518,	    0xffffffff,	0           },
+{6,	519,	    0xffffffff,	33554432    },
+{6,	520,	    0xffffffff,	118         },
+{6,	521,	    0xffffffff,	0           },
+{6,	522,	    0xffffffff,	0           },
+{6,	527,	    0xf,	0           },
+{6,	517,	    0xffffffff,	70715263    },
+{9,	256,	    0xffffffff,	532992      },
+{9,	257,	    0xffffffff,	0xf3f600af  },
+{9,	258,	    0xffffffff,	0xe3000000  },
+{9,	259,	    0xffffffff,	240         },
+{9,	260,	    0xffffffff,	63506       },
+{9,	264,	    0xffffffff,	16650496    },
+{9,	265,	    0xffffffff,	249         },
+{9,	266,	    0xffffffff,	0           },
+{9,	267,	    0xffffffff,	0           },
+{9,	268,	    0xffffffff,	0           },
+{9,	272,	    0xffffffff,	135936      },
+{9,	273,	    0xffffffff,	253         },
+{9,	274,	    0xffffffff,	0           },
+{9,	275,	    0xffffffff,	0           },
+{9,	276,	    0xffffffff,	0           },
+{9,	280,	    0xffffffff,	0xf3f11300  },
+{9,	281,	    0xffffffff,	214         },
+{9,	282,	    0xffffffff,	0           },
+{9,	283,	    0xffffffff,	0           },
+{9,	284,	    0xffffffff,	0           },
+{9,	288,	    0xffffffff,	0xede91300  },
+{9,	289,	    0xffffffff,	177         },
+{9,	290,	    0xffffffff,	0           },
+{9,	291,	    0xffffffff,	0           },
+{9,	292,	    0xffffffff,	15660544    },
+{9,	296,	    0xffffffff,	0xe9e61100  },
+{9,	297,	    0xffffffff,	184         },
+{9,	298,	    0xffffffff,	0           },
+{9,	299,	    0xffffffff,	0           },
+{9,	300,	    0xffffffff,	15464448    },
+{9,	304,	    0xffffffff,	0xeff80f00  },
+{9,	305,	    0xffffffff,	232         },
+{9,	306,	    0xffffffff,	0           },
+{9,	307,	    0xffffffff,	0           },
+{9,	308,	    0xffffffff,	0           },
+{9,	312,	    0xffffffff,	0xf60a0d00  },
+{9,	313,	    0xffffffff,	245         },
+{9,	314,	    0xffffffff,	0           },
+{9,	315,	    0xffffffff,	0           },
+{9,	316,	    0xffffffff,	0           },
+{9,	320,	    0xffffffff,	526848      },
+{9,	321,	    0xffffffff,	238         },
+{9,	322,	    0xffffffff,	0           },
+{9,	323,	    0xffffffff,	10          },
+{9,	324,	    0xffffffff,	0           },
+{9,	328,	    0xffffffff,	527616      },
+{9,	329,	    0xffffffff,	134742245   },
+{9,	330,	    0xffffffff,	167903232   },
+{9,	331,	    0xffffffff,	21          },
+{9,	332,	    0xffffffff,	3328        },
+{9,	336,	    0xffffffff,	397056      },
+{9,	337,	    0xffffffff,	0xf80d00da  },
+{9,	338,	    0xffffffff,	0xf80500fb  },
+{9,	339,	    0xffffffff,	2           },
+{9,	340,	    0xffffffff,	132357      },
+{9,	344,	    0xffffffff,	526848      },
+{9,	345,	    0xffffffff,	0xfb0a00c7  },
+{9,	346,	    0xffffffff,	0xf6020002  },
+{9,	347,	    0xffffffff,	251         },
+{9,	348,	    0xffffffff,	16646656    },
+{9,	352,	    0xffffffff,	657408      },
+{9,	353,	    0xffffffff,	327857      },
+{9,	354,	    0xffffffff,	0xf6050000  },
+{9,	355,	    0xffffffff,	2           },
+{9,	356,	    0xffffffff,	0           },
+{9,	360,	    0xffffffff,	526336      },
+{9,	361,	    0xffffffff,	162         },
+{9,	362,	    0xffffffff,	0xf600f600  },
+{9,	363,	    0xffffffff,	254         },
+{9,	364,	    0xffffffff,	33554432    },
+{9,	368,	    0xffffffff,	986368      },
+{9,	369,	    0xffffffff,	166         },
+{9,	370,	    0xffffffff,	0xf300eef6  },
+{9,	371,	    0xffffffff,	243         },
+{9,	372,	    0xffffffff,	0xfb050000  },
+{9,	376,	    0xffffffff,	34541312    },
+{9,	377,	    0xffffffff,	83886277    },
+{9,	378,	    0xffffffff,	0xfbfef8f8  },
+{9,	379,	    0xffffffff,	246         },
+{9,	380,	    0xffffffff,	0xf8080200  },
+{9,	384,	    0xffffffff,	286331136   },
+{9,	385,	    0xffffffff,	353698041   },
+{9,	386,	    0xffffffff,	168427768   },
+{9,	387,	    0xffffffff,	13          },
+{9,	388,	    0xffffffff,	0xfb081000  },
+{9,	392,	    0xffffffff,	218960128   },
+{9,	393,	    0xffffffff,	674758687   },
+{9,	394,	    0xffffffff,	573177856   },
+{9,	395,	    0xffffffff,	21          },
+{9,	396,	    0xffffffff,	854766      },
+{9,	400,	    0xffffffff,	168430080   },
+{9,	401,	    0xffffffff,	809304110   },
+{9,	402,	    0xffffffff,	674234389   },
+{9,	403,	    0xffffffff,	13          },
+{9,	404,	    0xffffffff,	716515      },
+{9,	408,	    0xffffffff,	134745344   },
+{9,	409,	    0xffffffff,	807731246   },
+{9,	410,	    0xffffffff,	403308562   },
+{9,	411,	    0xffffffff,	0           },
+{9,	412,	    0xffffffff,	59590       },
+{9,	416,	    0xffffffff,	67504640    },
+{9,	417,	    0xffffffff,	269484072   },
+{9,	418,	    0xffffffff,	182845440   },
+{9,	419,	    0xffffffff,	0           },
+{9,	420,	    0xffffffff,	61139       },
+{9,	424,	    0xffffffff,	396544      },
+{9,	425,	    0xffffffff,	134217757   },
+{9,	426,	    0xffffffff,	0xfb0b0000  },
+{9,	427,	    0xffffffff,	0           },
+{9,	428,	    0xffffffff,	246         },
+{9,	432,	    0xffffffff,	527616      },
+{9,	433,	    0xffffffff,	12          },
+{9,	434,	    0xffffffff,	15597568    },
+{9,	435,	    0xffffffff,	0           },
+{9,	436,	    0xffffffff,	0           },
+{9,	440,	    0xffffffff,	658688      },
+{9,	441,	    0xffffffff,	7           },
+{9,	442,	    0xffffffff,	0           },
+{9,	443,	    0xffffffff,	0           },
+{9,	444,	    0xffffffff,	0           },
+{9,	448,	    0xffffffff,	986880      },
+{9,	449,	    0xffffffff,	255         },
+{9,	450,	    0xffffffff,	0           },
+{9,	451,	    0xffffffff,	0           },
+{9,	452,	    0xffffffff,	0           },
+{9,	456,	    0xffffffff,	219811584   },
+{9,	457,	    0xffffffff,	238         },
+{9,	458,	    0xffffffff,	0           },
+{9,	459,	    0xffffffff,	0           },
+{9,	460,	    0xffffffff,	0           },
+{9,	464,	    0xffffffff,	287183104   },
+{9,	465,	    0xffffffff,	197         },
+{9,	466,	    0xffffffff,	0xf3000000  },
+{9,	467,	    0xffffffff,	246         },
+{9,	468,	    0xffffffff,	0xfb000000  },
+{9,	472,	    0xffffffff,	219943168   },
+{9,	473,	    0xffffffff,	169         },
+{9,	474,	    0xffffffff,	0xf0000000  },
+{9,	475,	    0xffffffff,	232         },
+{9,	476,	    0xffffffff,	0           },
+{9,	480,	    0xffffffff,	1707264     },
+{9,	481,	    0xffffffff,	0xfb0000ab  },
+{9,	482,	    0xffffffff,	0xe300f3f3  },
+{9,	483,	    0xffffffff,	219         },
+{9,	484,	    0xffffffff,	15597568    },
+{9,	488,	    0xffffffff,	1509888     },
+{9,	489,	    0xffffffff,	0xf30000b6  },
+{9,	490,	    0xffffffff,	0xd800e8e3  },
+{9,	491,	    0xffffffff,	222         },
+{9,	492,	    0xffffffff,	14876680    },
+{9,	496,	    0xffffffff,	1117440     },
+{9,	497,	    0xffffffff,	0xf3fb00ba  },
+{9,	498,	    0xffffffff,	0xd300ebe6  },
+{9,	499,	    0xffffffff,	232         },
+{9,	500,	    0xffffffff,	15661840    },
+{9,	504,	    0xffffffff,	989696      },
+{9,	505,	    0xffffffff,	0xf6f800b6  },
+{9,	506,	    0xffffffff,	0xe600f3f3  },
+{9,	507,	    0xffffffff,	235         },
+{9,	508,	    0xffffffff,	18          },
+{0}
+	}
+};
+struct am_regs_s cmreg_lever2={
+	172,
+	{
+/* optimize */
+{6,	512,	    0xffffffff,	0          },
+{6,	513,	    0xffffffff,	0          },
+{6,	514,	    0xffffffff,	0          },
+{6,	515,	    0xffffffff,	134218752  },
+{6,	516,	    0xffffffff,	144        },
+{6,	518,	    0xffffffff,	0          },
+{6,	519,	    0xffffffff,	33554432   },
+{6,	520,	    0xffffffff,	122        },
+{6,	521,	    0xffffffff,	0          },
+{6,	522,	    0xffffffff,	0          },
+{6,	527,	    0xf,	0          },
+{6,	517,	    0xffffffff,	70715263   },
+{9,	256,	    0xffffffff,	2840064    },
+{9,	257,	    0xffffffff,	12         },
+{9,	258,	    0xffffffff,	0          },
+{9,	259,	    0xffffffff,	0          },
+{9,	260,	    0xffffffff,	0          },
+{9,	264,	    0xffffffff,	2708992    },
+{9,	265,	    0xffffffff,	31         },
+{9,	266,	    0xffffffff,	0          },
+{9,	267,	    0xffffffff,	0          },
+{9,	268,	    0xffffffff,	0          },
+{9,	272,	    0xffffffff,	2708992    },
+{9,	273,	    0xffffffff,	51         },
+{9,	274,	    0xffffffff,	0          },
+{9,	275,	    0xffffffff,	0          },
+{9,	276,	    0xffffffff,	0          },
+{9,	280,	    0xffffffff,	2840064    },
+{9,	281,	    0xffffffff,	63         },
+{9,	282,	    0xffffffff,	0          },
+{9,	283,	    0xffffffff,	0          },
+{9,	284,	    0xffffffff,	0          },
+{9,	288,	    0xffffffff,	2840064    },
+{9,	289,	    0xffffffff,	63         },
+{9,	290,	    0xffffffff,	0          },
+{9,	291,	    0xffffffff,	0          },
+{9,	292,	    0xffffffff,	0          },
+{9,	296,	    0xffffffff,	2708992    },
+{9,	297,	    0xffffffff,	63         },
+{9,	298,	    0xffffffff,	0          },
+{9,	299,	    0xffffffff,	0          },
+{9,	300,	    0xffffffff,	0          },
+{9,	304,	    0xffffffff,	2708480    },
+{9,	305,	    0xffffffff,	63         },
+{9,	306,	    0xffffffff,	0          },
+{9,	307,	    0xffffffff,	0          },
+{9,	308,	    0xffffffff,	0          },
+{9,	312,	    0xffffffff,	2708480    },
+{9,	313,	    0xffffffff,	51         },
+{9,	314,	    0xffffffff,	0          },
+{9,	315,	    0xffffffff,	0          },
+{9,	316,	    0xffffffff,	0          },
+{9,	320,	    0xffffffff,	2708480    },
+{9,	321,	    0xffffffff,	9          },
+{9,	322,	    0xffffffff,	0          },
+{9,	323,	    0xffffffff,	0          },
+{9,	324,	    0xffffffff,	0          },
+{9,	328,	    0xffffffff,	2708480    },
+{9,	329,	    0xffffffff,	234        },
+{9,	330,	    0xffffffff,	0          },
+{9,	331,	    0xffffffff,	0          },
+{9,	332,	    0xffffffff,	0          },
+{9,	336,	    0xffffffff,	2708480    },
+{9,	337,	    0xffffffff,	212        },
+{9,	338,	    0xffffffff,	0          },
+{9,	339,	    0xffffffff,	0          },
+{9,	340,	    0xffffffff,	0          },
+{9,	344,	    0xffffffff,	2708480    },
+{9,	345,	    0xffffffff,	197        },
+{9,	346,	    0xffffffff,	0          },
+{9,	347,	    0xffffffff,	0          },
+{9,	348,	    0xffffffff,	0          },
+{9,	352,	    0xffffffff,	2708480    },
+{9,	353,	    0xffffffff,	193        },
+{9,	354,	    0xffffffff,	0          },
+{9,	355,	    0xffffffff,	0          },
+{9,	356,	    0xffffffff,	0          },
+{9,	360,	    0xffffffff,	2708480    },
+{9,	361,	    0xffffffff,	203        },
+{9,	362,	    0xffffffff,	0          },
+{9,	363,	    0xffffffff,	0          },
+{9,	364,	    0xffffffff,	0          },
+{9,	368,	    0xffffffff,	2708480    },
+{9,	369,	    0xffffffff,	214        },
+{9,	370,	    0xffffffff,	0          },
+{9,	371,	    0xffffffff,	0          },
+{9,	372,	    0xffffffff,	0          },
+{9,	376,	    0xffffffff,	2708992    },
+{9,	377,	    0xffffffff,	219        },
+{9,	378,	    0xffffffff,	0          },
+{9,	379,	    0xffffffff,	0          },
+{9,	380,	    0xffffffff,	0          },
+{9,	384,	    0xffffffff,	2708480    },
+{9,	385,	    0xffffffff,	236        },
+{9,	386,	    0xffffffff,	0          },
+{9,	387,	    0xffffffff,	0          },
+{9,	388,	    0xffffffff,	0          },
+{9,	392,	    0xffffffff,	2708992    },
+{9,	393,	    0xffffffff,	249        },
+{9,	394,	    0xffffffff,	0          },
+{9,	395,	    0xffffffff,	0          },
+{9,	396,	    0xffffffff,	0          },
+{9,	400,	    0xffffffff,	2708992    },
+{9,	401,	    0xffffffff,	3          },
+{9,	402,	    0xffffffff,	0          },
+{9,	403,	    0xffffffff,	0          },
+{9,	404,	    0xffffffff,	0          },
+{9,	408,	    0xffffffff,	2708992    },
+{9,	409,	    0xffffffff,	9          },
+{9,	410,	    0xffffffff,	0          },
+{9,	411,	    0xffffffff,	0          },
+{9,	412,	    0xffffffff,	0          },
+{9,	416,	    0xffffffff,	2708480    },
+{9,	417,	    0xffffffff,	12         },
+{9,	418,	    0xffffffff,	0          },
+{9,	419,	    0xffffffff,	0          },
+{9,	420,	    0xffffffff,	0          },
+{9,	424,	    0xffffffff,	2708480    },
+{9,	425,	    0xffffffff,	14         },
+{9,	426,	    0xffffffff,	0          },
+{9,	427,	    0xffffffff,	0          },
+{9,	428,	    0xffffffff,	0          },
+{9,	432,	    0xffffffff,	2708480    },
+{9,	433,	    0xffffffff,	12         },
+{9,	434,	    0xffffffff,	0          },
+{9,	435,	    0xffffffff,	0          },
+{9,	436,	    0xffffffff,	0          },
+{9,	440,	    0xffffffff,	2708480    },
+{9,	441,	    0xffffffff,	7          },
+{9,	442,	    0xffffffff,	0          },
+{9,	443,	    0xffffffff,	0          },
+{9,	444,	    0xffffffff,	0          },
+{9,	448,	    0xffffffff,	2708480    },
+{9,	449,	    0xffffffff,	251        },
+{9,	450,	    0xffffffff,	0          },
+{9,	451,	    0xffffffff,	0          },
+{9,	452,	    0xffffffff,	0          },
+{9,	456,	    0xffffffff,	2708480    },
+{9,	457,	    0xffffffff,	242        },
+{9,	458,	    0xffffffff,	0          },
+{9,	459,	    0xffffffff,	0          },
+{9,	460,	    0xffffffff,	0          },
+{9,	464,	    0xffffffff,	36262912   },
+{9,	465,	    0xffffffff,	238        },
+{9,	466,	    0xffffffff,	0          },
+{9,	467,	    0xffffffff,	0          },
+{9,	468,	    0xffffffff,	0          },
+{9,	472,	    0xffffffff,	69817344   },
+{9,	473,	    0xffffffff,	245        },
+{9,	474,	    0xffffffff,	0          },
+{9,	475,	    0xffffffff,	0          },
+{9,	476,	    0xffffffff,	0          },
+{9,	480,	    0xffffffff,	136926208  },
+{9,	481,	    0xffffffff,	1          },
+{9,	482,	    0xffffffff,	0          },
+{9,	483,	    0xffffffff,	0          },
+{9,	484,	    0xffffffff,	0          },
+{9,	488,	    0xffffffff,	136926208  },
+{9,	489,	    0xffffffff,	5          },
+{9,	490,	    0xffffffff,	0          },
+{9,	491,	    0xffffffff,	0          },
+{9,	492,	    0xffffffff,	0          },
+{9,	496,	    0xffffffff,	136926208  },
+{9,	497,	    0xffffffff,	5          },
+{9,	498,	    0xffffffff,	0          },
+{9,	499,	    0xffffffff,	0          },
+{9,	500,	    0xffffffff,	0          },
+{9,	504,	    0xffffffff,	69817344   },
+{9,	505,	    0xffffffff,	7          },
+{9,	506,	    0xffffffff,	0          },
+{9,	507,	    0xffffffff,	0          },
+{9,	508,	    0xffffffff,	0          },
+{0}
+	}
+};
+struct am_regs_s cmreg_lever3={
+	172,
+	{
+/* optimize */
+{6,	512,	    0xffffffff,	0          },
+{6,	513,	    0xffffffff,	0          },
+{6,	514,	    0xffffffff,	0          },
+{6,	515,	    0xffffffff,	134218752  },
+{6,	516,	    0xffffffff,	144        },
+{6,	518,	    0xffffffff,	0          },
+{6,	519,	    0xffffffff,	33554432   },
+{6,	520,	    0xffffffff,	118        },
+{6,	521,	    0xffffffff,	62914560   },
+{6,	522,	    0xffffffff,	70778880   },
+{6,	527,	           0xf,	1          },
+{6,	517,	    0xffffffff,	70780799   },
+{9,	256,	    0xffffffff,	16648704   },
+{9,	257,	    0xffffffff,	0xf3f6000b },
+{9,	258,	    0xffffffff,	0xe3000000 },
+{9,	259,	    0xffffffff,	240        },
+{9,	260,	    0xffffffff,	63742      },
+{9,	264,	    0xffffffff,	16650496   },
+{9,	265,	    0xffffffff,	14         },
+{9,	266,	    0xffffffff,	0          },
+{9,	267,	    0xffffffff,	0          },
+{9,	268,	    0xffffffff,	0          },
+{9,	272,	    0xffffffff,	135936     },
+{9,	273,	    0xffffffff,	253        },
+{9,	274,	    0xffffffff,	0          },
+{9,	275,	    0xffffffff,	0          },
+{9,	276,	    0xffffffff,	0          },
+{9,	280,	    0xffffffff,	0xf3f11300 },
+{9,	281,	    0xffffffff,	214        },
+{9,	282,	    0xffffffff,	0          },
+{9,	283,	    0xffffffff,	0          },
+{9,	284,	    0xffffffff,	0          },
+{9,	288,	    0xffffffff,	0xede91300 },
+{9,	289,	    0xffffffff,	177        },
+{9,	290,	    0xffffffff,	0          },
+{9,	291,	    0xffffffff,	0          },
+{9,	292,	    0xffffffff,	15660544   },
+{9,	296,	    0xffffffff,	0xe9e61100 },
+{9,	297,	    0xffffffff,	184        },
+{9,	298,	    0xffffffff,	0          },
+{9,	299,	    0xffffffff,	0          },
+{9,	300,	    0xffffffff,	15464448   },
+{9,	304,	    0xffffffff,	0xeff80f00 },
+{9,	305,	    0xffffffff,	232        },
+{9,	306,	    0xffffffff,	0          },
+{9,	307,	    0xffffffff,	0          },
+{9,	308,	    0xffffffff,	0          },
+{9,	312,	    0xffffffff,	0xf60a0d00 },
+{9,	313,	    0xffffffff,	5          },
+{9,	314,	    0xffffffff,	0          },
+{9,	315,	    0xffffffff,	0          },
+{9,	316,	    0xffffffff,	0          },
+{9,	320,	    0xffffffff,	526848     },
+{9,	321,	    0xffffffff,	5          },
+{9,	322,	    0xffffffff,	0          },
+{9,	323,	    0xffffffff,	10         },
+{9,	324,	    0xffffffff,	0          },
+{9,	328,	    0xffffffff,	526848     },
+{9,	329,	    0xffffffff,	134742265  },
+{9,	330,	    0xffffffff,	167903232  },
+{9,	331,	    0xffffffff,	21         },
+{9,	332,	    0xffffffff,	3328       },
+{9,	336,	    0xffffffff,	131072     },
+{9,	337,	    0xffffffff,	0xf80d00ea },
+{9,	338,	    0xffffffff,	0xf80500fb },
+{9,	339,	    0xffffffff,	2          },
+{9,	340,	    0xffffffff,	132357     },
+{9,	344,	    0xffffffff,	131584     },
+{9,	345,	    0xffffffff,	0xfb0100da },
+{9,	346,	    0xffffffff,	0xf6020002 },
+{9,	347,	    0xffffffff,	251        },
+{9,	348,	    0xffffffff,	16646656   },
+{9,	352,	    0xffffffff,	657408     },
+{9,	353,	    0xffffffff,	327872     },
+{9,	354,	    0xffffffff,	0xf6050000 },
+{9,	355,	    0xffffffff,	2          },
+{9,	356,	    0xffffffff,	0          },
+{9,	360,	    0xffffffff,	526336     },
+{9,	361,	    0xffffffff,	175        },
+{9,	362,	    0xffffffff,	0xf600f600 },
+{9,	363,	    0xffffffff,	254        },
+{9,	364,	    0xffffffff,	33554432   },
+{9,	368,	    0xffffffff,	986368     },
+{9,	369,	    0xffffffff,	169        },
+{9,	370,	    0xffffffff,	0xf300eef6 },
+{9,	371,	    0xffffffff,	243        },
+{9,	372,	    0xffffffff,	0xfb050000 },
+{9,	376,	    0xffffffff,	34541312   },
+{9,	377,	    0xffffffff,	83886277   },
+{9,	378,	    0xffffffff,	0xfbfef8f8 },
+{9,	379,	    0xffffffff,	246        },
+{9,	380,	    0xffffffff,	0xf8080200 },
+{9,	384,	    0xffffffff,	135339520  },
+{9,	385,	    0xffffffff,	353697836  },
+{9,	386,	    0xffffffff,	168427768  },
+{9,	387,	    0xffffffff,	13         },
+{9,	388,	    0xffffffff,	0xfb080800 },
+{9,	392,	    0xffffffff,	219356160  },
+{9,	393,	    0xffffffff,	674758739  },
+{9,	394,	    0xffffffff,	573177856  },
+{9,	395,	    0xffffffff,	21         },
+{9,	396,	    0xffffffff,	657920     },
+{9,	400,	    0xffffffff,	219223808  },
+{9,	401,	    0xffffffff,	809304160  },
+{9,	402,	    0xffffffff,	674562069  },
+{9,	403,	    0xffffffff,	13         },
+{9,	404,	    0xffffffff,	657920     },
+{9,	408,	    0xffffffff,	168629504  },
+{9,	409,	    0xffffffff,	807731289  },
+{9,	410,	    0xffffffff,	403308562  },
+{9,	411,	    0xffffffff,	0          },
+{9,	412,	    0xffffffff,	526848     },
+{9,	416,	    0xffffffff,	395776     },
+{9,	417,	    0xffffffff,	269484098  },
+{9,	418,	    0xffffffff,	167772160  },
+{9,	419,	    0xffffffff,	0          },
+{9,	420,	    0xffffffff,	0          },
+{9,	424,	    0xffffffff,	396544     },
+{9,	425,	    0xffffffff,	134217757  },
+{9,	426,	    0xffffffff,	0          },
+{9,	427,	    0xffffffff,	0          },
+{9,	428,	    0xffffffff,	0          },
+{9,	432,	    0xffffffff,	527616     },
+{9,	433,	    0xffffffff,	12         },
+{9,	434,	    0xffffffff,	0          },
+{9,	435,	    0xffffffff,	0          },
+{9,	436,	    0xffffffff,	0          },
+{9,	440,	    0xffffffff,	658688     },
+{9,	441,	    0xffffffff,	7          },
+{9,	442,	    0xffffffff,	0          },
+{9,	443,	    0xffffffff,	0          },
+{9,	444,	    0xffffffff,	0          },
+{9,	448,	    0xffffffff,	986880     },
+{9,	449,	    0xffffffff,	5          },
+{9,	450,	    0xffffffff,	0          },
+{9,	451,	    0xffffffff,	0          },
+{9,	452,	    0xffffffff,	0          },
+{9,	456,	    0xffffffff,	219811584  },
+{9,	457,	    0xffffffff,	244        },
+{9,	458,	    0xffffffff,	0          },
+{9,	459,	    0xffffffff,	0          },
+{9,	460,	    0xffffffff,	0          },
+{9,	464,	    0xffffffff,	287183104  },
+{9,	465,	    0xffffffff,	186        },
+{9,	466,	    0xffffffff,	0xf3000000 },
+{9,	467,	    0xffffffff,	246        },
+{9,	468,	    0xffffffff,	0xfb000000 },
+{9,	472,	    0xffffffff,	219944192  },
+{9,	473,	    0xffffffff,	158        },
+{9,	474,	    0xffffffff,	0xf0000000 },
+{9,	475,	    0xffffffff,	232        },
+{9,	476,	    0xffffffff,	0          },
+{9,	480,	    0xffffffff,	1382912    },
+{9,	481,	    0xffffffff,	0xfb0000a4 },
+{9,	482,	    0xffffffff,	0xe300f3f3 },
+{9,	483,	    0xffffffff,	219        },
+{9,	484,	    0xffffffff,	0          },
+{9,	488,	    0xffffffff,	1514496    },
+{9,	489,	    0xffffffff,	0xf30000ba },
+{9,	490,	    0xffffffff,	0xe600f3f0 },
+{9,	491,	    0xffffffff,	222        },
+{9,	492,	    0xffffffff,	0          },
+{9,	496,	    0xffffffff,	1120000    },
+{9,	497,	    0xffffffff,	0xf3fb00db },
+{9,	498,	    0xffffffff,	0xe800f6ee },
+{9,	499,	    0xffffffff,	232        },
+{9,	500,	    0xffffffff,	64256      },
+{9,	504,	    0xffffffff,	397056     },
+{9,	505,	    0xffffffff,	0xf6f800f7 },
+{9,	506,	    0xffffffff,	0xe60000f8 },
+{9,	507,	    0xffffffff,	235        },
+{9,	508,	    0xffffffff,	65278      },
+{0}
+	}
+};
+
+struct am_regs_s cmreg_optimize={
+	172,
+	{
+/* optimize */
+{REG_TYPE_INDEX_VPPCHROMA,	0x200,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x201,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x202,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x203,    0xffffffff, 0x8000400},
+{REG_TYPE_INDEX_VPPCHROMA,	0x204,    0xffffffff, 0x90   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x205,    0xffffffff, 0x437077f},
+{REG_TYPE_INDEX_VPPCHROMA,	0x206,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x207,    0xffffffff, 0x1f60000},
+{REG_TYPE_INDEX_VPPCHROMA,	0x208,    0xffffffff, 0x76   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x209,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x20a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x20f,    0xf, 0x0,   },
+{REG_TYPE_INDEX_VPP_COEF,	0x100,    0xffffffff, 0xa1100  },
+{REG_TYPE_INDEX_VPP_COEF,	0x101,    0xffffffff, 0xc   },
+{REG_TYPE_INDEX_VPP_COEF,	0x102,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x103,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x104,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x108,    0xffffffff, 0xd1100  },
+{REG_TYPE_INDEX_VPP_COEF,	0x109,    0xffffffff, 0x1f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x10a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x10b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x10c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x110,    0xffffffff, 0xf1300  },
+{REG_TYPE_INDEX_VPP_COEF,	0x111,    0xffffffff, 0x33   },
+{REG_TYPE_INDEX_VPP_COEF,	0x112,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x113,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x114,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x118,    0xffffffff, 0xf1300  },
+{REG_TYPE_INDEX_VPP_COEF,	0x119,    0xffffffff, 0x3f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x11a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x11b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x11c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x120,    0xffffffff, 0xf1300  },
+{REG_TYPE_INDEX_VPP_COEF,	0x121,    0xffffffff, 0x40   },
+{REG_TYPE_INDEX_VPP_COEF,	0x122,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x123,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x124,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x128,    0xffffffff, 0xf1100  },
+{REG_TYPE_INDEX_VPP_COEF,	0x129,    0xffffffff, 0x40   },
+{REG_TYPE_INDEX_VPP_COEF,	0x12a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x12b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x12c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x130,    0xffffffff, 0xd0f00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x131,    0xffffffff, 0x3f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x132,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x133,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x134,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x138,    0xffffffff, 0xa0d00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x139,    0xffffffff, 0x32   },
+{REG_TYPE_INDEX_VPP_COEF,	0x13a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x13b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x13c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x140,    0xffffffff, 0x80a00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x141,    0xffffffff, 0x9   },
+{REG_TYPE_INDEX_VPP_COEF,	0x142,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x143,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x144,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x148,    0xffffffff, 0x80a00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x149,    0xffffffff, 0xea   },
+{REG_TYPE_INDEX_VPP_COEF,	0x14a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x14b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x14c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x150,    0xffffffff, 0xa0a00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x151,    0xffffffff, 0xd4   },
+{REG_TYPE_INDEX_VPP_COEF,	0x152,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x153,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x154,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x158,    0xffffffff, 0xa0800  },
+{REG_TYPE_INDEX_VPP_COEF,	0x159,    0xffffffff, 0xc3   },
+{REG_TYPE_INDEX_VPP_COEF,	0x15a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x15b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x15c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x160,    0xffffffff, 0xa0800  },
+{REG_TYPE_INDEX_VPP_COEF,	0x161,    0xffffffff, 0xc0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x162,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x163,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x164,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x168,    0xffffffff, 0x80800  },
+{REG_TYPE_INDEX_VPP_COEF,	0x169,    0xffffffff, 0xcb   },
+{REG_TYPE_INDEX_VPP_COEF,	0x16a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x16b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x16c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x170,    0xffffffff, 0x60800  },
+{REG_TYPE_INDEX_VPP_COEF,	0x171,    0xffffffff, 0xd4   },
+{REG_TYPE_INDEX_VPP_COEF,	0x172,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x173,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x174,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x178,    0xffffffff, 0x40600  },
+{REG_TYPE_INDEX_VPP_COEF,	0x179,    0xffffffff, 0xdb   },
+{REG_TYPE_INDEX_VPP_COEF,	0x17a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x17b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x17c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x180,    0xffffffff, 0x60600  },
+{REG_TYPE_INDEX_VPP_COEF,	0x181,    0xffffffff, 0xea   },
+{REG_TYPE_INDEX_VPP_COEF,	0x182,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x183,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x184,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x188,    0xffffffff, 0x60600  },
+{REG_TYPE_INDEX_VPP_COEF,	0x189,    0xffffffff, 0xf7   },
+{REG_TYPE_INDEX_VPP_COEF,	0x18a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x18b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x18c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x190,    0xffffffff, 0x60600  },
+{REG_TYPE_INDEX_VPP_COEF,	0x191,    0xffffffff, 0x3   },
+{REG_TYPE_INDEX_VPP_COEF,	0x192,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x193,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x194,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x198,    0xffffffff, 0x80800  },
+{REG_TYPE_INDEX_VPP_COEF,	0x199,    0xffffffff, 0x9   },
+{REG_TYPE_INDEX_VPP_COEF,	0x19a,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x19b,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x19c,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a0,    0xffffffff, 0x60a00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a1,    0xffffffff, 0xc   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a2,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a3,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a4,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a8,    0xffffffff, 0x60d00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a9,    0xffffffff, 0xe   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1aa,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ab,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ac,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b0,    0xffffffff, 0x80d00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b1,    0xffffffff, 0xc   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b2,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b3,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b4,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b8,    0xffffffff, 0xa0d00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b9,    0xffffffff, 0x7   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ba,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1bb,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1bc,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c0,    0xffffffff, 0xf0f00  },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c1,    0xffffffff, 0xfb   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c2,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c3,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c4,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c8,    0xffffffff, 0x110f00 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c9,    0xffffffff, 0xf2   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ca,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1cb,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1cc,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d0,    0xffffffff, 0x131100 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d1,    0xffffffff, 0xee   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d2,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d3,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d4,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d8,    0xffffffff, 0x131500 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d9,    0xffffffff, 0xf5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1da,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1db,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1dc,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e0,    0xffffffff, 0x151a00 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e1,    0xffffffff, 0x1   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e2,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e3,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e4,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e8,    0xffffffff, 0x171c00 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e9,    0xffffffff, 0x5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ea,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1eb,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ec,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f0,    0xffffffff, 0x171a00 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f1,    0xffffffff, 0x5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f2,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f3,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f4,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f8,    0xffffffff, 0x131500 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f9,    0xffffffff, 0x7   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1fa,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1fb,    0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1fc,    0xffffffff, 0x0   },
+{0}
+	}
+};
+struct am_regs_s cmreg_enhancement={
+	172,
+	{
+/* enhancement */
+{REG_TYPE_INDEX_VPPCHROMA,	0x200,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x201,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x202,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x203,	  0xffffffff, 0x8000400},
+{REG_TYPE_INDEX_VPPCHROMA,	0x204,	  0xffffffff, 0x90   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x205,	  0xffffffff, 0x437077f},
+{REG_TYPE_INDEX_VPPCHROMA,	0x206,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x207,	  0xffffffff, 0x2640000},
+{REG_TYPE_INDEX_VPPCHROMA,	0x208,	  0xffffffff, 0x7a   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x209,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x20a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPPCHROMA,	0x20f,	  0xf, 0x0,   },
+{REG_TYPE_INDEX_VPP_COEF,	0x100,	  0xffffffff, 0x2b5600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x101,	  0xffffffff, 0xc   },
+{REG_TYPE_INDEX_VPP_COEF,	0x102,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x103,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x104,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x108,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x109,	  0xffffffff, 0x1f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x10a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x10b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x10c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x110,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x111,	  0xffffffff, 0x33   },
+{REG_TYPE_INDEX_VPP_COEF,	0x112,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x113,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x114,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x118,	  0xffffffff, 0x2b5600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x119,	  0xffffffff, 0x3f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x11a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x11b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x11c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x120,	  0xffffffff, 0x2b5600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x121,	  0xffffffff, 0x3f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x122,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x123,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x124,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x128,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x129,	  0xffffffff, 0x3f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x12a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x12b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x12c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x130,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x131,	  0xffffffff, 0x3f   },
+{REG_TYPE_INDEX_VPP_COEF,	0x132,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x133,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x134,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x138,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x139,	  0xffffffff, 0x33   },
+{REG_TYPE_INDEX_VPP_COEF,	0x13a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x13b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x13c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x140,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x141,	  0xffffffff, 0x9   },
+{REG_TYPE_INDEX_VPP_COEF,	0x142,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x143,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x144,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x148,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x149,	  0xffffffff, 0xea   },
+{REG_TYPE_INDEX_VPP_COEF,	0x14a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x14b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x14c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x150,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x151,	  0xffffffff, 0xd4   },
+{REG_TYPE_INDEX_VPP_COEF,	0x152,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x153,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x154,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x158,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x159,	  0xffffffff, 0xc5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x15a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x15b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x15c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x160,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x161,	  0xffffffff, 0xc1   },
+{REG_TYPE_INDEX_VPP_COEF,	0x162,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x163,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x164,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x168,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x169,	  0xffffffff, 0xcb   },
+{REG_TYPE_INDEX_VPP_COEF,	0x16a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x16b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x16c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x170,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x171,	  0xffffffff, 0xd6   },
+{REG_TYPE_INDEX_VPP_COEF,	0x172,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x173,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x174,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x178,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x179,	  0xffffffff, 0xdb   },
+{REG_TYPE_INDEX_VPP_COEF,	0x17a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x17b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x17c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x180,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x181,	  0xffffffff, 0xec   },
+{REG_TYPE_INDEX_VPP_COEF,	0x182,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x183,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x184,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x188,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x189,	  0xffffffff, 0xf9   },
+{REG_TYPE_INDEX_VPP_COEF,	0x18a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x18b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x18c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x190,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x191,	  0xffffffff, 0x3   },
+{REG_TYPE_INDEX_VPP_COEF,	0x192,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x193,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x194,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x198,	  0xffffffff, 0x295600 },
+{REG_TYPE_INDEX_VPP_COEF,	0x199,	  0xffffffff, 0x9   },
+{REG_TYPE_INDEX_VPP_COEF,	0x19a,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x19b,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x19c,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a0,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a1,	  0xffffffff, 0xc   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a2,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a3,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a4,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a8,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1a9,	  0xffffffff, 0xe   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1aa,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ab,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ac,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b0,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b1,	  0xffffffff, 0xc   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b2,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b3,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b4,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b8,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1b9,	  0xffffffff, 0x7   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ba,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1bb,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1bc,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c0,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c1,	  0xffffffff, 0xfb   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c2,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c3,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c4,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c8,	  0xffffffff, 0x295400 },
+{REG_TYPE_INDEX_VPP_COEF,	0x1c9,	  0xffffffff, 0xf2   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ca,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1cb,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1cc,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d0,	  0xffffffff, 0x2295400},
+{REG_TYPE_INDEX_VPP_COEF,	0x1d1,	  0xffffffff, 0xee   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d2,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d3,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d4,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1d8,	  0xffffffff, 0x4295400},
+{REG_TYPE_INDEX_VPP_COEF,	0x1d9,	  0xffffffff, 0xf5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1da,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1db,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1dc,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e0,	  0xffffffff, 0x8295400},
+{REG_TYPE_INDEX_VPP_COEF,	0x1e1,	  0xffffffff, 0x1   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e2,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e3,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e4,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1e8,	  0xffffffff, 0x8295400},
+{REG_TYPE_INDEX_VPP_COEF,	0x1e9,	  0xffffffff, 0x5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ea,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1eb,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1ec,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f0,	  0xffffffff, 0x8295400},
+{REG_TYPE_INDEX_VPP_COEF,	0x1f1,	  0xffffffff, 0x5   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f2,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f3,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f4,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1f8,	  0xffffffff, 0x4295400},
+{REG_TYPE_INDEX_VPP_COEF,	0x1f9,	  0xffffffff, 0x7   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1fa,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1fb,	  0xffffffff, 0x0   },
+{REG_TYPE_INDEX_VPP_COEF,	0x1fc,	  0xffffffff, 0x0   },
+{0}
+	}
+};
 
 module_param(video_rgb_ogo_mode_sw, int, 0664);
 MODULE_PARM_DESC(video_rgb_ogo_mode_sw, "enable/disable video_rgb_ogo_mode_sw");
@@ -187,7 +1099,10 @@ void amvecm_video_latch(void)
 
     vs = READ_CBUS_REG_BITS(VPP_POSTBLEND_VD1_V_START_END,16,12);
     ve = READ_CBUS_REG_BITS(VPP_POSTBLEND_VD1_V_START_END,0,12);
-    cm2_frame_size_patch(he-hs+1,ve-vs+1);
+#if ((MESON_CPU_TYPE==MESON_CPU_TYPE_MESON8)||(MESON_CPU_TYPE==MESON_CPU_TYPE_MESON8B))
+    if(cm_en)
+#endif
+        cm2_frame_size_patch(he-hs+1,ve-vs+1);
 #if (MESON_CPU_TYPE==MESON_CPU_TYPE_MESON6TVD)
     ve_frame_size_patch(he-hs+1,ve-vs+1);
 #endif
@@ -294,6 +1209,45 @@ void amvecm_video_latch(void)
         printk("\n[amvecm..] set vd1_brightness_contrast OK!!!\n");
 #endif
     }
+    if (cm_en&&(cm_level_last != cm_level))
+    {
+    	cm_level_last = cm_level;
+    	WRITE_CBUS_REG_BITS(VPP_MISC,1,28,1);//CM manage enable
+    	if(cm_level == 1)
+    		am_set_regmap(&cmreg_lever1);
+	else if(cm_level == 2)
+		am_set_regmap(&cmreg_lever2);
+	else if(cm_level == 3)
+		am_set_regmap(&cmreg_lever3);
+	else if(cm_level == 4)
+		am_set_regmap(&cmreg_enhancement);
+	else
+		am_set_regmap(&cmreg_optimize);
+#if 1//def PQ_DEBUG_EN
+        printk("\n[amvecm..] set cm2 load OK!!!\n");
+#endif
+    }
+    else if(cm_en == 0){
+    	cm_level_last = 0xff;
+    	WRITE_CBUS_REG_BITS(VPP_MISC,0,28,1);//CM manage enable
+    }
+    if(dnlp_en&&dnlp_status)
+    {
+	dnlp_status = 0;
+	ve_set_dnlp_2();
+	ve_enable_dnlp();
+#ifdef PQ_DEBUG_EN
+	printk("\n[amvecm..] set vpp_enable_dnlp OK!!!\n");
+#endif
+    }
+    else if(dnlp_en == 0){
+    	dnlp_status = 1;
+    	ve_disable_dnlp();
+#ifdef PQ_DEBUG_EN
+	printk("\n[amvecm..] set vpp_disable_dnlp OK!!!\n");
+#endif
+    }
+#if ((MESON_CPU_TYPE==MESON_CPU_TYPE_MESON6TV)||(MESON_CPU_TYPE==MESON_CPU_TYPE_MESON6TVD))
     /* lvds freq 50Hz/60Hz */
     if (frame_lock_freq == 1)  //50 hz
     {
@@ -331,6 +1285,7 @@ void amvecm_video_latch(void)
             }
         }
     }
+#endif
 
 }
 EXPORT_SYMBOL(amvecm_video_latch);
@@ -1039,7 +1994,10 @@ static ssize_t amvecm_contrast_store(struct class *cla, struct class_attribute *
 
     return count;
 }
-
+static int hue_pre = 0;  /*-25~25*/
+static int saturation_pre = 0;  /*-128~127*/
+static int hue_post = 0;  /*-25~25*/
+static int saturation_post = 0;  /*-128~127*/
 static ssize_t amvecm_saturation_hue_show(struct class *cla, struct class_attribute *attr, char *buf)
 {
     return sprintf(buf, "0x%x\n", READ_MPEG_REG(VPP_VADJ1_MA_MB));
@@ -1073,6 +2031,158 @@ static ssize_t amvecm_saturation_hue_store(struct class *cla, struct class_attri
 #endif
     return count;
 }
+#include <linux/ctype.h>
+
+
+static int parse_para_pq(const char *para, int para_num, int *result)
+{
+    char *endp;
+    const char *startp = para;
+    int *out = result;
+    int len = 0, count = 0;
+
+    if (!startp) {
+        return 0;
+    }
+
+    len = strlen(startp);
+
+    do {
+        //filter space out
+        while (startp && (isspace(*startp) || !isgraph(*startp)) && len) {
+            startp++;
+            len--;
+        }
+
+        if (len == 0) {
+            break;
+        }
+
+        *out++ = simple_strtol(startp, &endp, 0);
+
+        len -= endp - startp;
+        startp = endp;
+        count++;
+
+    } while ((endp) && (count < para_num) && (len > 0));
+
+    return count;
+}
+
+static ssize_t amvecm_saturation_hue_pre_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+    return snprintf(buf, 20, "%d %d\n", saturation_pre, hue_pre);
+}
+
+static ssize_t amvecm_saturation_hue_pre_store(struct class *cla, struct class_attribute *attr, const char *buf,
+                                      size_t count)
+{
+    int parsed[2];
+    int i, ma, mb, mab, mc, md;
+	int hue_cos[] = {
+    256, 256, 256, 255, 255, 254, 253, 252, 251, 250, 248, 247, 245, /*0~12*/
+    243, 241, 239, 237, 234, 231, 229, 226, 223, 220, 216, 213, 209  /*13~25*/
+    };
+    int hue_sin[] = {
+    -147, -142, -137, -132, -126, -121, -115, -109, -104, -98, -92, -86, -80, /*-25~-13*/
+     -74,  -68,  -62,  -56,  -50,  -44,  -38,  -31,  -25, -19, -13,  -6,      /*-12~-1*/
+       0,								      /*0*/
+       6,   13,   19,	25,   31,   38,   44,	50,   56,  62,	68,  74,      /*1~12*/
+      80,   86,   92,	98,  104,  109,  115,  121,  126,  132, 137, 142, 147 /*13~25*/
+    };
+
+    if (likely(parse_para_pq(buf, 2, parsed) != 2)) {
+	return -EINVAL;
+    }
+
+    if ((parsed[0] < -128) || (parsed[0] > 128) || (parsed[1] < -25) || (parsed[1] > 25)) {
+	return -EINVAL;
+    }
+    saturation_pre = parsed[0];
+    hue_pre = parsed[1];
+
+    i = (hue_pre > 0) ? hue_pre: -hue_pre;
+    ma = (hue_cos[i]*(saturation_pre + 128)) >> 7;
+    mb = (hue_sin[25+hue_pre]*(saturation_pre + 128)) >> 7;
+
+    if	(ma > 511) ma = 511;
+    if (ma < -512) ma = -512;
+	if (mb > 511)  mb = 511;
+	if (mb < -512) mb = -512;
+	mab =  ((ma & 0x3ff) << 16) | (mb & 0x3ff);
+
+    printk("\n[amvideo..] saturation_pre:%d hue_pre:%d mab:%x\n", saturation_pre,hue_pre,mab);
+
+    WRITE_MPEG_REG(VPP_VADJ2_MA_MB, mab);
+    mc = (s16)((mab<<22)>>22); // mc = -mb
+    mc = 0 - mc;
+    if (mc > 511)  mc = 511;
+    if (mc < -512) mc = -512;
+    md = (s16)((mab<<6)>>22);  // md =	ma;
+    mab = ((mc&0x3ff)<<16)|(md&0x3ff);
+    WRITE_MPEG_REG(VPP_VADJ1_MC_MD, mab);
+    WRITE_MPEG_REG_BITS(VPP_VADJ_CTRL, 1, 0, 1);
+
+    return count;
+}
+
+static ssize_t amvecm_saturation_hue_post_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+    return snprintf(buf, 20, "%d %d\n", saturation_post, hue_post);
+}
+
+static ssize_t amvecm_saturation_hue_post_store(struct class *cla, struct class_attribute *attr, const char *buf,
+                                      size_t count)
+{
+    int parsed[2];
+    int i, ma, mb, mab, mc, md;
+	int hue_cos[] = {
+    256, 256, 256, 255, 255, 254, 253, 252, 251, 250, 248, 247, 245, /*0~12*/
+    243, 241, 239, 237, 234, 231, 229, 226, 223, 220, 216, 213, 209  /*13~25*/
+    };
+    int hue_sin[] = {
+    -147, -142, -137, -132, -126, -121, -115, -109, -104, -98, -92, -86, -80, /*-25~-13*/
+     -74,  -68,  -62,  -56,  -50,  -44,  -38,  -31,  -25, -19, -13,  -6,      /*-12~-1*/
+       0,								      /*0*/
+       6,   13,   19,	25,   31,   38,   44,	50,   56,  62,	68,  74,      /*1~12*/
+      80,   86,   92,	98,  104,  109,  115,  121,  126,  132, 137, 142, 147 /*13~25*/
+    };
+
+    if (likely(parse_para_pq(buf, 2, parsed) != 2)) {
+	return -EINVAL;
+    }
+
+    if ((parsed[0] < -128) || (parsed[0] > 128) || (parsed[1] < -25) || (parsed[1] > 25)) {
+	return -EINVAL;
+    }
+    saturation_post = parsed[0];
+    hue_post = parsed[1];
+
+    i = (hue_post > 0) ? hue_post: -hue_post;
+    ma = (hue_cos[i]*(saturation_post + 128)) >> 7;
+    mb = (hue_sin[25+hue_post]*(saturation_post + 128)) >> 7;
+
+    if	(ma > 511) ma = 511;
+    if (ma < -512) ma = -512;
+	if (mb > 511)  mb = 511;
+	if (mb < -512) mb = -512;
+	mab =  ((ma & 0x3ff) << 16) | (mb & 0x3ff);
+
+printk("\n[amvideo..] saturation_post:%d hue_post:%d mab:%x\n", saturation_post,hue_post,mab);
+
+    WRITE_MPEG_REG(VPP_VADJ2_MA_MB, mab);
+    mc = (s16)((mab<<22)>>22); // mc = -mb
+    mc = 0 - mc;
+    if (mc > 511)  mc = 511;
+    if (mc < -512) mc = -512;
+    md = (s16)((mab<<6)>>22);  // md =	ma;
+    mab = ((mc&0x3ff)<<16)|(md&0x3ff);
+    WRITE_MPEG_REG(VPP_VADJ2_MC_MD, mab);
+    WRITE_MPEG_REG_BITS(VPP_VADJ_CTRL, 1, 2, 1);
+
+    return count;
+}
+
 
 //static CLASS_ATTR(dnlp, S_IRUGO | S_IWUSR, amvecm_dnlp_show, amvecm_dnlp_store);
 static struct class_attribute amvecm_class_attrs[] = {
@@ -1085,6 +2195,12 @@ static struct class_attribute amvecm_class_attrs[] = {
 	__ATTR(saturation_hue,S_IRUGO | S_IWUSR,
 		amvecm_saturation_hue_show,
 		amvecm_saturation_hue_store),
+	__ATTR(saturation_hue_pre,S_IRUGO | S_IWUSR,
+		amvecm_saturation_hue_pre_show,
+		amvecm_saturation_hue_pre_store),
+	__ATTR(saturation_hue_post,S_IRUGO | S_IWUSR,
+		amvecm_saturation_hue_post_show,
+		amvecm_saturation_hue_post_store),
 	__ATTR_NULL
 };
 

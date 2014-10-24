@@ -1261,11 +1261,6 @@ static int assign_and_init_hc(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh)
 	if (qh->do_split) {
 		uint32_t hub_addr, port_addr;
 
-		if(qh->start_split_frame == 0xffff){
-			qh->start_split_frame = dwc_otg_hcd_get_frame_number(hcd);
-		}
-
-
 		hc->do_split = 1;
 		hc->xact_pos = qtd->isoc_split_pos;
 		hc->complete_split = qtd->complete_split;

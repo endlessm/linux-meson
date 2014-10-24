@@ -1373,11 +1373,14 @@ static int remove_lcd_attr(void)
 
 static int lcd_reboot_notifier(struct notifier_block *nb, unsigned long state, void *cmd)
  {
-	printk("[%s]: %lu\n", __FUNCTION__, state);
+	lcd_print("[%s]: %lu\n", __FUNCTION__, state);
+	if (pDev->pConf->lcd_misc_ctrl.lcd_status == 0)
+		return NOTIFY_DONE;
+	
 	_disable_backlight();
 	_lcd_module_disable();
 
-    return NOTIFY_DONE;
+	return NOTIFY_OK;
 }
 
 static int amlogic_pmu_gpio_name_map_num(const char *name)

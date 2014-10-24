@@ -80,7 +80,7 @@ uint field_22lvl;
 pd_detect_threshold_t field_pd_th;
 pd_detect_threshold_t win_pd_th[MAX_WIN_NUM];
 pd_win_prop_t pd_win_prop[MAX_WIN_NUM];
-extern int mpeg2vdin_en;
+extern int mpeg2vdin_flag;
 
 static bool frame_dynamic = 0;
 MODULE_PARM_DESC(frame_dynamic, "\n frame_dynamic \n");
@@ -331,7 +331,7 @@ void di_hw_init(void)
 {
 #ifdef NEW_DI_V1
     Wr(DI_MTN_1_CTRL1, Rd(DI_MTN_1_CTRL1)&(~(1<<31))); //enable old DI mode for m6tv
-    Wr(DI_CLKG_CTRL, Rd(DI_CLKG_CTRL)|0x1); //di no clock gate
+    Wr(DI_CLKG_CTRL, Rd(DI_CLKG_CTRL)); //di clock gate
 
     /* fifo size setting from 0x1be60 to 0x1bf20 */
     Wr(VD1_IF0_LUMA_FIFO_SIZE, 0x1bf20);  // 1a63 is vd1_if0_luma_fifo_size
@@ -478,10 +478,9 @@ void enable_di_pre_aml (
 	Wr_reg_bits(NR2_SW_EN,nr2_en,4,1);
 	#else
 	/*only process sd,avoid affecting sharp*/
-	if((nr_h<<1) >= 720 || nr_w >= 1280) 
-	    Wr_reg_bits(NR2_SW_EN,0,4,1);
+	if((nr_h<<1) >= 720 || nr_w >= 1280)            Wr_reg_bits(NR2_SW_EN,0,4,1);
 	else
-	    Wr_reg_bits(NR2_SW_EN,1,4,1);
+	    Wr_reg_bits(NR2_SW_EN,nr2_en,4,1);
 	#endif
 	/*enable noise meter*/
 	Wr_reg_bits(NR2_SW_EN,1,17,1);
@@ -529,7 +528,7 @@ void enable_di_pre_aml (
                    );
 #endif
 #ifdef SUPPORT_MPEG_TO_VDIN
-	if(mpeg2vdin_en)
+	if(mpeg2vdin_flag)
 		WRITE_MPEG_REG_BITS(DI_PRE_CTRL,1,13,1);// pre sync with vdin vsync
 #endif
 #ifdef DET3D
@@ -1515,7 +1514,7 @@ void initial_di_pre_aml ( int hsize_pre, int vsize_pre, int hold_line )
                     (0x3 << 30)      			// pre soft rst, pre frame rst.
            	);
 #ifdef SUPPORT_MPEG_TO_VDIN
-	if(mpeg2vdin_en)
+	if(mpeg2vdin_flag)
 		WRITE_MPEG_REG_BITS(DI_PRE_CTRL,1,13,1);// pre sync with vdin vsync
 #endif
     Wr(DI_MC_22LVL0, (Rd(DI_MC_22LVL0) & 0xffff0000 ) | 256);                //   field 22 level
@@ -2194,7 +2193,7 @@ unsigned char di_get_power_control(unsigned char type)
 
 void di_load_nr_setting()
 {
-		#ifdef NEW_DI_V1
+#ifdef NEW_DI_V1
     Wr(NR2_3DEN_MODE, 0x77);
     Wr(NR2_SNR_SAD_CFG, 0x134f);
     Wr(NR2_MATNR_SNR_NRM_GAIN, 0x0);
@@ -2207,7 +2206,7 @@ void di_load_nr_setting()
     Wr(NR2_MATNR_MTN_CRTL2, 0x32020);
     Wr(NR2_MATNR_MTN_GAIN, 0xffffffff);
     Wr(NR2_MATNR_DEGHOST, 0x133);
-    #endif    
+#endif    
 }
 
 #ifdef DI_POST_SKIP_LINE

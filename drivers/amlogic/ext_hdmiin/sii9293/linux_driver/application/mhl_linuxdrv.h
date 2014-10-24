@@ -171,6 +171,35 @@ typedef struct
     unsigned int        signal_status; // external hdmi cable is insert or not
 }sii9293_info_t;
 
+#define HDMIIN_FRAME_SKIP_MECHANISM 1
+
+#ifdef HDMIIN_FRAME_SKIP_MECHANISM
+// frame skip configuration is needed as:
+//     for following status: standby/powerup, cable plug out/in, etc
+//     we need drop some frame for HDMIIN device will still keep old frames
+// the skip num maybe different in each status.
+
+#define FRAME_SKIP_NUM_NORMAL	1
+#define FRAME_SKIP_NUM_STANDBY	1
+#define FRAME_SKIP_NUM_CABLE	1
+
+typedef enum
+{
+	SKIP_STATUS_NORMAL 	= 0,
+	SKIP_STATUS_STANDBY = 1,
+	SKIP_STATUS_CABLE 	= 2,
+	SKIP_STATUS_MAX
+}skip_status_e;
+
+typedef struct
+{
+	unsigned char skip_num_normal;
+	unsigned char skip_num_standby;
+	unsigned char skip_num_cable;
+}sii9293_frame_skip_t;
+
+#endif
+
 /***** global variables ********************************************/
 
 extern MHL_DRIVER_CONTEXT_T gDriverContext;

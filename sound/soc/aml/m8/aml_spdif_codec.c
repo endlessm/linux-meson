@@ -97,7 +97,7 @@ static ssize_t spdif_mute_set(struct device *dev,
     }
 	return count;
 }
-static DEVICE_ATTR(spdif_mute, 0666, spdif_mute_show, spdif_mute_set);
+static DEVICE_ATTR(spdif_mute, 0660, spdif_mute_show, spdif_mute_set);
 
 static int spdif_dit_probe(struct platform_device *pdev)
 {

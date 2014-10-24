@@ -84,7 +84,7 @@ MODULE_AMLOG(LOG_LEVEL_ERROR, 0, LOG_LEVEL_DESC, LOG_DEFAULT_MASK_DESC);
 #define SEQINFO_EXT_AVAILABLE   0x80000000
 #define SEQINFO_PROG            0x00010000
 
-#define VF_POOL_SIZE        12
+#define VF_POOL_SIZE        24
 #define PUT_INTERVAL        HZ/100
 
 #define INCPTR(p) ptr_atomic_wrap_inc(&p)
@@ -143,7 +143,7 @@ static const u32 frame_rate_tab[16] = {
 };
 
 static struct vframe_s vfqool[VF_POOL_SIZE];
-static s32 vfbuf_use[VF_POOL_SIZE];
+static s32 vfbuf_use[8];
 static struct vframe_s *vfp_pool_newframe[VF_POOL_SIZE+1];
 static struct vframe_s *vfp_pool_display[VF_POOL_SIZE+1];
 static struct vframe_s *vfp_pool_recycle[VF_POOL_SIZE+1];
@@ -165,11 +165,13 @@ static s32 wait_buffer_counter = 0;
 
 static inline u32 index2canvas(u32 index)
 {
-    const u32 canvas_tab[4] = {
+    const u32 canvas_tab[8] = {
 #ifdef NV21
-        0x010100, 0x030302, 0x050504, 0x070706
+        0x010100, 0x030302, 0x050504, 0x070706,
+        0x090908, 0x0b0b0a, 0x0d0d0c, 0x0f0f0e
 #else
-        0x020100, 0x050403, 0x080706, 0x0b0a09
+        0x020100, 0x050403, 0x080706, 0x0b0a09,
+        0x0e0d0c, 0x11100f, 0x141312, 0x171615
 #endif
     };
 
@@ -301,7 +303,7 @@ static irqreturn_t vmpeg12_isr(int irq, void *dev_id)
         }
 
         if (frame_prog & PICINFO_PROG) {
-            u32 index = ((reg & 7) - 1) & 3;
+            u32 index = ((reg & 0xf) - 1) & 7;
 
             seqinfo = READ_VREG(MREG_SEQ_INFO);
 
@@ -347,7 +349,7 @@ static irqreturn_t vmpeg12_isr(int irq, void *dev_id)
             vf_notify_receiver(PROVIDER_NAME,VFRAME_EVENT_PROVIDER_VFRAME_READY,NULL);
 
         } else {
-            u32 index = ((reg & 7) - 1) & 3;
+            u32 index = ((reg & 0xf) - 1) & 7;
             int first_field_type = (info & PICINFO_TOP_FIRST) ?
                     VIDTYPE_INTERLACE_TOP : VIDTYPE_INTERLACE_BOTTOM;
 
@@ -599,28 +601,28 @@ static void vmpeg12_canvas_init(void)
         disp_addr = (cur_canvas.addr + 7) >> 3;
     }
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 8; i++) {
         if (((buf_start + i * decbuf_size + 7) >> 3) == disp_addr) {
 #ifdef NV21
             canvas_config(2 * i + 0,
-                          buf_start + 4 * decbuf_size,
+                          buf_start + 8 * decbuf_size,
                           canvas_width, canvas_height,
                           CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
             canvas_config(2 * i + 1,
-                          buf_start + 4 * decbuf_size + decbuf_y_size,
+                          buf_start + 8 * decbuf_size + decbuf_y_size,
                           canvas_width, canvas_height / 2,
                           CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
 #else
             canvas_config(3 * i + 0,
-                          buf_start + 4 * decbuf_size,
+                          buf_start + 8 * decbuf_size,
                           canvas_width, canvas_height,
                           CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
             canvas_config(3 * i + 1,
-                          buf_start + 4 * decbuf_size + decbuf_y_size,
+                          buf_start + 8 * decbuf_size + decbuf_y_size,
                           canvas_width / 2, canvas_height / 2,
                           CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
             canvas_config(3 * i + 2,
-                          buf_start + 4 * decbuf_size + decbuf_y_size + decbuf_uv_size,
+                          buf_start + 8 * decbuf_size + decbuf_y_size + decbuf_uv_size,
                           canvas_width / 2, canvas_height / 2,
                           CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
 #endif
@@ -651,8 +653,8 @@ static void vmpeg12_canvas_init(void)
         }
     }
 
-    ccbuf_phyAddress = buf_start + 5 * decbuf_size;
-    WRITE_VREG(MREG_CO_MV_START, buf_start + 5 * decbuf_size + CCBUF_SIZE);
+    ccbuf_phyAddress = buf_start + 9 * decbuf_size;
+    WRITE_VREG(MREG_CO_MV_START, buf_start + 9 * decbuf_size + CCBUF_SIZE);
 
 }
 
@@ -682,11 +684,19 @@ static void vmpeg12_prot_init(void)
     WRITE_VREG(AV_SCRATCH_1, 0x030302);
     WRITE_VREG(AV_SCRATCH_2, 0x050504);
     WRITE_VREG(AV_SCRATCH_3, 0x070706);
+    WRITE_VREG(AV_SCRATCH_4, 0x090908);
+    WRITE_VREG(AV_SCRATCH_5, 0x0b0b0a);
+    WRITE_VREG(AV_SCRATCH_6, 0x0d0d0c);
+    WRITE_VREG(AV_SCRATCH_7, 0x0f0f0e);
 #else
     WRITE_VREG(AV_SCRATCH_0, 0x020100);
     WRITE_VREG(AV_SCRATCH_1, 0x050403);
     WRITE_VREG(AV_SCRATCH_2, 0x080706);
     WRITE_VREG(AV_SCRATCH_3, 0x0b0a09);
+    WRITE_VREG(AV_SCRATCH_4, 0x0e0d0c);
+    WRITE_VREG(AV_SCRATCH_5, 0x11100f);
+    WRITE_VREG(AV_SCRATCH_6, 0x141312);
+    WRITE_VREG(AV_SCRATCH_7, 0x171615);
 #endif
 
     /* set to mpeg1 default */
@@ -732,7 +742,7 @@ static void vmpeg12_local_init(void)
 
     frame_width = frame_height = frame_dur = frame_prog = 0;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 8; i++) {
         vfbuf_use[i] = 0;
     }
 

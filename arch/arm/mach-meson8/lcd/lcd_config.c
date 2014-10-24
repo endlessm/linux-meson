@@ -1856,7 +1856,10 @@ static void lcd_config_assign(Lcd_Config_t *pConf)
     pConf->lcd_power_ctrl.power_ctrl_video = lcd_power_ctrl_video;
 
     pConf->lcd_misc_ctrl.vpp_sel = 0;
-    pConf->lcd_misc_ctrl.lcd_status = 1;
+    if (READ_LCD_REG(ENCL_VIDEO_EN) & 1)
+        pConf->lcd_misc_ctrl.lcd_status = 1;
+    else
+        pConf->lcd_misc_ctrl.lcd_status = 0;
     pConf->lcd_misc_ctrl.module_enable = lcd_module_enable;
     pConf->lcd_misc_ctrl.module_disable = lcd_module_disable;
     pConf->lcd_misc_ctrl.lcd_test = lcd_test;

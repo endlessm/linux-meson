@@ -48,10 +48,6 @@
 #include <linux/of_fdt.h>
 #include <linux/amlogic/vmapi.h>
 
-#ifdef CONFIG_MESON_TRUSTZONE
-#include <mach/meson-secure.h>
-#endif
-
 static void meson_map_board_io(void);
 extern unsigned long long aml_reserved_start;
 extern unsigned long long aml_reserved_end;
@@ -125,10 +121,6 @@ static __init void meson_init_early(void)
 	system_serial_high = rev;
 	rev = get_meson_cpu_version(MESON_CPU_VERSION_LVL_MINOR);
 	system_rev = rev;
-
-#ifdef CONFIG_MESON_TRUSTZONE
-	meson_trustzone_memconfig();
-#endif		
 }
 
 static void __init meson_init_irq(void)

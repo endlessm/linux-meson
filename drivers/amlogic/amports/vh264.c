@@ -47,7 +47,7 @@
 #include "amvdec.h"
 #include "vh264_mc.h"
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
 #include <linux/amlogic/logo/logo.h>
 #endif
 
@@ -115,7 +115,7 @@ typedef struct {
     int y_canvas_index;
     int u_canvas_index;
     int v_canvas_index;
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
     unsigned int y_canvas_width;
     unsigned int u_canvas_width;
     unsigned int v_canvas_width;
@@ -250,7 +250,7 @@ extern u32 get_blackout_policy(void);
 
 #define DFS_HIGH_THEASHOLD 3
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
 static ge2d_context_t *ge2d_videoh264_context = NULL;
 
 static int ge2d_videoh264task_init()
@@ -711,7 +711,7 @@ static void vh264_set_params(void)
                 buffer_spec[i].y_canvas_index = 128 + i * 2;
                 buffer_spec[i].u_canvas_index = 128 + i * 2 + 1;
                 buffer_spec[i].v_canvas_index = 128 + i * 2 + 1;
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
                 buffer_spec[i].y_canvas_width = mb_width << 4;
                 buffer_spec[i].y_canvas_height = mb_height << 4;
                 buffer_spec[i].u_canvas_width = mb_width << 4;
@@ -751,7 +751,7 @@ static void vh264_set_params(void)
                 buffer_spec[i].y_canvas_index = 128 + i * 2;
                 buffer_spec[i].u_canvas_index = 128 + i * 2 + 1;
                 buffer_spec[i].v_canvas_index = 128 + i * 2 + 1;
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
                 buffer_spec[i].y_canvas_width = mb_width << 4;
                 buffer_spec[i].y_canvas_height = mb_height << 4;
                 buffer_spec[i].u_canvas_width = mb_width << 4;
@@ -797,7 +797,7 @@ static void vh264_set_params(void)
                 buffer_spec[i].u_addr = addr;
                 addr += mb_total << 7;
                 vfbuf_use[i] = 0;
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
                 buffer_spec[i].y_canvas_width = mb_width << 4;
                 buffer_spec[i].y_canvas_height = mb_height << 4;
                 buffer_spec[i].u_canvas_width = mb_width << 4;
@@ -1869,7 +1869,7 @@ static void stream_switching_do(struct work_struct *work)
     bool do_copy = true;
     int mb_total_num, mb_width_num, mb_height_num;
 
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
     u32 y_index, u_index,src_index,des_index,y_desindex,u_dexindex;
     canvas_t csy,csu,cyd;
 #endif
@@ -1910,7 +1910,7 @@ static void stream_switching_do(struct work_struct *work)
         if (do_copy) {
             /* construct a clone of the frame from last frame */
 #ifdef NV21
-#ifdef CONFIG_AM_MEMPROTECT
+#ifdef CONFIG_GE2D_KEEP_FRAME
             printk("src yaddr[0x%x] index[%d] width[%d] heigth[%d]\n",buffer_spec[buffer_index].y_addr,buffer_spec[buffer_index].y_canvas_index,\
                 buffer_spec[buffer_index].y_canvas_width,buffer_spec[buffer_index].y_canvas_height);
             
@@ -2064,7 +2064,7 @@ static struct codec_profile_t amvdec_h264_profile = {
 static int __init amvdec_h264_driver_init_module(void)
 {
     printk("amvdec_h264 module init\n");
-#ifdef CONFIG_AM_MEMPROTECT	
+#ifdef CONFIG_GE2D_KEEP_FRAME	
     ge2d_videoh264task_init();
 #endif
     if (platform_driver_register(&amvdec_h264_driver)) {
@@ -2080,7 +2080,7 @@ static void __exit amvdec_h264_driver_remove_module(void)
     printk("amvdec_h264 module remove.\n");
 
     platform_driver_unregister(&amvdec_h264_driver);
-#ifdef CONFIG_AM_MEMPROTECT	
+#ifdef CONFIG_GE2D_KEEP_FRAME	
     ge2d_videoh264task_release();
 #endif
 }

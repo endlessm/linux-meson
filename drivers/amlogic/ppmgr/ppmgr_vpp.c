@@ -108,6 +108,7 @@ void vf_ppmgr_reset(int type);
 void ppmgr_vf_put_dec(vframe_t *vf);
 
 
+extern u32 timestamp_pcrscr_enable_state(void);
 
 #define is_valid_ppframe(pp_vf) \
 	((pp_vf >= &vfp_pool[0]) && (pp_vf <= &vfp_pool[VF_POOL_SIZE-1]))
@@ -317,6 +318,10 @@ static int ppmgr_event_cb(int type, void *data, void *private_data)
 #endif
     if(type & VFRAME_EVENT_RECEIVER_FRAME_WAIT){
         if(task_running && !ppmgr_device.use_prot){
+			
+			if(timestamp_pcrscr_enable_state()){
+				return 0;
+			}
             if(get_property_change()){
                 //printk("--ppmgr: get angle changed msg.\n");
                 set_property_change(0);

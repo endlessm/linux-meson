@@ -362,6 +362,14 @@ static char *dptx_explain_reply_code(int status)
 	}
 }
 
+static int trdp_AUX_check_status(void)
+{
+	if (READ_DPTX_REG(EDP_TX_TRANSMITTER_OUTPUT_ENABLE) & 1)
+		return 0;
+	else
+		return 1;
+}
+
 #define EDP_AUX_OPERATION_RETRY
 // Read EDPTX
 // Read N-bytes from Aux-Channel -- upto 16bytes
@@ -374,6 +382,12 @@ static int trdp_AUXRead(unsigned long address, unsigned long byte_count, unsigne
 	int reply_state = VAL_EDP_TX_AUX_OPERATION_TIMEOUT;
 	unsigned defer_count = 0;
 	unsigned timeout_count = 0;
+	
+	status = trdp_AUX_check_status();
+	if (status) {
+		printk("AUXRead error: edp transmitter disabled\n");
+		return (int)status;
+	}
 	
 	while ((reply_state == VAL_EDP_TX_AUX_OPERATION_TIMEOUT) && (defer_count < VAL_EDP_TX_AUX_MAX_DEFER_COUNT) && (timeout_count < VAL_EDP_TX_AUX_MAX_TIMEOUT_COUNT)) {
 		//check for transmitter ready state
@@ -441,6 +455,12 @@ static int trdp_AUXRead(unsigned long address, unsigned long byte_count, unsigne
     int i;
     unsigned status;
 	
+	status = trdp_AUX_check_status();
+	if (status) {
+		printk("AUXRead error: edp transmitter disabled\n");
+		return (int)status;
+	}
+	
     //check for transmitter ready state
 	do {
 		status = READ_DPTX_REG(EDP_TX_AUX_STATE);
@@ -497,6 +517,12 @@ static int trdp_AUXWrite(unsigned long address, unsigned long byte_count, unsign
 	int reply_state = VAL_EDP_TX_AUX_OPERATION_TIMEOUT;
 	unsigned defer_count = 0;
 	unsigned timeout_count = 0;
+	
+	status = trdp_AUX_check_status();
+	if (status) {
+		printk("AUXWrite error: edp transmitter disabled\n");
+		return (int)status;
+	}
 	
 	while ((reply_state == VAL_EDP_TX_AUX_OPERATION_TIMEOUT) && (defer_count < VAL_EDP_TX_AUX_MAX_DEFER_COUNT) && (timeout_count < VAL_EDP_TX_AUX_MAX_TIMEOUT_COUNT)) {
 		//check for transmitter ready state
@@ -559,6 +585,12 @@ static int trdp_AUXWrite(unsigned long address, unsigned long byte_count, unsign
     int i;
 	unsigned status;
 
+	status = trdp_AUX_check_status();
+	if (status) {
+		printk("AUXWrite error: edp transmitter disabled\n");
+		return (int)status;
+	}
+	
 	//check for transmitter ready state
 	do {
 		status = READ_DPTX_REG(EDP_TX_AUX_STATE);
@@ -1782,9 +1814,9 @@ int dplpm_link_off(void)
     int status = 0;
     unsigned char aux_data;
 
-    lcd_print("..... Power down sink link .....\n");
+    lcd_print("..... Power down edp sink link .....\n");
     aux_data = 2;	//power down mode
-    //status = trdp_AUXWrite(EDP_DPCD_SET_POWER, 1, &aux_data);
+    status = trdp_AUXWrite(EDP_DPCD_SET_POWER, 1, &aux_data);
 
     return status;
 }

@@ -675,16 +675,19 @@ static int vidioc_synchronization_dqbuf(struct file *file, void *priv, struct v4
         	tsync_avevent_locked(VIDEO_START, buf->pts ? buf->pts : timestamp_vpts_get());        
         	d = 0;
         	dev->is_video_started=1;
-    	}else if (buf->pts) {
-        	if (abs(timestamp_pcrscr_get() - buf->pts) > tsync_vpts_discontinuity_margin()) {
-            		tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, buf->pts);
-        	} else {
-            		timestamp_vpts_set(buf->pts);
-        	}
-        	d = timestamp_vpts_get() - timestamp_pcrscr_get();
-    	} else {
-        	d = timestamp_vpts_get() + DUR2PTS(buf->duration) - timestamp_pcrscr_get();
-    	}    	
+    	}else{ 
+	    	if (buf->pts  == 0) {
+	       	buf->pts = timestamp_vpts_get() + DUR2PTS(buf->duration);
+	    	}      
+
+		if (abs(timestamp_pcrscr_get() - buf->pts ) > tsync_vpts_discontinuity_margin()) {
+	        	tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, buf->pts );
+	    	} 
+		else{
+			timestamp_vpts_set(buf->pts);
+		}
+	    	d = (buf->pts - timestamp_pcrscr_get());
+    	}
     }
 
     if (d > 450) {
@@ -694,15 +697,18 @@ static int vidioc_synchronization_dqbuf(struct file *file, void *priv, struct v4
         while (s--) {
             ret = vb2_ioctl_dqbuf(file, priv, p);
             if (ret) {  return ret; }
-            if (buf->pts) {
-                if (abs(timestamp_pcrscr_get() - buf->pts) > tsync_vpts_discontinuity_margin()) {
-                    tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, buf->pts);
-                } else {
-                    timestamp_vpts_set(buf->pts);
-                }
-            } else {
-                timestamp_vpts_inc(DUR2PTS(buf->duration));
-            }
+
+	     if (buf->pts  == 0) {
+		buf->pts = timestamp_vpts_get() + DUR2PTS(buf->duration);
+	     }      
+
+	     if (abs(timestamp_pcrscr_get() - buf->pts ) > tsync_vpts_discontinuity_margin()) {
+		tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, buf->pts );
+	     } 
+	     else{
+		timestamp_vpts_set(buf->pts);
+	     }
+            
             if(list_empty(&q->done_list)) {
                 break;
             } else {
@@ -712,13 +718,10 @@ static int vidioc_synchronization_dqbuf(struct file *file, void *priv, struct v4
             }
         }
         dprintk(dev, 1, "s:%u\n", skip_frames);
-    } else {
+    } else {	 
         ret = vb2_ioctl_dqbuf(file, priv, p);
         if (ret) {
             return ret;
-        }
-        if (!buf->pts) {
-            timestamp_vpts_inc(DUR2PTS(buf->duration));
         }
     }
     p->timestamp.tv_sec = 0;

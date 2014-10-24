@@ -789,11 +789,19 @@ static int aml1218_ac_get_property(struct power_supply *psy,
         break;
 
     case POWER_SUPPLY_PROP_PRESENT:
-        val->intval = charger->dcin_valid;
+        if (power_protection) {
+            val->intval = 0;                    // force to 0 when over discharge 
+        } else {
+            val->intval = charger->dcin_valid;
+        }
         break;
 
     case POWER_SUPPLY_PROP_ONLINE:
-        val->intval = charger->dcin_valid;
+        if (power_protection) {
+            val->intval = 0;                    // force to 0 when over discharge 
+        } else {
+            val->intval = charger->dcin_valid;
+        }
         break;
 
     case POWER_SUPPLY_PROP_VOLTAGE_NOW:
@@ -827,11 +835,19 @@ static int aml1218_usb_get_property(struct power_supply *psy,
         break;
 
     case POWER_SUPPLY_PROP_PRESENT:
-        val->intval = charger->usb_valid;
+        if (power_protection) {
+            val->intval = 0;                                        // force to 0 for over-discharging protection 
+        } else {
+            val->intval = charger->usb_valid;
+        }
         break;
 
     case POWER_SUPPLY_PROP_ONLINE:
-        val->intval = charger->usb_valid; 
+        if (power_protection) {
+            val->intval = 0;                                        // force to 0 for over-discharging protection 
+        } else {
+            val->intval = charger->usb_valid;
+        }
         break;
 
     case POWER_SUPPLY_PROP_VOLTAGE_NOW:

@@ -17,7 +17,7 @@ struct dummy_codec_private {
 	struct snd_soc_codec codec;	
 };
 
-#define DUMMY_CODEC_RATES		(SNDRV_PCM_RATE_8000_48000)
+#define DUMMY_CODEC_RATES		(SNDRV_PCM_RATE_8000_192000)
 #define DUMMY_CODEC_FORMATS		(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE)
 
 
@@ -41,6 +41,25 @@ static int dummy_codec_mute(struct snd_soc_dai *dai, int mute)
 	return 0;
 }
 
+static const struct snd_soc_dapm_widget dummy_codec_dapm_widgets[] = {
+    /* Output Side */
+    /* DACs */
+    SND_SOC_DAPM_DAC("Left DAC", "HIFI Playback",
+        SND_SOC_NOPM, 0, 0),
+    SND_SOC_DAPM_DAC("Right DAC", "HIFI Playback",
+        SND_SOC_NOPM, 7, 0),
+        
+    /* Output Lines */
+    SND_SOC_DAPM_OUTPUT("LOUTL"),
+    SND_SOC_DAPM_OUTPUT("LOUTR"),
+
+};
+
+static const struct snd_soc_dapm_route dummy_codec_dapm_routes[] = {
+    
+    {"LOUTL", NULL, "Left DAC"},
+    {"LOUTR", NULL, "Right DAC"},
+};
 static struct snd_soc_dai_ops dummy_codec_ops = {
 	.hw_params		= dummy_codec_pcm_hw_params,
 	.set_fmt		= dummy_codec_set_dai_fmt,
@@ -81,8 +100,12 @@ static int dummy_codec_remove(struct snd_soc_codec *codec)
 
 
 struct snd_soc_codec_driver soc_codec_dev_dummy_codec = {
-	.probe = 	dummy_codec_probe,
-	.remove = 	dummy_codec_remove,
+    .probe =    dummy_codec_probe,
+    .remove =   dummy_codec_remove,
+    .dapm_widgets = dummy_codec_dapm_widgets,
+    .num_dapm_widgets = ARRAY_SIZE(dummy_codec_dapm_widgets),
+    .dapm_routes = dummy_codec_dapm_routes,
+    .num_dapm_routes = ARRAY_SIZE(dummy_codec_dapm_routes),
 };
 
 #ifdef CONFIG_USE_OF
@@ -99,6 +122,7 @@ static const struct of_device_id amlogic_codec_dt_match[]={
 
 static int dummy_codec_platform_probe(struct platform_device *pdev)
 {
+    printk("dummy_codec_platform_probe\n");
 	struct dummy_codec_private *dummy_codec;
     int ret;
     

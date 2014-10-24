@@ -42,6 +42,17 @@ void am_set_regmap(unsigned int cnt, struct am_reg_s *p);
 void am_set_regmap(struct am_regs_s *p);
 #endif
 
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
+#undef WRITE_CBUS_REG
+#undef WRITE_CBUS_REG_BITS
+#undef READ_CBUS_REG
+#undef READ_CBUS_REG_BITS
+
+#define WRITE_CBUS_REG(x,val)				WRITE_VCBUS_REG(x,val)
+#define WRITE_CBUS_REG_BITS(x,val,start,length)		WRITE_VCBUS_REG_BITS(x,val,start,length)
+#define READ_CBUS_REG(x)				READ_VCBUS_REG(x)
+#define READ_CBUS_REG_BITS(x,start,length)		READ_VCBUS_REG_BITS(x,start,length)
+#endif
 
 #endif
 

@@ -46,11 +46,10 @@ config SUPPORT_VIDEO_ON_VPP2
 	help
 	  Support displaying video on vpp2
 
-config AM_MEMPROTECT
+config GE2D_KEEP_FRAME
     bool "Amlogic Video protect video streambuf framebuf"
     default y
     depends on  AM_VIDEO
-    depends on  MESON_TRUSTZONE
     help
       Select to enable protect video streambuf framebuf.
 
