@@ -76,9 +76,7 @@ ifneq ($(wildcard $(srctree)/../hardware/amlogic/pmu),)
 endif
 
 obj-y += tvin_v4l2/
-ifneq ($(wildcard $(srctree)/../hardware/tvin),)
-	obj-$(CONFIG_TVIN) += ../../../hardware/tvin/
-endif
+obj-$(CONFIG_TVIN) += tvin/
 
 obj-$(CONFIG_AML_EXT_HDMIIN) += ext_hdmiin/
 
