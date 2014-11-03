@@ -332,6 +332,12 @@ extern ktime_t ktime_get_clocktai(void);
 extern ktime_t ktime_get_update_offsets(ktime_t *offs_real, ktime_t *offs_boot,
 					 ktime_t *offs_tai);
 
+static inline ktime_t ktime_mono_to_real(ktime_t mono)
+{
+	ktime_t mono_time_offset = ktime_get_monotonic_offset();
+	return ktime_sub(mono, mono_time_offset);
+}
+
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 
