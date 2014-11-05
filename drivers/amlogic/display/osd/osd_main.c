@@ -1941,7 +1941,8 @@ osd_probe(struct platform_device *pdev)
 	}else{
 		osddev_set_osd_reverse(osd_info.index, osd_info.osd_reverse);
 	}
-	amlog_level(LOG_LEVEL_HIGH,"osd probe ok\n");
+	amlog_level(LOG_LEVEL_HIGH,"osd probe ok  \r\n");
+	vout_notifier_call_chain(VOUT_EVENT_MODE_CHANGE, NULL) ;
 	return 0;
 
 failed2:
