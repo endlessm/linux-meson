@@ -2161,8 +2161,25 @@ void intel_crt_init(struct drm_device *dev)
       </itemizedlist>
     </sect2>
     <sect2>
+      <title>Atomic Modeset Helper Functions Reference</title>
+      <sect3>
+	<title>Overview</title>
+!Pdrivers/gpu/drm/drm_atomic_helper.c overview
+      </sect3>
+      <sect3>
+	<title>Implementing Asynchronous Atomic Commit</title>
+!Pdrivers/gpu/drm/drm_atomic_helper.c implementing async commit
+      </sect3>
+      <sect3>
+	<title>Atomic State Reset and Initialization</title>
+!Pdrivers/gpu/drm/drm_atomic_helper.c atomic state reset and initialization
+      </sect3>
+!Edrivers/gpu/drm/drm_atomic_helper.c
+    </sect2>
+    <sect2>
       <title>Modeset Helper Functions Reference</title>
 !Edrivers/gpu/drm/drm_crtc_helper.c
+!Pdrivers/gpu/drm/drm_crtc_helper.c overview
     </sect2>
     <sect2>
       <title>fbdev Helper Functions Reference</title>
@@ -2179,6 +2196,980 @@ void intel_crt_init(struct drm_device *dev)
     <sect2>
       <title>EDID Helper Functions Reference</title>
 !Edrivers/gpu/drm/drm_edid.c
+    </sect2>
+    <sect2>
+      <title>Rectangle Utilities Reference</title>
+!Pinclude/drm/drm_rect.h rect utils
+!Iinclude/drm/drm_rect.h
+!Edrivers/gpu/drm/drm_rect.c
+    </sect2>
+    <sect2>
+      <title>Flip-work Helper Reference</title>
+!Pinclude/drm/drm_flip_work.h flip utils
+!Iinclude/drm/drm_flip_work.h
+!Edrivers/gpu/drm/drm_flip_work.c
+    </sect2>
+    <sect2>
+      <title>HDMI Infoframes Helper Reference</title>
+      <para>
+	Strictly speaking this is not a DRM helper library but generally useable
+	by any driver interfacing with HDMI outputs like v4l or alsa drivers.
+	But it nicely fits into the overall topic of mode setting helper
+	libraries and hence is also included here.
+      </para>
+!Iinclude/linux/hdmi.h
+!Edrivers/video/hdmi.c
+    </sect2>
+    <sect2>
+      <title id="drm-kms-planehelpers">Plane Helper Reference</title>
+!Edrivers/gpu/drm/drm_plane_helper.c
+!Pdrivers/gpu/drm/drm_plane_helper.c overview
+    </sect2>
+  </sect1>
+
+  <!-- Internals: kms properties -->
+
+  <sect1 id="drm-kms-properties">
+    <title>KMS Properties</title>
+    <para>
+      Drivers may need to expose additional parameters to applications than
+      those described in the previous sections. KMS supports attaching
+      properties to CRTCs, connectors and planes and offers a userspace API to
+      list, get and set the property values.
+    </para>
+    <para>
+      Properties are identified by a name that uniquely defines the property
+      purpose, and store an associated value. For all property types except blob
+      properties the value is a 64-bit unsigned integer.
+    </para>
+    <para>
+      KMS differentiates between properties and property instances. Drivers
+      first create properties and then create and associate individual instances
+      of those properties to objects. A property can be instantiated multiple
+      times and associated with different objects. Values are stored in property
+      instances, and all other property information are stored in the property
+      and shared between all instances of the property.
+    </para>
+    <para>
+      Every property is created with a type that influences how the KMS core
+      handles the property. Supported property types are
+      <variablelist>
+        <varlistentry>
+          <term>DRM_MODE_PROP_RANGE</term>
+          <listitem><para>Range properties report their minimum and maximum
+            admissible values. The KMS core verifies that values set by
+            application fit in that range.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>DRM_MODE_PROP_ENUM</term>
+          <listitem><para>Enumerated properties take a numerical value that
+            ranges from 0 to the number of enumerated values defined by the
+            property minus one, and associate a free-formed string name to each
+            value. Applications can retrieve the list of defined value-name pairs
+            and use the numerical value to get and set property instance values.
+            </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>DRM_MODE_PROP_BITMASK</term>
+          <listitem><para>Bitmask properties are enumeration properties that
+            additionally restrict all enumerated values to the 0..63 range.
+            Bitmask property instance values combine one or more of the
+            enumerated bits defined by the property.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>DRM_MODE_PROP_BLOB</term>
+          <listitem><para>Blob properties store a binary blob without any format
+            restriction. The binary blobs are created as KMS standalone objects,
+            and blob property instance values store the ID of their associated
+            blob object.</para>
+	    <para>Blob properties are only used for the connector EDID property
+	    and cannot be created by drivers.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+    <para>
+      To create a property drivers call one of the following functions depending
+      on the property type. All property creation functions take property flags
+      and name, as well as type-specific arguments.
+      <itemizedlist>
+        <listitem>
+          <synopsis>struct drm_property *drm_property_create_range(struct drm_device *dev, int flags,
+                                               const char *name,
+                                               uint64_t min, uint64_t max);</synopsis>
+          <para>Create a range property with the given minimum and maximum
+            values.</para>
+        </listitem>
+        <listitem>
+          <synopsis>struct drm_property *drm_property_create_enum(struct drm_device *dev, int flags,
+                                              const char *name,
+                                              const struct drm_prop_enum_list *props,
+                                              int num_values);</synopsis>
+          <para>Create an enumerated property. The <parameter>props</parameter>
+            argument points to an array of <parameter>num_values</parameter>
+            value-name pairs.</para>
+        </listitem>
+        <listitem>
+          <synopsis>struct drm_property *drm_property_create_bitmask(struct drm_device *dev,
+                                                 int flags, const char *name,
+                                                 const struct drm_prop_enum_list *props,
+                                                 int num_values);</synopsis>
+          <para>Create a bitmask property. The <parameter>props</parameter>
+            argument points to an array of <parameter>num_values</parameter>
+            value-name pairs.</para>
+        </listitem>
+      </itemizedlist>
+    </para>
+    <para>
+      Properties can additionally be created as immutable, in which case they
+      will be read-only for applications but can be modified by the driver. To
+      create an immutable property drivers must set the DRM_MODE_PROP_IMMUTABLE
+      flag at property creation time.
+    </para>
+    <para>
+      When no array of value-name pairs is readily available at property
+      creation time for enumerated or range properties, drivers can create
+      the property using the <function>drm_property_create</function> function
+      and manually add enumeration value-name pairs by calling the
+      <function>drm_property_add_enum</function> function. Care must be taken to
+      properly specify the property type through the <parameter>flags</parameter>
+      argument.
+    </para>
+    <para>
+      After creating properties drivers can attach property instances to CRTC,
+      connector and plane objects by calling the
+      <function>drm_object_attach_property</function>. The function takes a
+      pointer to the target object, a pointer to the previously created property
+      and an initial instance value.
+    </para>
+    <sect2>
+	<title>Existing KMS Properties</title>
+	<para>
+	The following table gives description of drm properties exposed by various
+	modules/drivers.
+	</para>
+	<table border="1" cellpadding="0" cellspacing="0">
+	<tbody>
+	<tr style="font-weight: bold;">
+	<td valign="top" >Owner Module/Drivers</td>
+	<td valign="top" >Group</td>
+	<td valign="top" >Property Name</td>
+	<td valign="top" >Type</td>
+	<td valign="top" >Property Values</td>
+	<td valign="top" >Object attached</td>
+	<td valign="top" >Description/Restrictions</td>
+	</tr>
+	<tr>
+	<td rowspan="21" valign="top" >DRM</td>
+	<td rowspan="2" valign="top" >Generic</td>
+	<td valign="top" >“EDID”</td>
+	<td valign="top" >BLOB | IMMUTABLE</td>
+	<td valign="top" >0</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >Contains id of edid blob ptr object.</td>
+	</tr>
+	<tr>
+	<td valign="top" >“DPMS”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ “On”, “Standby”, “Suspend”, “Off” }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >Contains DPMS operation mode value.</td>
+	</tr>
+	<tr>
+	<td rowspan="1" valign="top" >Plane</td>
+	<td valign="top" >“type”</td>
+	<td valign="top" >ENUM | IMMUTABLE</td>
+	<td valign="top" >{ "Overlay", "Primary", "Cursor" }</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >Plane type</td>
+	</tr>
+	<tr>
+	<td rowspan="2" valign="top" >DVI-I</td>
+	<td valign="top" >“subconnector”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ “Unknown”, “DVI-D”, “DVI-A” }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“select subconnector”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ “Automatic”, “DVI-D”, “DVI-A” }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="13" valign="top" >TV</td>
+	<td valign="top" >“subconnector”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "Unknown", "Composite", "SVIDEO", "Component", "SCART" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“select subconnector”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "Automatic", "Composite", "SVIDEO", "Component", "SCART" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "NTSC_M", "NTSC_J", "NTSC_443", "PAL_B" } etc.</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“left margin”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“right margin”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“top margin”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“bottom margin”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“brightness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“contrast”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker reduction”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“overscan”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“saturation”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“hue”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="3" valign="top" >Optional</td>
+	<td valign="top" >“scaling mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "None", "Full", "Center", "Full aspect" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"aspect ratio"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "None", "4:3", "16:9" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >DRM property to set aspect ratio from user space app.
+		This enum is made generic to allow addition of custom aspect
+		ratios.</td>
+	</tr>
+	<tr>
+	<td valign="top" >“dirty”</td>
+	<td valign="top" >ENUM | IMMUTABLE</td>
+	<td valign="top" >{ "Off", "On", "Annotate" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="21" valign="top" >i915</td>
+	<td rowspan="2" valign="top" >Generic</td>
+	<td valign="top" >"Broadcast RGB"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "Automatic", "Full", "Limited 16:235" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“audio”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "force-dvi", "off", "auto", "on" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="1" valign="top" >Plane</td>
+	<td valign="top" >“rotation”</td>
+	<td valign="top" >BITMASK</td>
+	<td valign="top" >{ 0, "rotate-0" }, { 2, "rotate-180" }</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="17" valign="top" >SDVO-TV</td>
+	<td valign="top" >“mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "NTSC_M", "NTSC_J", "NTSC_443", "PAL_B" } etc.</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"left_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"right_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"top_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"bottom_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“hpos”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“vpos”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“contrast”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“saturation”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“hue”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“sharpness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker_filter”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker_filter_adaptive”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker_filter_2d”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“tv_chroma_filter”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“tv_luma_filter”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“dot_crawl”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >SDVO-TV/LVDS</td>
+	<td valign="top" >“brightness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="2" valign="top" >CDV gma-500</td>
+	<td rowspan="2" valign="top" >Generic</td>
+	<td valign="top" >"Broadcast RGB"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ “Full”, “Limited 16:235” }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"Broadcast RGB"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ “off”, “auto”, “on” }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="19" valign="top" >Poulsbo</td>
+	<td rowspan="1" valign="top" >Generic</td>
+	<td valign="top" >“backlight”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=100</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="17" valign="top" >SDVO-TV</td>
+	<td valign="top" >“mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "NTSC_M", "NTSC_J", "NTSC_443", "PAL_B" } etc.</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"left_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"right_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"top_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"bottom_margin"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“hpos”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“vpos”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“contrast”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“saturation”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“hue”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“sharpness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker_filter”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker_filter_adaptive”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“flicker_filter_2d”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“tv_chroma_filter”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“tv_luma_filter”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“dot_crawl”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >SDVO-TV/LVDS</td>
+	<td valign="top" >“brightness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max= SDVO dependent</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="11" valign="top" >armada</td>
+	<td rowspan="2" valign="top" >CRTC</td>
+	<td valign="top" >"CSC_YUV"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "Auto" , "CCIR601", "CCIR709" }</td>
+	<td valign="top" >CRTC</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"CSC_RGB"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "Auto", "Computer system", "Studio" }</td>
+	<td valign="top" >CRTC</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="9" valign="top" >Overlay</td>
+	<td valign="top" >"colorkey"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0xffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"colorkey_min"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0xffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"colorkey_max"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0xffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"colorkey_val"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0xffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"colorkey_alpha"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0xffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"colorkey_mode"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "disabled", "Y component", "U component"
+	, "V component", "RGB", “R component", "G component", "B component" }</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"brightness"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=256 + 255</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"contrast"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0x7fff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"saturation"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0x7fff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="2" valign="top" >exynos</td>
+	<td valign="top" >CRTC</td>
+	<td valign="top" >“mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "normal", "blank" }</td>
+	<td valign="top" >CRTC</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >Overlay</td>
+	<td valign="top" >“zpos”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=MAX_PLANE-1</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="2" valign="top" >i2c/ch7006_drv</td>
+	<td valign="top" >Generic</td>
+	<td valign="top" >“scale”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=2</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="1" valign="top" >TV</td>
+	<td valign="top" >“mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "PAL", "PAL-M","PAL-N"}, ”PAL-Nc"
+	, "PAL-60", "NTSC-M", "NTSC-J" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="15" valign="top" >nouveau</td>
+	<td rowspan="6" valign="top" >NV10 Overlay</td>
+	<td valign="top" >"colorkey"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0x01ffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“contrast”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=8192-1</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“brightness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1024</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“hue”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=359</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“saturation”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=8192-1</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“iturbt_709”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="2" valign="top" >Nv04 Overlay</td>
+	<td valign="top" >“colorkey”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0x01ffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“brightness”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1024</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="7" valign="top" >Display</td>
+	<td valign="top" >“dithering mode”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "auto", "off", "on" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“dithering depth”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "auto", "off", "on", "static 2x2", "dynamic 2x2", "temporal" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“underscan”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "auto", "6 bpc", "8 bpc" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“underscan hborder”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=128</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“underscan vborder”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=128</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“vibrant hue”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=180</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“color vibrance”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=200</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="2" valign="top" >omap</td>
+	<td rowspan="2" valign="top" >Generic</td>
+	<td valign="top" >“rotation”</td>
+	<td valign="top" >BITMASK</td>
+	<td valign="top" >{ 0, "rotate-0" },
+	{ 1, "rotate-90" },
+	{ 2, "rotate-180" },
+	{ 3, "rotate-270" },
+	{ 4, "reflect-x" },
+	{ 5, "reflect-y" }</td>
+	<td valign="top" >CRTC, Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >“zorder”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=3</td>
+	<td valign="top" >CRTC, Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >qxl</td>
+	<td valign="top" >Generic</td>
+	<td valign="top" >“hotplug_mode_update"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="9" valign="top" >radeon</td>
+	<td valign="top" >DVI-I</td>
+	<td valign="top" >“coherent”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >DAC enable load detect</td>
+	<td valign="top" >“load detection”</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=1</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >TV Standard</td>
+	<td valign="top" >"tv standard"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "ntsc", "pal", "pal-m", "pal-60", "ntsc-j"
+	, "scart-pal", "pal-cn", "secam" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >legacy TMDS PLL detect</td>
+	<td valign="top" >"tmds_pll"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "driver", "bios" }</td>
+	<td valign="top" >-</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="3" valign="top" >Underscan</td>
+	<td valign="top" >"underscan"</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "off", "on", "auto" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"underscan hborder"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=128</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"underscan vborder"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=128</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >Audio</td>
+	<td valign="top" >“audio”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "off", "on", "auto" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >FMT Dithering</td>
+	<td valign="top" >“dither”</td>
+	<td valign="top" >ENUM</td>
+	<td valign="top" >{ "off", "on" }</td>
+	<td valign="top" >Connector</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td rowspan="3" valign="top" >rcar-du</td>
+	<td rowspan="3" valign="top" >Generic</td>
+	<td valign="top" >"alpha"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=255</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"colorkey"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=0, Max=0x01ffffff</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	<tr>
+	<td valign="top" >"zpos"</td>
+	<td valign="top" >RANGE</td>
+	<td valign="top" >Min=1, Max=7</td>
+	<td valign="top" >Plane</td>
+	<td valign="top" >TBD</td>
+	</tr>
+	</tbody>
+	</table>
     </sect2>
   </sect1>
 
