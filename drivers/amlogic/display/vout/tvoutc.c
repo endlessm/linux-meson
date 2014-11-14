@@ -259,11 +259,17 @@ static void set_tvmode_misc(tvmode_t mode)
  */
 static int uboot_display_already(tvmode_t mode)
 {
+    /* XXX: FIXME. AML's code here calls into the OSD driver,
+     * which we're trying to get rid of. */
+    return 0;
+
+    /*
     tvmode_t source = vmode_to_tvmode(get_resolution_vmode());
     if(source == mode)
         return 1;
     else
         return 0;
+    */
     /*
     const  reg_t *s = tvregsTab[mode];
     unsigned int pxcnt_tab = 0;
