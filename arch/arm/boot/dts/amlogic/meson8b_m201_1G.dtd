@@ -1908,4 +1908,9 @@ sdhc_sd_clk_cmd_pins:sdhc_sd_clk_cmd_pins{
 		new_maclogic = <1>;
 	};
 
+        mesondrm {
+                compatible = "amlogic,meson8b";
+                dev_name = "mesondrm";
+        };
+
 }; /* end of / */
