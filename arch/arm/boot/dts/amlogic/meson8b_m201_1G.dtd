@@ -2072,5 +2072,8 @@ void root_func(){
 		fe0_dev = <0>;
 	};
 */
-
+        mesondrm {
+                compatible = "amlogic,meson8b";
+                dev_name = "mesondrm";
+        };
 }; /* end of / */
