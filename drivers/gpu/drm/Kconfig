@@ -200,3 +200,6 @@ source "drivers/gpu/drm/tegra/Kconfig"
 source "drivers/gpu/drm/panel/Kconfig"
 
 source "drivers/gpu/drm/sti/Kconfig"
+
+source "drivers/gpu/drm/meson/Kconfig"
+
