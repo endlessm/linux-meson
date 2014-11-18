@@ -618,6 +618,30 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.output_poll_changed = meson_fb_output_poll_changed,
 };
 
+/* Configure the VPP to act like how we expect it to. Other drivers,
+ * like the ones included in U-Boot, might turn on weird features
+ * like the HW scaler or special planes. Reset the VPP to a sane mode
+ * that expects like we behave.
+ */
+static void reset_vpp(void)
+{
+	/* Turn off the HW scalers -- U-Boot turns these on and we
+	 * need to clear them to make things work. */
+	aml_clr_reg32_mask(P_VPP_OSD_SC_CTRL0, 1 << 3);
+	aml_clr_reg32_mask(P_VPP_OSD_VSC_CTRL0, 1 << 24);
+	aml_clr_reg32_mask(P_VPP_OSD_HSC_CTRL0, 1 << 22);
+
+	/* Force all planes off -- U-Boot might configure them and
+	 * we shouldn't have any stale planes. */
+	aml_clr_reg32_mask(P_VPP_MISC, VPP_OSD1_POSTBLEND | VPP_OSD2_POSTBLEND);
+
+	/* Turn on POSTBLEND. */
+	aml_set_reg32_mask(P_VPP_MISC, VPP_POSTBLEND_EN);
+
+	/* Put OSD2 (cursor) on top of OSD1. */
+	aml_set_reg32_mask(P_VPP_MISC, VPP_POST_FG_OSD2 | VPP_PRE_FG_OSD2);
+}
+
 static int meson_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -655,11 +679,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	 * amlogic's drivers from crashing... */
 	/* set_vmode(VMODE_1080P); */
 
-	/* Turn on POSTBLEND. */
-	aml_set_reg32_mask(P_VPP_MISC, VPP_POSTBLEND_EN);
-
-	/* Put OSD2 (cursor) on top of OSD1. */
-	aml_set_reg32_mask(P_VPP_MISC, VPP_POST_FG_OSD2 | VPP_PRE_FG_OSD2);
+	reset_vpp();
 
 	return 0;
 }
