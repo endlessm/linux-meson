@@ -1894,4 +1894,9 @@ sdio{
 		pinctrl-0 = <&dvb_fe_pins>;
 	};
 
+	mesondrm {
+		compatible = "amlogic,meson8b";
+		dev_name = "mesondrm";
+	};
+
 }; /* end of / */
