@@ -22,7 +22,7 @@
 
 #include <linux/i2c.h>
 #include <drm/drmP.h>
-#include <asm/mrst.h>
+#include <asm/intel-mid.h>
 
 #include "intel_bios.h"
 #include "psb_drv.h"
@@ -404,7 +404,7 @@ void oaktrail_lvds_init(struct drm_device *dev,
 out:
 	mutex_unlock(&dev->mode_config.mutex);
 
-	drm_sysfs_connector_add(connector);
+	drm_connector_register(connector);
 	return;
 
 failed_find:
