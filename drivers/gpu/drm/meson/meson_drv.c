@@ -700,6 +700,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	if (!priv)
 		return -ENOMEM;
 
+	reset_vpp();
+
 	dev->dev_private = priv;
 
 	drm_mode_config_init(dev);
@@ -729,8 +731,6 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	/* set vout mode at startup to prevent the rest of
 	 * amlogic's drivers from crashing... */
 	set_vmode(VMODE_1080P);
-
-	reset_vpp();
 
 	drm_irq_install(dev, INT_VIU_VSYNC);
 
