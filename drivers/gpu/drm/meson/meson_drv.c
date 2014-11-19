@@ -607,10 +607,8 @@ struct meson_drm_private {
 
 static void meson_fb_output_poll_changed(struct drm_device *dev)
 {
-	/*
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
-	*/
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
@@ -665,11 +663,9 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	priv->encoder = meson_encoder_create(dev);
 	priv->connector = meson_connector_create(dev, priv->encoder);
 
-	/*
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
-	*/
 
 	drm_kms_helper_poll_init(dev);
 
@@ -697,10 +693,8 @@ static int meson_unload(struct drm_device *dev)
 
 static void meson_lastclose(struct drm_device *dev)
 {
-	/*
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_restore_mode(priv->fbdev);
-	*/
 }
 
 static const struct file_operations fops = {
