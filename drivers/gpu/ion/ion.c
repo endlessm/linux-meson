@@ -985,7 +985,7 @@ struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 
 	buffer = handle->buffer;
 	ion_buffer_get(buffer);
-	dmabuf = dma_buf_export(buffer, &dma_buf_ops, buffer->size, O_RDWR);
+	dmabuf = dma_buf_export(buffer, &dma_buf_ops, buffer->size, O_RDWR, NULL);
 	if (IS_ERR(dmabuf)) {
 		ion_buffer_put(buffer);
 		return dmabuf;

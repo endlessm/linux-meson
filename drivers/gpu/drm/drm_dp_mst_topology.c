@@ -1046,7 +1046,6 @@ static void drm_dp_add_port(struct drm_dp_mst_branch *mstb,
 		port->mgr = mstb->mgr;
 		port->aux.name = "DPMST";
 		port->aux.dev = dev;
-		port->available_pbn = 0xffff;
 		created = true;
 	} else {
 		old_pdt = port->pdt;
@@ -1075,12 +1074,12 @@ static void drm_dp_add_port(struct drm_dp_mst_branch *mstb,
 	if (old_ddps != port->ddps) {
 		if (port->ddps) {
 			drm_dp_check_port_guid(mstb, port);
-			if (!port->input && port->pdt != DP_PEER_DEVICE_MST_BRANCHING)
+			if (!port->input)
 				drm_dp_send_enum_path_resources(mstb->mgr, mstb, port);
 		} else {
 			port->guid_valid = false;
-			port->available_pbn = 0xffff;
-		}
+			port->available_pbn = 0;
+			}
 	}
 
 	if (old_pdt != port->pdt && !port->input) {
@@ -1127,7 +1126,7 @@ static void drm_dp_update_port(struct drm_dp_mst_branch *mstb,
 			dowork = true;
 		} else {
 			port->guid_valid = false;
-			port->available_pbn = 0xffff;
+			port->available_pbn = 0;
 		}
 	}
 	if (old_pdt != port->pdt && !port->input) {
@@ -1188,9 +1187,8 @@ static void drm_dp_check_and_send_link_address(struct drm_dp_mst_topology_mgr *m
 		if (!port->ddps)
 			continue;
 
-		if (port->pdt != DP_PEER_DEVICE_MST_BRANCHING)
-			if (port->available_pbn == 0xffff)
-				drm_dp_send_enum_path_resources(mgr, mstb, port);
+		if (!port->available_pbn)
+			drm_dp_send_enum_path_resources(mgr, mstb, port);
 
 		if (port->mstb)
 			drm_dp_check_and_send_link_address(mgr, port->mstb);
@@ -1810,7 +1808,7 @@ static int drm_dp_get_vc_payload_bw(int dp_link_bw, int dp_link_count)
 	case DP_LINK_BW_5_4:
 		return 10 * dp_link_count;
 	}
-	return 0;
+	BUG();
 }
 
 /**
@@ -2110,6 +2108,7 @@ static int drm_dp_mst_handle_up_req(struct drm_dp_mst_topology_mgr *mgr)
  * drm_dp_mst_hpd_irq() - MST hotplug IRQ notify
  * @mgr: manager to notify irq for.
  * @esi: 4 bytes from SINK_COUNT_ESI
+ * @handled: whether the hpd interrupt was consumed or not
  *
  * This should be called from the driver when it detects a short IRQ,
  * along with the value of the DEVICE_SERVICE_IRQ_VECTOR_ESI0. The
@@ -2472,7 +2471,7 @@ static void drm_dp_mst_dump_mstb(struct seq_file *m,
 
 	seq_printf(m, "%smst: %p, %d\n", prefix, mstb, mstb->num_ports);
 	list_for_each_entry(port, &mstb->ports, next) {
-		seq_printf(m, "%sport: %d: ddps: %d ldps: %d, pdt: %d dpcd_rev: %x avail: %d\n", prefix, port->port_num, port->ddps, port->ldps, port->pdt, port->dpcd_rev, port->available_pbn);
+		seq_printf(m, "%sport: %d: ddps: %d ldps: %d, %p, conn: %p\n", prefix, port->port_num, port->ddps, port->ldps, port, port->connector);
 		if (port->mstb)
 			drm_dp_mst_dump_mstb(m, port->mstb);
 	}
