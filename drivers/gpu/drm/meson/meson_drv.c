@@ -24,10 +24,12 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_rect.h>
 #include <video/videomode.h>
 
 #include <mach/am_regs.h>
@@ -105,12 +107,6 @@ enum osd_w0_bitflags {
 	OSD_COLOR_MATRIX_32_BGRA = (0x03 << 2),
 };
 
-/* How this driver assigns the planes. */
-enum osd_plane_idx {
-	OSD_PLANE_FB = 0,
-	OSD_PLANE_CURSOR = 1,
-};
-
 /* Dumb metaprogramming, should replace with something better. */
 #define OSD_REGISTERS				\
 	M(CTRL_STAT)				\
@@ -120,181 +116,187 @@ enum osd_plane_idx {
 	M(BLK0_CFG_W3)				\
 	M(BLK0_CFG_W4)				\
 
-struct osd_plane {
-	enum osd_plane_idx osd_index;
+struct osd_plane_def {
 	uint32_t canvas_index;
+
+	uint32_t vpp_misc_postblend;
+
 	struct {
 #define M(n) uint32_t n;
 OSD_REGISTERS
 #undef M
 	} reg;
-
-	uint32_t width, height;
 };
 
-/* Pick two canvases in the "user canvas" space that aren't
- * likely to compete. */
-static struct osd_plane osd_planes[] = {
-	{ OSD_PLANE_FB, 0x4e,
-	  {
-#define M(n) P_VIU_OSD1_##n ,
-OSD_REGISTERS
-#undef M
-	  }
-	},
-	{ OSD_PLANE_CURSOR, 0x4f,
-	  {
-#define M(n) P_VIU_OSD2_##n ,
-OSD_REGISTERS
-#undef M
-	  }
-	},
+struct meson_plane {
+	struct drm_plane base;
+	struct osd_plane_def *def;
 };
+#define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
-#define OSD_REGISTER(n, idx) osd_planes[(idx)].reg.n
-
-static void osd_plane_set(enum osd_plane_idx idx,
-			  struct drm_gem_cma_object *cma_bo,
-			  uint32_t width, uint32_t height)
+static int meson_plane_atomic_check(struct drm_plane *plane,
+				    struct drm_plane_state *state)
 {
-	osd_planes[idx].width = width;
-	osd_planes[idx].height = height;
+	struct drm_rect src = {
+		.x1 = state->src_x,
+		.y1 = state->src_y,
+		.x2 = state->src_x + state->src_w,
+		.y2 = state->src_y + state->src_h,
+	};
+	struct drm_rect dest = {
+		.x1 = state->crtc_x,
+		.y1 = state->crtc_y,
+		.x2 = state->crtc_x + state->crtc_w,
+		.y2 = state->crtc_y + state->crtc_h,
+	};
 
-	/* Swap out the OSD canvas with the new addr. */
-	canvas_setup(osd_planes[idx].canvas_index,
-		     cma_bo->paddr,
-		     osd_planes[idx].width * 4,
-		     osd_planes[idx].height,
-		     MESON_CANVAS_WRAP_NONE,
-		     MESON_CANVAS_BLKMODE_LINEAR);
 
-	/* Set up BLK0 to point to the right canvas */
-	aml_write_reg32(OSD_REGISTER(BLK0_CFG_W0, idx),
-			(osd_planes[idx].canvas_index << 16) |
-			OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
+	if (state->fb) {
+		int ret;
 
-	/* Enable OSD and BLK0. */
-	aml_write_reg32(OSD_REGISTER(CTRL_STAT, idx),
-			(1 << 21) |    /* Enable OSD */
-			(0xFF << 12) | /* Alpha is 0xFF */
-			(1 << 0)       /* Enable BLK0 */);
-}
+		ret = drm_rect_calc_hscale(&src, &dest, DRM_PLANE_HELPER_NO_SCALING, DRM_PLANE_HELPER_NO_SCALING);
+		if (ret < 0)
+			return ret;
 
-static void osd_plane_move(enum osd_plane_idx idx, int x, int y)
-{
-	uint32_t width, height;
-	uint32_t pan_x, pan_y;
-	uint32_t disp_x, disp_y;
-
-	/* Move the OSD. */
-
-	width = osd_planes[idx].width - 1;
-	height = osd_planes[idx].height - 1;
-
-	/* If we're off the edge of the screen negatively, use the pan
-	 * feature to crop the image, as the display X/Y values are unsigned. */
-	if (x > 0) {
-		disp_x = x;
-		pan_x = 0;
-	} else {
-		disp_x = 0;
-		pan_x = -x;
-		width -= pan_x;
+		ret = drm_rect_calc_vscale(&src, &dest, DRM_PLANE_HELPER_NO_SCALING, DRM_PLANE_HELPER_NO_SCALING);
+		if (ret < 0)
+			return ret;
 	}
 
-	if (y > 0) {
-		pan_y = 0;
-		disp_y = y;
-	} else {
-		disp_y = 0;
-		pan_y = -y;
-		height -= pan_y;
-	}
-
-	aml_write_reg32(OSD_REGISTER(BLK0_CFG_W1, idx),
-			(pan_x + width) << 16 | pan_x);
-	aml_write_reg32(OSD_REGISTER(BLK0_CFG_W2, idx),
-			(pan_y + height) << 16 | pan_y);
-	aml_write_reg32(OSD_REGISTER(BLK0_CFG_W3, idx),
-			(disp_x + width) << 16 | disp_x);
-	aml_write_reg32(OSD_REGISTER(BLK0_CFG_W4, idx),
-			(disp_y + height) << 16 | disp_y);
+	return 0;
 }
 
-static void update_fb_plane(struct drm_crtc *crtc)
+static void meson_plane_atomic_update(struct drm_plane *plane)
 {
-	if (crtc->primary->fb) {
+	struct meson_plane *meson_plane = to_meson_plane(plane);
+	struct drm_plane_state *state = plane->state;
+	struct drm_rect src = {
+		.x1 = (state->src_x) >> 16,
+		.y1 = (state->src_y) >> 16,
+		.x2 = (state->src_x + state->src_w) >> 16,
+		.y2 = (state->src_y + state->src_h) >> 16,
+	};
+	struct drm_rect dest = {
+		.x1 = state->crtc_x,
+		.y1 = state->crtc_y,
+		.x2 = state->crtc_x + state->crtc_w,
+		.y2 = state->crtc_y + state->crtc_h,
+	};
+	const struct drm_rect clip = {
+		.x2 = INT_MAX,
+		.y2 = INT_MAX,
+	};
+	bool visible;
+
+	if (state->fb) {
+		visible = drm_rect_clip_scaled(&src, &dest, &clip,
+					       DRM_PLANE_HELPER_NO_SCALING,
+					       DRM_PLANE_HELPER_NO_SCALING);
+	} else {
+		visible = false;
+	}
+
+	if (visible) {
 		struct drm_gem_cma_object *cma_bo;
-		cma_bo = drm_fb_cma_get_gem_obj(crtc->primary->fb, 0);
-		osd_plane_set(OSD_PLANE_FB, cma_bo,
-			      crtc->mode.hdisplay,
-			      crtc->mode.vdisplay);
-		aml_set_reg32_mask(P_VPP_MISC, VPP_OSD1_POSTBLEND);
+
+		aml_set_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
+
+		cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+
+		/* Swap out the OSD canvas with the new addr. */
+		canvas_setup(meson_plane->def->canvas_index,
+			     cma_bo->paddr,
+			     (state->src_w >> 16) * 4,
+			     (state->src_h >> 16),
+			     MESON_CANVAS_WRAP_NONE,
+			     MESON_CANVAS_BLKMODE_LINEAR);
+
+		/* Set up BLK0 to point to the right canvas */
+		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W0,
+				(meson_plane->def->canvas_index << 16) |
+				OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
+
+		/* Enable OSD and BLK0. */
+		aml_write_reg32(meson_plane->def->reg.CTRL_STAT,
+				(1 << 21) |    /* Enable OSD */
+				(0xFF << 12) | /* Alpha is 0xFF */
+				(1 << 0)       /* Enable BLK0 */);
+
+		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W1,
+				((src.x2 - 1) << 16) | src.x1);
+		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W2,
+				((src.y2 - 1) << 16) | src.y1);
+		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W3,
+				((dest.x2 - 1) << 16) | dest.x1);
+		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W4,
+				((dest.y2 - 1) << 16) | dest.y1);
 	} else {
-		aml_clr_reg32_mask(P_VPP_MISC, VPP_OSD1_POSTBLEND);
+		aml_clr_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
 	}
 }
 
-#if 0
-static int meson_crtc_page_flip(struct drm_crtc *crtc,
-				struct drm_framebuffer *fb,
-				struct drm_pending_vblank_event *event)
+static const struct drm_plane_helper_funcs meson_plane_helper_funcs = {
+	.atomic_check = meson_plane_atomic_check,
+	.atomic_update = meson_plane_atomic_update,
+};
+
+static void meson_plane_destroy(struct drm_plane *plane)
 {
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
-
-	if (meson_crtc->event)
-		return -EBUSY;
-
-	crtc->fb = fb;
-	meson_crtc->event = event;
-
-	update_fb_plane(crtc);
-	return 0;
-}
-#endif
-
-static int meson_crtc_cursor_set(struct drm_crtc *crtc,
-				 struct drm_file *file_priv, uint32_t handle,
-				 uint32_t width, uint32_t height)
-{
-	struct drm_device *dev = crtc->dev;
-	struct drm_gem_cma_object *cma_bo;
-
-	if (handle) {
-		struct drm_gem_object *bo;
-		bo = drm_gem_object_lookup(dev, file_priv, handle);
-		if (!bo)
-			return -ENOENT;
-		cma_bo = (struct drm_gem_cma_object *) bo;
-	} else {
-		cma_bo = NULL;
-	}
-
-	if (cma_bo) {
-		osd_plane_set(OSD_PLANE_CURSOR, cma_bo, width, height);
-		aml_set_reg32_mask(P_VPP_MISC, VPP_OSD2_POSTBLEND);
-	} else {
-		aml_clr_reg32_mask(P_VPP_MISC, VPP_OSD2_POSTBLEND);
-	}
-
-	return 0;
+	drm_plane_helper_disable(plane);
+	drm_plane_cleanup(plane);
+	kfree(plane);
 }
 
-static int meson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
+static const struct drm_plane_funcs meson_plane_funcs = {
+	.update_plane		= drm_atomic_helper_update_plane,
+	.disable_plane		= drm_atomic_helper_disable_plane,
+	.destroy		= meson_plane_destroy,
+	.reset			= drm_atomic_helper_plane_reset,
+	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
+	.atomic_destroy_state	= drm_atomic_helper_plane_destroy_state,
+};
+
+static const uint32_t supported_drm_formats[] = {
+	DRM_FORMAT_ARGB8888,
+};
+
+static struct drm_plane *meson_plane_create(struct drm_device *dev,
+					    enum drm_plane_type type,
+					    struct osd_plane_def *osd_plane_def)
 {
-	osd_plane_move(OSD_PLANE_CURSOR, x, y);
-	return 0;
+	struct meson_plane *meson_plane;
+	struct drm_plane *plane;
+	int ret;
+
+	meson_plane = kzalloc(sizeof(*meson_plane), GFP_KERNEL);
+	if (!meson_plane) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	plane = &meson_plane->base;
+
+	meson_plane->def = osd_plane_def;
+
+	drm_universal_plane_init(dev, plane, 0xFF,
+				 &meson_plane_funcs,
+				 supported_drm_formats,
+				 ARRAY_SIZE(supported_drm_formats),
+				 type);
+	drm_plane_helper_add(plane, &meson_plane_helper_funcs);
+	return plane;
+
+fail:
+	return ERR_PTR(ret);
 }
 
 static const struct drm_crtc_funcs meson_crtc_funcs = {
-	.set_config     = drm_crtc_helper_set_config,
-	.destroy        = meson_crtc_destroy,
-	/* Disable page flip until we have it done. */
-#if 0
-	.page_flip      = meson_crtc_page_flip,
-#endif
-	.cursor_set     = meson_crtc_cursor_set,
-	.cursor_move    = meson_crtc_cursor_move,
+	.set_config             = drm_atomic_helper_set_config,
+	.destroy		= meson_crtc_destroy,
+	.reset			= drm_atomic_helper_crtc_reset,
+	.page_flip		= drm_atomic_helper_page_flip,
+	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
+	.atomic_destroy_state	= drm_atomic_helper_crtc_destroy_state,
 };
 
 static void meson_crtc_dpms(struct drm_crtc *crtc, int mode)
@@ -310,13 +312,6 @@ static void meson_crtc_commit(struct drm_crtc *crtc)
 {
 }
 
-static bool meson_crtc_mode_fixup(struct drm_crtc *crtc,
-				  const struct drm_display_mode *mode,
-				  struct drm_display_mode *adjusted_mode)
-{
-	return true;
-}
-
 /* XXX: Investigate supporting user-supplied modes, and separating
  * the primary plane mode from the connector's mode. */
 static const struct {
@@ -330,7 +325,7 @@ static const struct {
 	{ VMODE_576P,  { 27000,    720,  12,  68,  64,  576,  5, 39, 5, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 17 */
 };
 
-static vmode_t drm_mode_to_vmode(struct drm_display_mode *mode)
+static vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode)
 {
 	int i;
 
@@ -344,6 +339,21 @@ static vmode_t drm_mode_to_vmode(struct drm_display_mode *mode)
 	}
 
 	return -1;
+}
+
+static bool meson_crtc_mode_fixup(struct drm_crtc *crtc,
+				  const struct drm_display_mode *mode,
+				  struct drm_display_mode *adjusted_mode)
+{
+	vmode_t vmode;
+
+	vmode = drm_mode_to_vmode(mode);
+
+	/* Invalid mode. */
+	if (vmode < 0)
+		return false;
+
+	return true;
 }
 
 static void set_vmode(vmode_t mode)
@@ -366,31 +376,11 @@ static void set_vmode(vmode_t mode)
 	vout_notifier_call_chain(VOUT_EVENT_MODE_CHANGE, &mode);
 }
 
-static int meson_crtc_mode_set(struct drm_crtc *crtc,
-			       struct drm_display_mode *mode,
-			       struct drm_display_mode *adjusted_mode,
-			       int x, int y,
-			       struct drm_framebuffer *old_fb)
+static void meson_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	vmode_t vmode;
-
-	vmode = drm_mode_to_vmode(mode);
-	if (vmode < 0)
-		return -EINVAL;
-
+	vmode = drm_mode_to_vmode(&crtc->state->adjusted_mode);
 	set_vmode(vmode);
-
-	update_fb_plane(crtc);
-	osd_plane_move(OSD_PLANE_FB, -x, -y);
-	return 0;
-}
-
-static int meson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-				    struct drm_framebuffer *old_fb)
-{
-	update_fb_plane(crtc);
-	osd_plane_move(OSD_PLANE_FB, -x, -y);
-	return 0;
 }
 
 static void meson_crtc_load_lut(struct drm_crtc *crtc)
@@ -402,9 +392,33 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 	.prepare        = meson_crtc_prepare,
 	.commit         = meson_crtc_commit,
 	.mode_fixup     = meson_crtc_mode_fixup,
-	.mode_set       = meson_crtc_mode_set,
-	.mode_set_base  = meson_crtc_mode_set_base,
+	.mode_set       = drm_helper_crtc_mode_set,
+	.mode_set_base  = drm_helper_crtc_mode_set_base,
+	.mode_set_nofb  = meson_crtc_mode_set_nofb,
 	.load_lut       = meson_crtc_load_lut,
+};
+
+/* Pick two canvases in the "user canvas" space that aren't
+ * likely to compete. */
+static struct osd_plane_def osd_plane_defs[] = {
+	{
+		.canvas_index = 0x4e,
+		.vpp_misc_postblend = VPP_OSD1_POSTBLEND,
+		{
+#define M(n) .n = P_VIU_OSD1_##n ,
+			OSD_REGISTERS
+#undef M
+		}
+	},
+	{
+		.canvas_index = 0x4f,
+		.vpp_misc_postblend = VPP_OSD2_POSTBLEND,
+		{
+#define M(n) .n = P_VIU_OSD2_##n ,
+			OSD_REGISTERS
+#undef M
+		}
+	},
 };
 
 struct drm_crtc *meson_crtc_create(struct drm_device *dev)
@@ -412,13 +426,23 @@ struct drm_crtc *meson_crtc_create(struct drm_device *dev)
 	struct meson_crtc *meson_crtc;
 	struct drm_crtc *crtc;
 	int ret;
+	struct drm_plane *primary_plane, *cursor_plane;
 
 	meson_crtc = kzalloc(sizeof(*meson_crtc), GFP_KERNEL);
 	if (!meson_crtc)
 		return NULL;
 
+	primary_plane = meson_plane_create(dev,
+					   DRM_PLANE_TYPE_PRIMARY,
+					   &osd_plane_defs[0]);
+	cursor_plane = meson_plane_create(dev,
+					  DRM_PLANE_TYPE_CURSOR,
+					  &osd_plane_defs[1]);
+
 	crtc = &meson_crtc->base;
-	ret = drm_crtc_init(dev, crtc, &meson_crtc_funcs);
+	ret = drm_crtc_init_with_planes(dev, crtc,
+					primary_plane, cursor_plane,
+					&meson_crtc_funcs);
 	if (ret < 0)
 		goto fail;
 
@@ -554,10 +578,13 @@ static struct drm_encoder *meson_connector_best_encoder(struct drm_connector *co
 }
 
 static const struct drm_connector_funcs meson_connector_funcs = {
-	.destroy            = meson_connector_destroy,
-	.detect             = meson_connector_detect,
-	.dpms               = drm_helper_connector_dpms,
-	.fill_modes         = drm_helper_probe_single_connector_modes,
+	.destroy		= meson_connector_destroy,
+	.detect			= meson_connector_detect,
+	.dpms			= drm_helper_connector_dpms,
+	.fill_modes		= drm_helper_probe_single_connector_modes,
+	.reset			= drm_atomic_helper_connector_reset,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 };
 
 static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
@@ -615,6 +642,7 @@ static void meson_fb_output_poll_changed(struct drm_device *dev)
 static const struct drm_mode_config_funcs mode_config_funcs = {
 	.fb_create           = drm_fb_cma_create,
 	.output_poll_changed = meson_fb_output_poll_changed,
+	.atomic_check        = drm_atomic_helper_check,
 };
 
 /* Configure the VPP to act like how we expect it to. Other drivers,
@@ -665,15 +693,13 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	priv->encoder = meson_encoder_create(dev);
 	priv->connector = meson_connector_create(dev, priv->encoder);
 
-	priv->fbdev = drm_fbdev_cma_init(dev, 32,
-					 dev->mode_config.num_crtc,
-					 dev->mode_config.num_connector);
-
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
 	if (ret < 0) {
 		/* XXX: Don't leak memory. */
 		return ret;
 	}
+
+	drm_mode_config_reset(dev);
 
 	drm_kms_helper_poll_init(dev);
 
@@ -686,6 +712,10 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	reset_vpp();
 
 	drm_irq_install(dev, INT_VIU_VSYNC);
+
+	priv->fbdev = drm_fbdev_cma_init(dev, 32,
+					 dev->mode_config.num_crtc,
+					 dev->mode_config.num_connector);
 
 	return 0;
 }
