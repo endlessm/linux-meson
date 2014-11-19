@@ -645,6 +645,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
 	struct meson_drm_private *priv;
+	int ret;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -668,6 +669,12 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
 
+	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
+	if (ret < 0) {
+		/* XXX: Don't leak memory. */
+		return ret;
+	}
+
 	drm_kms_helper_poll_init(dev);
 
 	platform_set_drvdata(pdev, dev);
@@ -677,6 +684,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	set_vmode(VMODE_1080P);
 
 	reset_vpp();
+
+	drm_irq_install(dev, INT_VIU_VSYNC);
 
 	return 0;
 }
@@ -698,6 +707,22 @@ static void meson_lastclose(struct drm_device *dev)
 	drm_fbdev_cma_restore_mode(priv->fbdev);
 }
 
+static int meson_enable_vblank(struct drm_device *dev, int crtc)
+{
+	return 0;
+}
+
+static void meson_disable_vblank(struct drm_device *dev, int crtc)
+{
+}
+
+static irqreturn_t meson_irq(int irq, void *arg)
+{
+	struct drm_device *dev = arg;
+	drm_handle_vblank(dev, 0);
+	return IRQ_HANDLED;
+}
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
@@ -713,10 +738,14 @@ static const struct file_operations fops = {
 };
 
 static struct drm_driver meson_driver = {
-	.driver_features    = DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
 	.load               = meson_load,
 	.unload             = meson_unload,
 	.lastclose          = meson_lastclose,
+	.enable_vblank      = meson_enable_vblank,
+	.disable_vblank     = meson_disable_vblank,
+	.get_vblank_counter = drm_vblank_count,
+	.irq_handler        = meson_irq,
 	.set_busid          = drm_platform_set_busid,
 	.fops               = &fops,
 	.name               = DRIVER_NAME,
@@ -724,7 +753,6 @@ static struct drm_driver meson_driver = {
 	.date               = "20141113",
 	.major              = 1,
 	.minor              = 0,
-	.get_vblank_counter = drm_vblank_count,
 	.gem_free_object    = drm_gem_cma_free_object,
 	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
