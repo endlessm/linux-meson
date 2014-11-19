@@ -25,7 +25,6 @@
  *
  **************************************************************************/
 #include <linux/module.h>
-#include <linux/console.h>
 
 #include <drm/drmP.h>
 #include "vmwgfx_drv.h"
@@ -317,7 +316,7 @@ static int vmw_dummy_query_bo_create(struct vmw_private *dev_priv)
 	if (unlikely(ret != 0))
 		return ret;
 
-	ret = ttm_bo_reserve(bo, false, true, false, 0);
+	ret = ttm_bo_reserve(bo, false, true, false, NULL);
 	BUG_ON(ret != 0);
 
 	ret = ttm_bo_kmap(bo, 0, 1, &map);
@@ -689,7 +688,11 @@ static int vmw_driver_load(struct drm_device *dev, unsigned long chipset)
 		goto out_err0;
 	}
 
-	if (unlikely(dev_priv->prim_bb_mem < dev_priv->vram_size))
+	/*
+	 * Limit back buffer size to VRAM size.  Remove this once
+	 * screen targets are implemented.
+	 */
+	if (dev_priv->prim_bb_mem > dev_priv->vram_size)
 		dev_priv->prim_bb_mem = dev_priv->vram_size;
 
 	mutex_unlock(&dev_priv->hw_mutex);
@@ -947,7 +950,6 @@ static void vmw_postclose(struct drm_device *dev,
 		drm_master_put(&vmw_fp->locked_master);
 	}
 
-	vmw_compat_shader_man_destroy(vmw_fp->shman);
 	ttm_object_file_release(&vmw_fp->tfile);
 	kfree(vmw_fp);
 }
@@ -967,16 +969,10 @@ static int vmw_driver_open(struct drm_device *dev, struct drm_file *file_priv)
 	if (unlikely(vmw_fp->tfile == NULL))
 		goto out_no_tfile;
 
-	vmw_fp->shman = vmw_compat_shader_man_create(dev_priv);
-	if (IS_ERR(vmw_fp->shman))
-		goto out_no_shman;
-
 	file_priv->driver_priv = vmw_fp;
 
 	return 0;
 
-out_no_shman:
-	ttm_object_file_release(&vmw_fp->tfile);
 out_no_tfile:
 	kfree(vmw_fp);
 	return ret;
@@ -1426,6 +1422,7 @@ static struct drm_driver driver = {
 	.open = vmw_driver_open,
 	.preclose = vmw_preclose,
 	.postclose = vmw_postclose,
+	.set_busid = drm_pci_set_busid,
 
 	.dumb_create = vmw_dumb_create,
 	.dumb_map_offset = vmw_dumb_map_offset,
@@ -1461,12 +1458,6 @@ static int vmw_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 static int __init vmwgfx_init(void)
 {
 	int ret;
-
-#ifdef CONFIG_VGA_CONSOLE
-	if (vgacon_text_force())
-		return -EINVAL;
-#endif
-
 	ret = drm_pci_init(&driver, &vmw_pci_driver);
 	if (ret)
 		DRM_ERROR("Failed initializing DRM.\n");
