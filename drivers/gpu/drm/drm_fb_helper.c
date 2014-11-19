@@ -951,7 +951,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	int gamma_size = 0;
 
 	memset(&sizes, 0, sizeof(struct drm_fb_helper_surface_size));
-	sizes.surface_depth = 24;
+	sizes.surface_depth = 32; // FIXME let drm driver specify this
 	sizes.surface_bpp = 32;
 	sizes.fb_width = (unsigned)-1;
 	sizes.fb_height = (unsigned)-1;
