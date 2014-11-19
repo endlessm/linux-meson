@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_plane_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <video/videomode.h>
@@ -222,9 +223,9 @@ static void osd_plane_move(enum osd_plane_idx idx, int x, int y)
 
 static void update_fb_plane(struct drm_crtc *crtc)
 {
-	if (crtc->fb) {
+	if (crtc->primary->fb) {
 		struct drm_gem_cma_object *cma_bo;
-		cma_bo = drm_fb_cma_get_gem_obj(crtc->fb, 0);
+		cma_bo = drm_fb_cma_get_gem_obj(crtc->primary->fb, 0);
 		osd_plane_set(OSD_PLANE_FB, cma_bo,
 			      crtc->mode.hdisplay,
 			      crtc->mode.vdisplay);
@@ -588,7 +589,7 @@ static struct drm_connector *meson_connector_create(struct drm_device *dev, stru
 	if (ret)
 		goto fail;
 
-	drm_sysfs_connector_add(connector);
+	drm_connector_register(connector);
 	return connector;
 
 fail:
@@ -716,6 +717,7 @@ static struct drm_driver meson_driver = {
 	.load               = meson_load,
 	.unload             = meson_unload,
 	.lastclose          = meson_lastclose,
+	.set_busid          = drm_platform_set_busid,
 	.fops               = &fops,
 	.name               = DRIVER_NAME,
 	.desc               = DRIVER_DESC,
@@ -727,7 +729,7 @@ static struct drm_driver meson_driver = {
 	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
-	.dumb_destroy       = drm_gem_cma_dumb_destroy,
+	.dumb_destroy       = drm_gem_dumb_destroy,
 };
 
 static int meson_pdev_probe(struct platform_device *pdev)
