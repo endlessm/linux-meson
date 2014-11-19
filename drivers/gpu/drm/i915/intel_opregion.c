@@ -28,7 +28,6 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/acpi.h>
-#include <linux/acpi_io.h>
 #include <acpi/video.h>
 
 #include <drm/drmP.h>
@@ -227,6 +226,8 @@ struct opregion_asle {
 #define ACPI_DIGITAL_OUTPUT (3<<8)
 #define ACPI_LVDS_OUTPUT (4<<8)
 
+#define MAX_DSLP	1500
+
 #ifdef CONFIG_ACPI
 static int swsci(struct drm_device *dev, u32 function, u32 parm, u32 *parm_out)
 {
@@ -261,10 +262,11 @@ static int swsci(struct drm_device *dev, u32 function, u32 parm, u32 *parm_out)
 		/* The spec says 2ms should be the default, but it's too small
 		 * for some machines. */
 		dslp = 50;
-	} else if (dslp > 500) {
+	} else if (dslp > MAX_DSLP) {
 		/* Hey bios, trust must be earned. */
-		WARN_ONCE(1, "excessive driver sleep timeout (DSPL) %u\n", dslp);
-		dslp = 500;
+		DRM_INFO_ONCE("ACPI BIOS requests an excessive sleep of %u ms, "
+			      "using %u ms instead\n", dslp, MAX_DSLP);
+		dslp = MAX_DSLP;
 	}
 
 	/* The spec tells us to do this, but we are the only user... */
@@ -394,18 +396,28 @@ int intel_opregion_notify_adapter(struct drm_device *dev, pci_power_t state)
 	return -EINVAL;
 }
 
+/*
+ * If the vendor backlight interface is not in use and ACPI backlight interface
+ * is broken, do not bother processing backlight change requests from firmware.
+ */
+static bool should_ignore_backlight_request(void)
+{
+	return acpi_video_backlight_support() &&
+	       !acpi_video_verify_backlight_support();
+}
+
 static u32 asle_set_backlight(struct drm_device *dev, u32 bclp)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_encoder *encoder;
-	struct drm_connector *connector;
-	struct intel_connector *intel_connector = NULL;
-	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[0];
+	struct intel_connector *intel_connector;
 	struct opregion_asle __iomem *asle = dev_priv->opregion.asle;
-	u32 ret = 0;
-	bool found = false;
 
 	DRM_DEBUG_DRIVER("bclp = 0x%08x\n", bclp);
+
+	if (should_ignore_backlight_request()) {
+		DRM_DEBUG_KMS("opregion backlight request ignored\n");
+		return 0;
+	}
 
 	if (!(bclp & ASLE_BCLP_VALID))
 		return ASLC_BACKLIGHT_FAILED;
@@ -415,38 +427,20 @@ static u32 asle_set_backlight(struct drm_device *dev, u32 bclp)
 		return ASLC_BACKLIGHT_FAILED;
 
 	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+
 	/*
-	 * Could match the OpRegion connector here instead, but we'd also need
-	 * to verify the connector could handle a backlight call.
+	 * Update backlight on all connectors that support backlight (usually
+	 * only one).
 	 */
-	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
-		if (encoder->crtc == crtc) {
-			found = true;
-			break;
-		}
-
-	if (!found) {
-		ret = ASLC_BACKLIGHT_FAILED;
-		goto out;
-	}
-
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head)
-		if (connector->encoder == encoder)
-			intel_connector = to_intel_connector(connector);
-
-	if (!intel_connector) {
-		ret = ASLC_BACKLIGHT_FAILED;
-		goto out;
-	}
-
 	DRM_DEBUG_KMS("updating opregion backlight %d/255\n", bclp);
-	intel_panel_set_backlight(intel_connector, bclp, 255);
+	list_for_each_entry(intel_connector, &dev->mode_config.connector_list, base.head)
+		intel_panel_set_backlight_acpi(intel_connector, bclp, 255);
 	iowrite32(DIV_ROUND_UP(bclp * 100, 255) | ASLE_CBLV_VALID, &asle->cblv);
 
-out:
 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 
-	return ret;
+
+	return 0;
 }
 
 static u32 asle_set_als_illum(struct drm_device *dev, u32 alsi)
