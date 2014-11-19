@@ -677,7 +677,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	/* set vout mode at startup to prevent the rest of
 	 * amlogic's drivers from crashing... */
-	/* set_vmode(VMODE_1080P); */
+	set_vmode(VMODE_1080P);
 
 	reset_vpp();
 
