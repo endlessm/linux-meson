@@ -702,6 +702,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	reset_vpp();
 
+	platform_set_drvdata(pdev, dev);
+
 	dev->dev_private = priv;
 
 	drm_mode_config_init(dev);
@@ -722,17 +724,15 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 		return ret;
 	}
 
-	drm_mode_config_reset(dev);
-
-	drm_kms_helper_poll_init(dev);
-
-	platform_set_drvdata(pdev, dev);
-
 	/* set vout mode at startup to prevent the rest of
 	 * amlogic's drivers from crashing... */
 	set_vmode(VMODE_1080P);
 
 	drm_irq_install(dev, INT_VIU_VSYNC);
+
+	drm_mode_config_reset(dev);
+
+	drm_kms_helper_poll_init(dev);
 
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
