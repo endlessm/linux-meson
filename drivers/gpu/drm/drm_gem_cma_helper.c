@@ -111,7 +111,7 @@ EXPORT_SYMBOL_GPL(drm_gem_cma_create);
  * returns a struct drm_gem_cma_object* on success or ERR_PTR values
  * on failure.
  */
-static struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
+struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
 		struct drm_file *file_priv,
 		struct drm_device *drm, unsigned int size,
 		unsigned int *handle)
@@ -144,6 +144,7 @@ err_handle_create:
 
 	return ERR_PTR(ret);
 }
+EXPORT_SYMBOL_GPL(drm_gem_cma_create_with_handle);
 
 /*
  * drm_gem_cma_free_object - (struct drm_driver)->gem_free_object callback
