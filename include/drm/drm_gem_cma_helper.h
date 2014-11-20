@@ -11,6 +11,8 @@ struct drm_gem_cma_object {
 
 	/* For objects with DMA memory allocated by GEM CMA */
 	void *vaddr;
+
+	void *ump_handle;
 };
 
 static inline struct drm_gem_cma_object *
@@ -52,5 +54,10 @@ int drm_gem_cma_prime_mmap(struct drm_gem_object *obj,
 			   struct vm_area_struct *vma);
 void *drm_gem_cma_prime_vmap(struct drm_gem_object *obj);
 void drm_gem_cma_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
+
+struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
+		struct drm_file *file_priv,
+		struct drm_device *drm, unsigned int size,
+		unsigned int *handle);
 
 #endif /* __DRM_GEM_CMA_HELPER_H__ */
