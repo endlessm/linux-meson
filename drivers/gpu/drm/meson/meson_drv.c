@@ -24,6 +24,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_plane_helper.h>
@@ -645,6 +646,13 @@ struct meson_drm_private {
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	struct drm_fbdev_cma *fbdev;
+
+	/* We only support one queued state, as we only
+	 * have one CRTC. If we supported more than one,
+	 * we'd have a list here. */
+	struct drm_atomic_state *queued_state;
+
+	struct workqueue_struct *unref_wq;
 };
 
 static void meson_fb_output_poll_changed(struct drm_device *dev)
@@ -653,12 +661,62 @@ static void meson_fb_output_poll_changed(struct drm_device *dev)
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
 }
 
+static int prepare_commit(struct drm_device *dev, struct drm_atomic_state *state)
+{
+	int ret;
+
+	ret = drm_atomic_helper_prepare_planes(dev, state);
+	if (ret)
+		return ret;
+
+	/*
+	 * This is the point of no return - everything below never fails except
+	 * when the hw goes bonghits. Which means we can commit the new state on
+	 * the software side now.
+	 */
+	drm_atomic_helper_swap_state(dev, state);
+	return ret;
+}
+
+static void complete_commit(struct drm_device *dev, struct drm_atomic_state *state)
+{
+	drm_atomic_helper_commit_pre_planes(dev, state);
+	drm_atomic_helper_commit_planes(dev, state);
+	drm_atomic_helper_commit_post_planes(dev, state);
+
+	/* We don't do the free here as this can be called from
+	 * IRQ context, and we can't unref free things from IRQ
+	 * context. */
+}
+
+static void cleanup_atomic_state(struct drm_device *dev, struct drm_atomic_state *state)
+{
+	drm_atomic_helper_cleanup_planes(dev, state);
+	drm_atomic_state_free(state);
+}
+
 static int meson_atomic_commit(struct drm_device *dev,
 			       struct drm_atomic_state *state,
 			       bool async)
 {
-	/* XXX: Implement proper async page flipping. */
-	return drm_atomic_helper_commit(dev, state, false);
+	struct meson_drm_private *priv = dev->dev_private;
+	int ret;
+
+	ret = prepare_commit(dev, state);
+	if (ret < 0)
+		return ret;
+
+	if (async) {
+		/* XXX: At some point we should use the RDMA engine
+		 * of the HW to set the flags at vblank time rather
+		 * than doing it from software. */
+		priv->queued_state = state;
+	} else {
+		complete_commit(dev, state);
+		cleanup_atomic_state(dev, state);
+	}
+
+	return 0;
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
@@ -740,6 +798,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
 
+	priv->unref_wq = alloc_ordered_workqueue("meson", 0);
+
 	return 0;
 }
 
@@ -769,10 +829,54 @@ static void meson_disable_vblank(struct drm_device *dev, int crtc)
 {
 }
 
+struct meson_unref_work {
+	struct work_struct work;
+	struct drm_atomic_state *state;
+};
+#define to_meson_unref_work(x) container_of(x, struct meson_unref_work, work)
+
+static void meson_unref_worker(struct work_struct *work)
+{
+	struct meson_unref_work *unref_work = to_meson_unref_work(work);
+	struct drm_atomic_state *state = unref_work->state;
+	struct drm_device *dev = state->dev;
+
+	cleanup_atomic_state(dev, state);
+	kfree(unref_work);
+}
+
+static struct meson_unref_work *create_meson_unref_work(struct drm_atomic_state *state)
+{
+	struct meson_unref_work *unref_work = kzalloc(sizeof(*unref_work), GFP_KERNEL);
+
+	if (!unref_work)
+		return NULL;
+
+	unref_work->state = state;
+	INIT_WORK(&unref_work->work, meson_unref_worker);
+	return unref_work;
+}
+
 static irqreturn_t meson_irq(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
+	struct meson_drm_private *priv = dev->dev_private;
 	drm_handle_vblank(dev, 0);
+
+	if (priv->queued_state) {
+		struct drm_atomic_state *queued_state = priv->queued_state;
+		struct meson_unref_work *unref_work;
+		priv->queued_state = NULL;
+
+		complete_commit(dev, queued_state);
+
+		/* XXX: What to do if we can't alloc an work? */
+		unref_work = create_meson_unref_work(queued_state);
+		WARN_ON(!unref_work);
+		if (unref_work)
+			queue_work(priv->unref_wq, &unref_work->work);
+	}
+
 	return IRQ_HANDLED;
 }
 
