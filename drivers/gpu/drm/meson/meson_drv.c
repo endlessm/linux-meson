@@ -31,12 +31,16 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_rect.h>
+#include <drm/meson_drm.h>
 #include <video/videomode.h>
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <mach/canvas.h>
 #include <linux/amlogic/vout/vout_notify.h>
+
+/* XXX: Move this to a better location. */
+#include "../../../amlogic/gpu/ump/include/ump/ump_kernel_interface_ref_drv.h"
 
 #define DRIVER_NAME "meson"
 #define DRIVER_DESC "Amlogic Meson DRM driver"
@@ -886,6 +890,37 @@ static irqreturn_t meson_irq(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
+static void meson_gem_free_object(struct drm_gem_object *obj)
+{
+	struct drm_gem_cma_object *cma_obj = to_drm_gem_cma_obj(obj);
+
+	if (cma_obj->ump_handle)
+		ump_dd_reference_release(cma_obj->ump_handle);
+
+	drm_gem_cma_free_object(obj);
+}
+
+static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
+				       struct drm_file *file)
+{
+	struct drm_meson_gem_create_with_ump *args = data;
+	struct drm_gem_cma_object *cma_obj;
+	ump_dd_physical_block ump_mem;
+
+	cma_obj = drm_gem_cma_create_with_handle(file, dev, args->size, &args->handle);
+
+	ump_mem.addr = cma_obj->paddr;
+	ump_mem.size = args->size;
+	cma_obj->ump_handle = ump_dd_handle_create_from_phys_blocks(&ump_mem, 1);
+	args->ump_secure_id = ump_dd_secure_id_get(cma_obj->ump_handle);
+
+	return PTR_ERR_OR_ZERO(cma_obj);
+}
+
+static const struct drm_ioctl_desc meson_ioctls[] = {
+	DRM_IOCTL_DEF_DRV(MESON_GEM_CREATE_WITH_UMP, meson_ioctl_create_with_ump, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+};
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
@@ -916,11 +951,13 @@ static struct drm_driver meson_driver = {
 	.date               = "20141113",
 	.major              = 1,
 	.minor              = 0,
-	.gem_free_object    = drm_gem_cma_free_object,
+	.gem_free_object    = meson_gem_free_object,
 	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
 	.dumb_destroy       = drm_gem_dumb_destroy,
+	.ioctls             = meson_ioctls,
+	.num_ioctls         = DRM_MESON_NUM_IOCTLS,
 };
 
 static int meson_pdev_probe(struct platform_device *pdev)
