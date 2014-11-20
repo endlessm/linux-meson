@@ -391,10 +391,12 @@ static void meson_crtc_atomic_flush(struct drm_crtc *crtc)
 {
 	/* XXX: Implement real page flipping */
 	if (crtc->state->event) {
+		spin_lock(&crtc->dev->event_lock);
 		drm_send_vblank_event(crtc->dev,
 				      drm_crtc_index(crtc),
 				      crtc->state->event);
 		crtc->state->event = NULL;
+		spin_unlock(&crtc->dev->event_lock);
 	}
 }
 
