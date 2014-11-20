@@ -387,6 +387,17 @@ static void meson_crtc_load_lut(struct drm_crtc *crtc)
 {
 }
 
+static void meson_crtc_atomic_flush(struct drm_crtc *crtc)
+{
+	/* XXX: Implement real page flipping */
+	if (crtc->state->event) {
+		drm_send_vblank_event(crtc->dev,
+				      drm_crtc_index(crtc),
+				      crtc->state->event);
+		crtc->state->event = NULL;
+	}
+}
+
 static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 	.dpms           = meson_crtc_dpms,
 	.prepare        = meson_crtc_prepare,
@@ -396,6 +407,7 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 	.mode_set_base  = drm_helper_crtc_mode_set_base,
 	.mode_set_nofb  = meson_crtc_mode_set_nofb,
 	.load_lut       = meson_crtc_load_lut,
+	.atomic_flush   = meson_crtc_atomic_flush,
 };
 
 /* Pick two canvases in the "user canvas" space that aren't
@@ -639,10 +651,19 @@ static void meson_fb_output_poll_changed(struct drm_device *dev)
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
 }
 
+static int meson_atomic_commit(struct drm_device *dev,
+			       struct drm_atomic_state *state,
+			       bool async)
+{
+	/* XXX: Implement proper async page flipping. */
+	return drm_atomic_helper_commit(dev, state, false);
+}
+
 static const struct drm_mode_config_funcs mode_config_funcs = {
 	.fb_create           = drm_fb_cma_create,
 	.output_poll_changed = meson_fb_output_poll_changed,
 	.atomic_check        = drm_atomic_helper_check,
+	.atomic_commit       = meson_atomic_commit,
 };
 
 /* Configure the VPP to act like how we expect it to. Other drivers,
