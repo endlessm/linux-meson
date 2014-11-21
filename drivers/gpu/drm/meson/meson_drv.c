@@ -672,7 +672,7 @@ static int prepare_commit(struct drm_device *dev, struct drm_atomic_state *state
 	int ret;
 
 	ret = drm_atomic_helper_prepare_planes(dev, state);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	/*
@@ -681,7 +681,7 @@ static int prepare_commit(struct drm_device *dev, struct drm_atomic_state *state
 	 * the software side now.
 	 */
 	drm_atomic_helper_swap_state(dev, state);
-	return ret;
+	return 0;
 }
 
 static void complete_commit(struct drm_device *dev, struct drm_atomic_state *state)
