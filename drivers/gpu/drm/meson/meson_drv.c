@@ -900,11 +900,15 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	struct drm_meson_gem_create_with_ump *args = data;
 	struct drm_gem_cma_object *cma_obj;
 	ump_dd_physical_block ump_mem;
+	unsigned int size;
 
-	cma_obj = drm_gem_cma_create_with_handle(file, dev, args->size, &args->handle);
+	/* UMP requires a page-aligned size for its buffers. */
+	size = PAGE_ALIGN (args->size);
+
+	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle);
 
 	ump_mem.addr = cma_obj->paddr;
-	ump_mem.size = args->size;
+	ump_mem.size = size;
 	cma_obj->ump_handle = ump_dd_handle_create_from_phys_blocks(&ump_mem, 1);
 	args->ump_secure_id = ump_dd_secure_id_get(cma_obj->ump_handle);
 
