@@ -1246,6 +1246,11 @@ int drm_atomic_helper_disable_plane(struct drm_plane *plane)
 	struct drm_plane_state *plane_state;
 	int ret = 0;
 
+	/* crtc helpers love to call disable functions for already disabled hw
+	 * functions. So cope with that. */
+	if (!plane->crtc)
+		return 0;
+
 	state = drm_atomic_state_alloc(plane->dev);
 	if (!state)
 		return -ENOMEM;
