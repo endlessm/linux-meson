@@ -713,6 +713,10 @@ static int meson_atomic_commit(struct drm_device *dev,
 		/* XXX: At some point we should use the RDMA engine
 		 * of the HW to set the flags at vblank time rather
 		 * than doing it from software. */
+
+		/* Make sure that we have no queued state already. */
+		WARN_ON(priv->queued_state != NULL);
+
 		priv->queued_state = state;
 	} else {
 		complete_commit(dev, state);
