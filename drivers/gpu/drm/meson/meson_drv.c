@@ -155,7 +155,6 @@ static int meson_plane_atomic_check(struct drm_plane *plane,
 		.y2 = state->crtc_y + state->crtc_h,
 	};
 
-
 	if (state->fb) {
 		int ret;
 
