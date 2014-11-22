@@ -121,9 +121,21 @@ OSD_REGISTERS
 	} reg;
 };
 
+struct osd_plane_registers {
+#define M(n) uint32_t n;
+OSD_REGISTERS
+#undef M
+};
+
 struct meson_plane {
 	struct drm_plane base;
 	struct osd_plane_def *def;
+
+	/* These are shadow registers that are updated
+	 * at vblank time. The various atomic_commit
+	 * functions set these and we copy them into the
+	 * real set of mapped registers at runtime. */
+	struct osd_plane_registers reg;
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
@@ -191,8 +203,6 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 	if (visible) {
 		struct drm_gem_cma_object *cma_bo;
 
-		aml_set_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
-
 		cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
 
 		/* Swap out the OSD canvas with the new addr. */
@@ -204,26 +214,18 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 			     MESON_CANVAS_BLKMODE_LINEAR);
 
 		/* Set up BLK0 to point to the right canvas */
-		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W0,
-				(meson_plane->def->canvas_index << 16) |
-				OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
+		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->def->canvas_index << 16) |
+						OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
 
 		/* Enable OSD and BLK0. */
-		aml_write_reg32(meson_plane->def->reg.CTRL_STAT,
-				(1 << 21) |    /* Enable OSD */
-				(0xFF << 12) | /* Alpha is 0xFF */
-				(1 << 0)       /* Enable BLK0 */);
+		meson_plane->reg.CTRL_STAT = ((1 << 21) |    /* Enable OSD */
+					      (0xFF << 12) | /* Alpha is 0xFF */
+					      (1 << 0)       /* Enable BLK0 */);
 
-		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W1,
-				((src.x2 - 1) << 16) | src.x1);
-		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W2,
-				((src.y2 - 1) << 16) | src.y1);
-		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W3,
-				((dest.x2 - 1) << 16) | dest.x1);
-		aml_write_reg32(meson_plane->def->reg.BLK0_CFG_W4,
-				((dest.y2 - 1) << 16) | dest.y1);
-	} else {
-		aml_clr_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
+		meson_plane->reg.BLK0_CFG_W1 = (((src.x2 - 1) << 16) | src.x1);
+		meson_plane->reg.BLK0_CFG_W2 = (((src.y2 - 1) << 16) | src.y1);
+		meson_plane->reg.BLK0_CFG_W3 = (((dest.x2 - 1) << 16) | dest.x1);
+		meson_plane->reg.BLK0_CFG_W4 = (((dest.y2 - 1) << 16) | dest.y1);
 	}
 }
 
@@ -286,6 +288,7 @@ fail:
 
 struct meson_crtc {
 	struct drm_crtc base;
+	struct drm_pending_vblank_event *event;
 };
 #define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
 
@@ -393,15 +396,28 @@ static void meson_crtc_load_lut(struct drm_crtc *crtc)
 {
 }
 
+static int meson_crtc_atomic_check(struct drm_crtc *crtc,
+				   struct drm_crtc_state *state)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+
+	/* If we're already page flipping and we get a new
+	 * page flip, then reject. */
+	if (meson_crtc->event != NULL && state->event != NULL)
+		return -EINVAL;
+
+	return 0;
+}
+
 static void meson_crtc_atomic_flush(struct drm_crtc *crtc)
 {
-	/* XXX: Implement real page flipping */
-	if (crtc->state->event) {
-		spin_lock(&crtc->dev->event_lock);
-		drm_send_vblank_event(crtc->dev,
-				      drm_crtc_index(crtc),
-				      crtc->state->event);
-		spin_unlock(&crtc->dev->event_lock);
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+
+	if (crtc->state->event != NULL) {
+		/* Make sure we only have one async page flip */
+		WARN_ON(meson_crtc->event != NULL);
+
+		meson_crtc->event = crtc->state->event;
 	}
 }
 
@@ -414,6 +430,7 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 	.mode_set_base  = drm_helper_crtc_mode_set_base,
 	.mode_set_nofb  = meson_crtc_mode_set_nofb,
 	.load_lut       = meson_crtc_load_lut,
+	.atomic_check   = meson_crtc_atomic_check,
 	.atomic_flush   = meson_crtc_atomic_flush,
 };
 
@@ -651,11 +668,7 @@ struct meson_drm_private {
 	struct drm_connector *connector;
 	struct drm_fbdev_cma *fbdev;
 
-	/* We only support one queued state, as we only
-	 * have one CRTC. If we supported more than one,
-	 * we'd have a list here. */
-	struct drm_atomic_state *queued_state;
-
+	struct drm_atomic_state *cleanup_state;
 	struct workqueue_struct *unref_wq;
 };
 
@@ -665,7 +678,15 @@ static void meson_fb_output_poll_changed(struct drm_device *dev)
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
 }
 
-static int prepare_commit(struct drm_device *dev, struct drm_atomic_state *state)
+static void cleanup_atomic_state(struct drm_device *dev, struct drm_atomic_state *state)
+{
+	drm_atomic_helper_cleanup_planes(dev, state);
+	drm_atomic_state_free(state);
+}
+
+static int meson_atomic_commit(struct drm_device *dev,
+			       struct drm_atomic_state *state,
+			       bool async)
 {
 	int ret;
 
@@ -679,48 +700,13 @@ static int prepare_commit(struct drm_device *dev, struct drm_atomic_state *state
 	 * the software side now.
 	 */
 	drm_atomic_helper_swap_state(dev, state);
-	return 0;
-}
 
-static void complete_commit(struct drm_device *dev, struct drm_atomic_state *state)
-{
 	drm_atomic_helper_commit_pre_planes(dev, state);
 	drm_atomic_helper_commit_planes(dev, state);
 	drm_atomic_helper_commit_post_planes(dev, state);
 
-	/* We don't do the free here as this can be called from
-	 * IRQ context, and we can't unref free things from IRQ
-	 * context. */
-}
-
-static void cleanup_atomic_state(struct drm_device *dev, struct drm_atomic_state *state)
-{
-	drm_atomic_helper_cleanup_planes(dev, state);
-	drm_atomic_state_free(state);
-}
-
-static int meson_atomic_commit(struct drm_device *dev,
-			       struct drm_atomic_state *state,
-			       bool async)
-{
-	struct meson_drm_private *priv = dev->dev_private;
-	int ret;
-
-	ret = prepare_commit(dev, state);
-	if (ret < 0)
-		return ret;
-
-	if (async) {
-		/* XXX: At some point we should use the RDMA engine
-		 * of the HW to set the flags at vblank time rather
-		 * than doing it from software. */
-
-		/* Make sure that we have no queued state already. */
-		WARN_ON(priv->queued_state != NULL);
-
-		priv->queued_state = state;
-	} else {
-		complete_commit(dev, state);
+	if (!async) {
+		drm_atomic_helper_wait_for_vblanks(dev, state);
 		cleanup_atomic_state(dev, state);
 	}
 
@@ -796,6 +782,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	 * amlogic's drivers from crashing... */
 	set_vmode(VMODE_1080P);
 
+	priv->unref_wq = alloc_ordered_workqueue("meson", 0);
+
 	drm_irq_install(dev, INT_VIU_VSYNC);
 
 	drm_mode_config_reset(dev);
@@ -805,8 +793,6 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
-
-	priv->unref_wq = alloc_ordered_workqueue("meson", 0);
 
 	return 0;
 }
@@ -865,21 +851,55 @@ static struct meson_unref_work *create_meson_unref_work(struct drm_atomic_state 
 	return unref_work;
 }
 
+static void meson_crtc_send_vblank_event(struct drm_crtc *crtc)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+
+	if (meson_crtc->event) {
+		spin_lock(&crtc->dev->event_lock);
+		drm_send_vblank_event(crtc->dev,
+				      drm_crtc_index(crtc),
+				      meson_crtc->event);
+		meson_crtc->event = NULL;
+		spin_unlock(&crtc->dev->event_lock);
+	}
+}
+
+static void update_shadow_registers(struct drm_plane *plane)
+{
+	struct meson_plane *meson_plane = to_meson_plane(plane);
+
+	if (plane->fb) {
+		aml_set_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
+
+		/* Copy the shadow registers into the real registers. */
+#define M(n) aml_write_reg32(meson_plane->def->reg.n, meson_plane->reg.n);
+OSD_REGISTERS
+#undef M
+	} else {
+		aml_clr_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
+	}
+}
+
 static irqreturn_t meson_irq(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
 	struct meson_drm_private *priv = dev->dev_private;
+
 	drm_handle_vblank(dev, 0);
 
-	if (priv->queued_state) {
-		struct drm_atomic_state *queued_state = priv->queued_state;
+	meson_crtc_send_vblank_event(priv->crtc);
+
+	update_shadow_registers(priv->crtc->primary);
+	update_shadow_registers(priv->crtc->cursor);
+
+	if (priv->cleanup_state) {
 		struct meson_unref_work *unref_work;
-		priv->queued_state = NULL;
 
-		complete_commit(dev, queued_state);
+		/* XXX: What to do if we can't alloc a work? */
+		unref_work = create_meson_unref_work(priv->cleanup_state);
+		priv->cleanup_state = NULL;
 
-		/* XXX: What to do if we can't alloc an work? */
-		unref_work = create_meson_unref_work(queued_state);
 		WARN_ON(!unref_work);
 		if (unref_work)
 			queue_work(priv->unref_wq, &unref_work->work);
