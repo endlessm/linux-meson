@@ -213,14 +213,14 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 			     MESON_CANVAS_WRAP_NONE,
 			     MESON_CANVAS_BLKMODE_LINEAR);
 
-		/* Set up BLK0 to point to the right canvas */
-		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->def->canvas_index << 16) |
-						OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
-
 		/* Enable OSD and BLK0. */
 		meson_plane->reg.CTRL_STAT = ((1 << 21) |    /* Enable OSD */
 					      (0xFF << 12) | /* Alpha is 0xFF */
 					      (1 << 0)       /* Enable BLK0 */);
+
+		/* Set up BLK0 to point to the right canvas */
+		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->def->canvas_index << 16) |
+						OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
 
 		meson_plane->reg.BLK0_CFG_W1 = (((src.x2 - 1) << 16) | src.x1);
 		meson_plane->reg.BLK0_CFG_W2 = (((src.y2 - 1) << 16) | src.y1);
