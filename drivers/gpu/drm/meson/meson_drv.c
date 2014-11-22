@@ -396,13 +396,14 @@ static void meson_crtc_load_lut(struct drm_crtc *crtc)
 {
 }
 
-static int meson_crtc_atomic_check(struct drm_crtc *crtc)
+static int meson_crtc_atomic_check(struct drm_crtc *crtc,
+				   struct drm_crtc_state *state)
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 
 	/* If we're already page flipping and we get a new
 	 * page flip, then reject. */
-	if (meson_crtc->event != NULL && crtc->state->event != NULL)
+	if (meson_crtc->event != NULL && state->event != NULL)
 		return -EINVAL;
 
 	return 0;
