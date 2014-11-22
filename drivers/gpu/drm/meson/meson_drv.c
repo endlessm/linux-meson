@@ -80,19 +80,7 @@ static void canvas_setup(uint32_t canvas_index,
 	CANVAS_READ(DC_CAV_LUT_DATAH);
 }
 
-/* CRTC */
-
-struct meson_crtc {
-	struct drm_crtc base;
-};
-#define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
-
-static void meson_crtc_destroy(struct drm_crtc *crtc)
-{
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
-	drm_crtc_cleanup(crtc);
-	kfree(meson_crtc);
-}
+/* Plane */
 
 enum osd_w0_bitflags {
 	OSD_ENDIANNESS_BE = (0x00 << 15),
@@ -292,6 +280,20 @@ static struct drm_plane *meson_plane_create(struct drm_device *dev,
 
 fail:
 	return ERR_PTR(ret);
+}
+
+/* CRTC */
+
+struct meson_crtc {
+	struct drm_crtc base;
+};
+#define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
+
+static void meson_crtc_destroy(struct drm_crtc *crtc)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+	drm_crtc_cleanup(crtc);
+	kfree(meson_crtc);
 }
 
 static const struct drm_crtc_funcs meson_crtc_funcs = {
