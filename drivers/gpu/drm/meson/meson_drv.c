@@ -107,7 +107,7 @@ enum osd_w0_bitflags {
 	M(BLK0_CFG_W1)				\
 	M(BLK0_CFG_W2)				\
 	M(BLK0_CFG_W3)				\
-	M(BLK0_CFG_W4)				\
+	M(BLK0_CFG_W4)
 
 struct osd_plane_def {
 	uint32_t canvas_index;
