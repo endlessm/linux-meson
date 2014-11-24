@@ -170,15 +170,21 @@ static int meson_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
+/* Takes a fixed 16.16 number and converts it to integer. */
+static inline int64_t fixed16_to_int(int64_t value)
+{
+	return value >> 16;
+}
+
 static void meson_plane_atomic_update(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 	struct drm_plane_state *state = plane->state;
 	struct drm_rect src = {
-		.x1 = (state->src_x) >> 16,
-		.y1 = (state->src_y) >> 16,
-		.x2 = (state->src_x + state->src_w) >> 16,
-		.y2 = (state->src_y + state->src_h) >> 16,
+		.x1 = (state->src_x),
+		.y1 = (state->src_y),
+		.x2 = (state->src_x + state->src_w),
+		.y2 = (state->src_y + state->src_h),
 	};
 	struct drm_rect dest = {
 		.x1 = state->crtc_x,
@@ -221,10 +227,12 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->def->canvas_index << 16) |
 						OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
 
-		meson_plane->reg.BLK0_CFG_W1 = (((src.x2 - 1) << 16) | src.x1);
-		meson_plane->reg.BLK0_CFG_W2 = (((src.y2 - 1) << 16) | src.y1);
-		meson_plane->reg.BLK0_CFG_W3 = (((dest.x2 - 1) << 16) | dest.x1);
-		meson_plane->reg.BLK0_CFG_W4 = (((dest.y2 - 1) << 16) | dest.y1);
+		/* The format of these registers is (x2 << 16 | x1), where x2 is exclusive.
+		 * e.g. +30x1920 would be (1949 << 16) | 30. */
+		meson_plane->reg.BLK0_CFG_W1 = ((fixed16_to_int(src.x2) - 1) << 16) | fixed16_to_int(src.x1);
+		meson_plane->reg.BLK0_CFG_W2 = ((fixed16_to_int(src.y2) - 1) << 16) | fixed16_to_int(src.y1);
+		meson_plane->reg.BLK0_CFG_W3 = ((dest.x2 - 1) << 16) | dest.x1;
+		meson_plane->reg.BLK0_CFG_W4 = ((dest.y2 - 1) << 16) | dest.y1;
 	}
 }
 
