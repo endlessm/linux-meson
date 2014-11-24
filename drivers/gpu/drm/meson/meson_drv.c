@@ -690,7 +690,6 @@ static int meson_atomic_commit(struct drm_device *dev,
 			       struct drm_atomic_state *state,
 			       bool async)
 {
-	struct meson_drm_private *priv = dev->dev_private;
 	int ret;
 
 	ret = drm_atomic_helper_prepare_planes(dev, state);
@@ -708,12 +707,10 @@ static int meson_atomic_commit(struct drm_device *dev,
 	drm_atomic_helper_commit_planes(dev, state);
 	drm_atomic_helper_commit_post_planes(dev, state);
 
-	/* XXX: We should wait for vblanks here, but don't, as that makes
-	 * the cursor ioctls quite slow and unstable. We effectively treat
-	 * all commits as asynchronous, where the ioctl returns immediately.
-	 */
-
-	priv->cleanup_state = state;
+	if (!async) {
+		drm_atomic_helper_wait_for_vblanks(dev, state);
+		cleanup_atomic_state(dev, state);
+	}
 
 	return 0;
 }
