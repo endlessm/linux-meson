@@ -186,13 +186,12 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		.x2 = state->crtc_x + state->crtc_w,
 		.y2 = state->crtc_y + state->crtc_h,
 	};
-	const struct drm_rect clip = {
-		.x2 = INT_MAX,
-		.y2 = INT_MAX,
-	};
+	struct drm_rect clip = {};
 	bool visible;
 
 	if (state->fb) {
+		clip.x2 = state->crtc->mode.hdisplay;
+		clip.y2 = state->crtc->mode.vdisplay;
 		visible = drm_rect_clip_scaled(&src, &dest, &clip,
 					       DRM_PLANE_HELPER_NO_SCALING,
 					       DRM_PLANE_HELPER_NO_SCALING);
