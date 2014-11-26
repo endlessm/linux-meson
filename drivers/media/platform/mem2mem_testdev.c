@@ -44,8 +44,8 @@ MODULE_PARM_DESC(debug, "activates debug info");
 
 #define MIN_W 32
 #define MIN_H 32
-#define MAX_W 640
-#define MAX_H 480
+#define MAX_W 1920
+#define MAX_H 1080
 #define DIM_ALIGN_MASK 7 /* 8-byte alignment for line length */
 
 /* Flags that indicate a format can be used for capture/output */
