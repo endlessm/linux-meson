@@ -92,16 +92,16 @@ struct m2mtest_fmt {
 
 static struct m2mtest_fmt formats[] = {
 	{
-		.name	= "RGB565 (BE)",
-		.fourcc	= V4L2_PIX_FMT_RGB565X, /* rrrrrggg gggbbbbb */
-		.depth	= 16,
-		/* Both capture and output format */
-		.types	= MEM2MEM_CAPTURE | MEM2MEM_OUTPUT,
+		.name   = "XRGB8888",
+		.fourcc = V4L2_PIX_FMT_RGB32,
+		.depth  = 32,
+		/* Capture-only format */
+		.types	= MEM2MEM_CAPTURE,
 	},
 	{
-		.name	= "4:2:2, packed, YUYV",
-		.fourcc	= V4L2_PIX_FMT_YUYV,
-		.depth	= 16,
+		.name   = "H264",
+		.fourcc = V4L2_PIX_FMT_H264,
+		.depth  = 16,
 		/* Output-only format */
 		.types	= MEM2MEM_OUTPUT,
 	},
