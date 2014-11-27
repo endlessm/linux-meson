@@ -1285,7 +1285,7 @@ retry:
 		goto fail;
 	}
 
-	ret = drm_atomic_set_crtc_for_plane(state, plane, crtc);
+	ret = drm_atomic_set_crtc_for_plane(plane_state, crtc);
 	if (ret != 0)
 		goto fail;
 	drm_atomic_set_fb_for_plane(plane_state, fb);
@@ -1361,7 +1361,7 @@ retry:
 		goto fail;
 	}
 
-	ret = drm_atomic_set_crtc_for_plane(state, plane, NULL);
+	ret = drm_atomic_set_crtc_for_plane(plane_state, NULL);
 	if (ret != 0)
 		goto fail;
 	drm_atomic_set_fb_for_plane(plane_state, NULL);
@@ -1528,7 +1528,7 @@ retry:
 
 		crtc_state->enable = false;
 
-		ret = drm_atomic_set_crtc_for_plane(state, crtc->primary, NULL);
+		ret = drm_atomic_set_crtc_for_plane(primary_state, NULL);
 		if (ret != 0)
 			goto fail;
 
@@ -1543,7 +1543,7 @@ retry:
 	crtc_state->enable = true;
 	drm_mode_copy(&crtc_state->mode, set->mode);
 
-	ret = drm_atomic_set_crtc_for_plane(state, crtc->primary, crtc);
+	ret = drm_atomic_set_crtc_for_plane(primary_state, crtc);
 	if (ret != 0)
 		goto fail;
 	drm_atomic_set_fb_for_plane(primary_state, set->fb);
@@ -1815,7 +1815,7 @@ retry:
 		goto fail;
 	}
 
-	ret = drm_atomic_set_crtc_for_plane(state, plane, crtc);
+	ret = drm_atomic_set_crtc_for_plane(plane_state, crtc);
 	if (ret != 0)
 		goto fail;
 	drm_atomic_set_fb_for_plane(plane_state, fb);
@@ -1878,6 +1878,9 @@ void drm_atomic_helper_crtc_reset(struct drm_crtc *crtc)
 {
 	kfree(crtc->state);
 	crtc->state = kzalloc(sizeof(*crtc->state), GFP_KERNEL);
+
+	if (crtc->state)
+		crtc->state->crtc = crtc;
 }
 EXPORT_SYMBOL(drm_atomic_helper_crtc_reset);
 
@@ -1937,6 +1940,9 @@ void drm_atomic_helper_plane_reset(struct drm_plane *plane)
 
 	kfree(plane->state);
 	plane->state = kzalloc(sizeof(*plane->state), GFP_KERNEL);
+
+	if (plane->state)
+		plane->state->plane = plane;
 }
 EXPORT_SYMBOL(drm_atomic_helper_plane_reset);
 
@@ -1994,6 +2000,9 @@ void drm_atomic_helper_connector_reset(struct drm_connector *connector)
 {
 	kfree(connector->state);
 	connector->state = kzalloc(sizeof(*connector->state), GFP_KERNEL);
+
+	if (connector->state)
+		connector->state->connector = connector;
 }
 EXPORT_SYMBOL(drm_atomic_helper_connector_reset);
 
