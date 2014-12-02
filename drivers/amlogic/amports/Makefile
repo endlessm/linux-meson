@@ -33,32 +33,8 @@ obj-$(CONFIG_AM_STREAMING) += amports.o
 
 AMPORTS_OBJS = amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o tsync_pcr.o
 
-ifeq ($(CONFIG_ARCH_MESON8B),y)
-amports-y    := amstream.o streambuf.o vdec.o adec.o tsdemux.o psparser.o esparser.o rmparser.o amvdec.o amstream_profile.o  tsync_pcr.o
-else
-ifeq ($(CONFIG_ARCH_MESON8),y)
 amports-objs := $(AMPORTS_OBJS)
 amports-y    := $(AMPORTS_OBJS)
-else
-ifeq ($(CONFIG_ARCH_MESON6),y)
-amports-objs := $(AMPORTS_OBJS)
-amports-y    := $(AMPORTS_OBJS)
-else
-ifeq ($(CONFIG_ARCH_MESON6TV),y)
-amports-objs := $(AMPORTS_OBJS)
-amports-y    := $(AMPORTS_OBJS)
-else
-ifeq ($(CONFIG_ARCH_MESON6TVD),y)
-amports-objs := $(AMPORTS_OBJS)
-amports-y    := $(AMPORTS_OBJS)
-else
-amports-objs := $(AMPORTS_OBJS) amve.o amcm.o
-amports-y    := $(AMPORTS_OBJS) amve.o amcm.o
-endif
-endif
-endif
-endif
-endif
 
 obj-$(CONFIG_AM_VDEC_MPEG12) += amvdec_mpeg12.o
 amvdec_mpeg12-objs := vmpeg12.o
@@ -125,23 +101,11 @@ obj-$(CONFIG_AM_JPEGDEC) += jpegdec.o
 obj-$(CONFIG_AM_ENCODER) += encoder.o
 obj-$(CONFIG_AM_JPEG_ENCODER) += jpegenc.o
 obj-$(CONFIG_AM_PIC_DEC) += picdec.o
-obj-$(CONFIG_AM_VIDEO) += amvideo.o
-ifeq ($(CONFIG_ARCH_MESON8),y)
-amvideo-objs := video.o vpp.o video_prot.o
-amvideo-y    := video.o vpp.o video_prot.o
-else
-amvideo-objs := video.o vpp.o
-amvideo-y    := video.o vpp.o
-endif
 
 ifeq ($(CONFIG_AM_VIDEOCAPTURE),y)
 amports-objs +=  amvideocap.o
 amports-y   +=  amvideocap.o
 endif
-
-obj-$(CONFIG_AM_VIDEO2) += amvideo2.o
-amvideo2-objs := video2.o vpp2.o
-amvideo2-y    := video2.o vpp2.o
 
 obj-$(CONFIG_AM_DEINTERLACE) += deinterlace.o
 
