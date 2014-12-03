@@ -296,6 +296,9 @@ fail:
 struct meson_crtc {
 	struct drm_crtc base;
 	struct drm_pending_vblank_event *event;
+
+	int underscan_hborder;
+	int underscan_vborder;
 };
 #define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
 
@@ -490,6 +493,9 @@ struct drm_crtc *meson_crtc_create(struct drm_device *dev)
 		goto fail;
 
 	drm_crtc_helper_add(crtc, &meson_crtc_helper_funcs);
+
+	meson_crtc->underscan_hborder = 64;
+	meson_crtc->underscan_vborder = 64;
 
 	return crtc;
 
@@ -872,6 +878,56 @@ static void meson_crtc_send_vblank_event(struct drm_crtc *crtc)
 	}
 }
 
+static void update_scaler_for_underscan(struct drm_crtc *crtc)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+	struct drm_plane_state *state = crtc->primary->state;
+
+	if (!state)
+		return;
+
+	if (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_hborder != 0) {
+		int hborder = meson_crtc->underscan_hborder;
+		int vborder = meson_crtc->underscan_vborder;
+
+		int hf_phase_step;
+		int vf_phase_step;
+
+		/* Basic scaler config */
+		aml_write_reg32(P_VPP_OSD_SC_CTRL0,
+				(1 << 3) /* Enable scaler */ |
+				(0 << 2) /* Select OSD1 */);
+		aml_write_reg32(P_VPP_OSD_SCI_WH_M1,
+				((state->crtc_w - 1) << 16) | ((state->crtc_h - 1)));
+		aml_write_reg32(P_VPP_OSD_SCO_H_START_END,
+				((hborder) << 16) | ((state->crtc_w - hborder)));
+		aml_write_reg32(P_VPP_OSD_SCO_V_START_END,
+				((vborder) << 16) | ((state->crtc_h - vborder)));
+		/* HSC */
+		hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
+		aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step);
+
+		aml_write_reg32(P_VPP_OSD_HSC_CTRL0,
+				(4 << 0) /* osd_hsc_bank_length */ |
+				(4 << 3) /* osd_hsc_ini_rcv_num0 */ |
+				(1 << 8) /* osd_hsc_rpt_p0_num0 */ |
+				(1 << 22) /* Enable horizontal scaler */);
+
+		/* VSC */
+		vf_phase_step = ((state->crtc_h << 20) / (state->crtc_h - vborder * 2)) << 4;
+		aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step);
+
+		aml_write_reg32(P_VPP_OSD_VSC_CTRL0,
+				(4 << 0) /* osd_vsc_bank_length */ |
+				(4 << 3) /* osd_vsc_top_ini_rcv_num0 */ |
+				(1 << 8) /* osd_vsc_top_rpt_p0_num0 */ |
+				(1 << 24) /* Enable vertical scaler */);
+	} else {
+		aml_write_reg32(P_VPP_OSD_SC_CTRL0,
+				(0 << 3) /* Disable scaler */);
+	}
+}
+
 static void update_plane_shadow_registers(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
@@ -899,6 +955,8 @@ static irqreturn_t meson_irq(int irq, void *arg)
 
 	update_plane_shadow_registers(priv->crtc->primary);
 	update_plane_shadow_registers(priv->crtc->cursor);
+
+	update_scaler_for_underscan(priv->crtc);
 
 	if (priv->cleanup_state) {
 		struct meson_unref_work *unref_work;
