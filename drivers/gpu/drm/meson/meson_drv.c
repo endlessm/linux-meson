@@ -681,10 +681,8 @@ struct meson_drm_private {
 
 static void meson_fb_output_poll_changed(struct drm_device *dev)
 {
-	/*
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
-	*/
 }
 
 static void cleanup_atomic_state(struct drm_device *dev, struct drm_atomic_state *state)
@@ -799,11 +797,9 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
-	/*
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
-	*/
 
 	return 0;
 }
@@ -821,10 +817,8 @@ static int meson_unload(struct drm_device *dev)
 
 static void meson_lastclose(struct drm_device *dev)
 {
-	/*
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_restore_mode(priv->fbdev);
-	*/
 }
 
 static int meson_enable_vblank(struct drm_device *dev, int crtc)
