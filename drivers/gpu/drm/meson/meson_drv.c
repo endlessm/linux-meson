@@ -110,6 +110,8 @@ enum osd_w0_bitflags {
 	M(BLK0_CFG_W4)
 
 struct osd_plane_def {
+	bool compensate_for_underscan;
+
 	uint32_t canvas_index;
 
 	uint32_t vpp_misc_postblend;
@@ -176,6 +178,8 @@ static inline int64_t fixed16_to_int(int64_t value)
 	return value >> 16;
 }
 
+static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crtc);
+
 static void meson_plane_atomic_update(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
@@ -198,6 +202,10 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 	if (state->fb) {
 		clip.x2 = state->crtc->mode.hdisplay;
 		clip.y2 = state->crtc->mode.vdisplay;
+
+		if (meson_plane->def->compensate_for_underscan)
+			compensate_for_underscan(&dest, state->crtc);
+
 		visible = drm_rect_clip_scaled(&src, &dest, &clip,
 					       DRM_PLANE_HELPER_NO_SCALING,
 					       DRM_PLANE_HELPER_NO_SCALING);
@@ -301,6 +309,33 @@ struct meson_crtc {
 	int underscan_vborder;
 };
 #define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
+
+/* Scales from the range 0..a2 to b1..b2 */
+static inline int scale_into(int v, int a2, int b1, int b2)
+{
+	return (v * (b2 - b1) / a2) + b1;
+}
+
+static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crtc)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+
+	if (meson_crtc->underscan_hborder != 0) {
+		int hdisplay = crtc->mode.hdisplay;
+		int hborder = meson_crtc->underscan_hborder;
+		int offs = scale_into(dest->x1, hdisplay, hborder, (hdisplay - hborder)) - dest->x1;
+		dest->x1 += offs;
+		dest->x2 += offs;
+	}
+
+	if (meson_crtc->underscan_vborder != 0) {
+		int vdisplay = crtc->mode.vdisplay;
+		int vborder = meson_crtc->underscan_vborder;
+		int offs = scale_into(dest->y1, vdisplay, vborder, (vdisplay - vborder)) - dest->y1;
+		dest->y1 += offs;
+		dest->y2 += offs;
+	}
+}
 
 static void meson_crtc_destroy(struct drm_crtc *crtc)
 {
@@ -448,6 +483,7 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
  * likely to compete. */
 static struct osd_plane_def osd_plane_defs[] = {
 	{
+		.compensate_for_underscan = false,
 		.canvas_index = 0x4e,
 		.vpp_misc_postblend = VPP_OSD1_POSTBLEND,
 		{
@@ -457,6 +493,7 @@ static struct osd_plane_def osd_plane_defs[] = {
 		}
 	},
 	{
+		.compensate_for_underscan = true,
 		.canvas_index = 0x4f,
 		.vpp_misc_postblend = VPP_OSD2_POSTBLEND,
 		{
