@@ -213,8 +213,8 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		/* Swap out the OSD canvas with the new addr. */
 		canvas_setup(meson_plane->def->canvas_index,
 			     cma_bo->paddr,
-			     (state->src_w >> 16) * 4,
-			     (state->src_h >> 16),
+			     fixed16_to_int(state->src_w) * 4,
+			     fixed16_to_int(state->src_h),
 			     MESON_CANVAS_WRAP_NONE,
 			     MESON_CANVAS_BLKMODE_LINEAR);
 
