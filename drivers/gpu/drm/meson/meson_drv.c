@@ -531,8 +531,8 @@ struct drm_crtc *meson_crtc_create(struct drm_device *dev)
 
 	drm_crtc_helper_add(crtc, &meson_crtc_helper_funcs);
 
-	meson_crtc->underscan_hborder = 64;
-	meson_crtc->underscan_vborder = 64;
+	meson_crtc->underscan_hborder = 0;
+	meson_crtc->underscan_vborder = 0;
 
 	return crtc;
 
