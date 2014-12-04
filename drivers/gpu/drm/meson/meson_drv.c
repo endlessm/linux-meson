@@ -872,7 +872,7 @@ static void meson_crtc_send_vblank_event(struct drm_crtc *crtc)
 	}
 }
 
-static void update_shadow_registers(struct drm_plane *plane)
+static void update_plane_shadow_registers(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 
@@ -897,8 +897,8 @@ static irqreturn_t meson_irq(int irq, void *arg)
 
 	meson_crtc_send_vblank_event(priv->crtc);
 
-	update_shadow_registers(priv->crtc->primary);
-	update_shadow_registers(priv->crtc->cursor);
+	update_plane_shadow_registers(priv->crtc->primary);
+	update_plane_shadow_registers(priv->crtc->cursor);
 
 	if (priv->cleanup_state) {
 		struct meson_unref_work *unref_work;
