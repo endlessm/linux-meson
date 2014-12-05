@@ -976,7 +976,7 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 	if (!state)
 		return;
 
-	if (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_hborder != 0) {
+	if (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_vborder != 0) {
 		int hborder = meson_crtc->underscan_hborder;
 		int vborder = meson_crtc->underscan_vborder;
 
