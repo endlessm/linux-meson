@@ -993,6 +993,7 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 				((hborder) << 16) | ((state->crtc_w - hborder)));
 		aml_write_reg32(P_VPP_OSD_SCO_V_START_END,
 				((vborder) << 16) | ((state->crtc_h - vborder)));
+
 		/* HSC */
 		hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
 		aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step);
