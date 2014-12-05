@@ -794,6 +794,56 @@ static void reset_vpp(void)
 	aml_set_reg32_mask(P_VPP_MISC, VPP_POST_FG_OSD2 | VPP_PRE_FG_OSD2);
 }
 
+static ssize_t meson_get_underscan_hborder(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+	struct meson_drm_private *priv = drm_dev->dev_private;
+	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", meson_crtc->underscan_hborder);
+}
+
+static ssize_t meson_set_underscan_hborder(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t size)
+{
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+	struct meson_drm_private *priv = drm_dev->dev_private;
+	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
+
+	sscanf(buf, "%d", &meson_crtc->underscan_hborder);
+	return size;
+}
+
+static DEVICE_ATTR(underscan_hborder, S_IRUGO | S_IWUGO, meson_get_underscan_hborder, meson_set_underscan_hborder);
+
+static ssize_t meson_get_underscan_vborder(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+	struct meson_drm_private *priv = drm_dev->dev_private;
+	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", meson_crtc->underscan_vborder);
+}
+
+static ssize_t meson_set_underscan_vborder(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t size)
+{
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+	struct meson_drm_private *priv = drm_dev->dev_private;
+	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
+
+	sscanf(buf, "%d", &meson_crtc->underscan_vborder);
+	return size;
+}
+
+static DEVICE_ATTR(underscan_vborder, S_IRUGO | S_IWUGO, meson_get_underscan_vborder, meson_set_underscan_vborder);
+
 static int meson_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -843,6 +893,9 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
+
+	device_create_file(dev->dev, &dev_attr_underscan_hborder);
+	device_create_file(dev->dev, &dev_attr_underscan_vborder);
 
 	return 0;
 }
