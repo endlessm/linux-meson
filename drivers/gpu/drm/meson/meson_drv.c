@@ -301,10 +301,20 @@ fail:
 
 /* CRTC */
 
+enum meson_underscan_type {
+	UNDERSCAN_OFF,
+	UNDERSCAN_ON,
+};
+
 struct meson_crtc {
 	struct drm_crtc base;
 	struct drm_pending_vblank_event *event;
 
+	struct drm_property *prop_underscan;
+	struct drm_property *prop_underscan_hborder;
+	struct drm_property *prop_underscan_vborder;
+
+	enum meson_underscan_type underscan_type;
 	int underscan_hborder;
 	int underscan_vborder;
 };
@@ -344,6 +354,28 @@ static void meson_crtc_destroy(struct drm_crtc *crtc)
 	kfree(meson_crtc);
 }
 
+static struct drm_prop_enum_list underscan_enum_list[] =
+{	{ UNDERSCAN_OFF, "off" },
+	{ UNDERSCAN_ON, "on" },
+};
+
+static int meson_crtc_set_property(struct drm_crtc *crtc,
+				   struct drm_property *property,
+				   uint64_t val)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+
+	if (property == meson_crtc->prop_underscan) {
+		meson_crtc->underscan_type = val;
+	} else if (property == meson_crtc->prop_underscan_hborder) {
+		meson_crtc->underscan_hborder = val;
+	} else if (property == meson_crtc->prop_underscan_vborder) {
+		meson_crtc->underscan_vborder = val;
+	}
+
+	return 0;
+}
+
 static const struct drm_crtc_funcs meson_crtc_funcs = {
 	.set_config             = drm_atomic_helper_set_config,
 	.destroy		= meson_crtc_destroy,
@@ -351,6 +383,7 @@ static const struct drm_crtc_funcs meson_crtc_funcs = {
 	.page_flip		= drm_atomic_helper_page_flip,
 	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
 	.atomic_destroy_state	= drm_atomic_helper_crtc_destroy_state,
+	.set_property           = meson_crtc_set_property,
 };
 
 static void meson_crtc_dpms(struct drm_crtc *crtc, int mode)
@@ -531,6 +564,11 @@ struct drm_crtc *meson_crtc_create(struct drm_device *dev)
 
 	drm_crtc_helper_add(crtc, &meson_crtc_helper_funcs);
 
+	meson_crtc->prop_underscan = drm_property_create_enum(dev, 0, "underscan", underscan_enum_list, ARRAY_SIZE(underscan_enum_list));
+	meson_crtc->prop_underscan_hborder = drm_property_create_range(dev, 0, "underscan hborder", 0, 128);
+	meson_crtc->prop_underscan_vborder = drm_property_create_range(dev, 0, "underscan vborder", 0, 128);
+
+	meson_crtc->underscan_type = UNDERSCAN_OFF;
 	meson_crtc->underscan_hborder = 0;
 	meson_crtc->underscan_vborder = 0;
 
@@ -814,6 +852,7 @@ static ssize_t meson_set_underscan_hborder(struct device *dev,
 	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
 
 	sscanf(buf, "%d", &meson_crtc->underscan_hborder);
+	meson_crtc->underscan_type = UNDERSCAN_ON;
 	return size;
 }
 
@@ -839,6 +878,7 @@ static ssize_t meson_set_underscan_vborder(struct device *dev,
 	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
 
 	sscanf(buf, "%d", &meson_crtc->underscan_vborder);
+	meson_crtc->underscan_type = UNDERSCAN_ON;
 	return size;
 }
 
@@ -976,7 +1016,8 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 	if (!state)
 		return;
 
-	if (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_vborder != 0) {
+	if (meson_crtc->underscan_type == UNDERSCAN_ON &&
+	    (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_vborder != 0)) {
 		int hborder = meson_crtc->underscan_hborder;
 		int vborder = meson_crtc->underscan_vborder;
 
