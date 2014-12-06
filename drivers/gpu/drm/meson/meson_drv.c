@@ -1064,24 +1064,32 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 				((vborder) << 16) | ((state->crtc_h - vborder)));
 
 		/* HSC */
-		hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
-		aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step);
+		if (hborder != 0) {
+			hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
+			aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step);
 
-		aml_write_reg32(P_VPP_OSD_HSC_CTRL0,
-				(4 << 0) /* osd_hsc_bank_length */ |
-				(4 << 3) /* osd_hsc_ini_rcv_num0 */ |
-				(1 << 8) /* osd_hsc_rpt_p0_num0 */ |
-				(1 << 22) /* Enable horizontal scaler */);
+			aml_write_reg32(P_VPP_OSD_HSC_CTRL0,
+					(4 << 0) /* osd_hsc_bank_length */ |
+					(4 << 3) /* osd_hsc_ini_rcv_num0 */ |
+					(1 << 8) /* osd_hsc_rpt_p0_num0 */ |
+					(1 << 22) /* Enable horizontal scaler */);
+		} else {
+			aml_write_reg32(P_VPP_OSD_HSC_CTRL0, 0);
+		}
 
 		/* VSC */
-		vf_phase_step = ((state->crtc_h << 20) / (state->crtc_h - vborder * 2)) << 4;
-		aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step);
+		if (vborder != 0) {
+			vf_phase_step = ((state->crtc_h << 20) / (state->crtc_h - vborder * 2)) << 4;
+			aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step);
 
-		aml_write_reg32(P_VPP_OSD_VSC_CTRL0,
-				(4 << 0) /* osd_vsc_bank_length */ |
-				(4 << 3) /* osd_vsc_top_ini_rcv_num0 */ |
-				(1 << 8) /* osd_vsc_top_rpt_p0_num0 */ |
-				(1 << 24) /* Enable vertical scaler */);
+			aml_write_reg32(P_VPP_OSD_VSC_CTRL0,
+					(4 << 0) /* osd_vsc_bank_length */ |
+					(4 << 3) /* osd_vsc_top_ini_rcv_num0 */ |
+					(1 << 8) /* osd_vsc_top_rpt_p0_num0 */ |
+					(1 << 24) /* Enable vertical scaler */);
+		} else {
+			aml_write_reg32(P_VPP_OSD_VSC_CTRL0, 0);
+		}
 	} else {
 		aml_write_reg32(P_VPP_OSD_SC_CTRL0,
 				(0 << 3) /* Disable scaler */);
