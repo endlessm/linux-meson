@@ -32,15 +32,13 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_rect.h>
 #include <drm/meson_drm.h>
+#include "meson_hdmi.h"
 #include <video/videomode.h>
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <mach/canvas.h>
 #include <linux/amlogic/vout/vout_notify.h>
-
-/* XXX: This is for EDID. Figure out how to do it better. */
-#include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
 
 /* XXX: Move this to a better location. */
 #include "../../../amlogic/gpu/ump/include/ump/ump_kernel_interface_ref_drv.h"
@@ -402,18 +400,15 @@ static void meson_crtc_commit(struct drm_crtc *crtc)
 {
 }
 
-/* XXX: Investigate supporting user-supplied modes, and separating
- * the primary plane mode from the connector's mode. */
+/* XXX: Use standard EDID system */
 static const struct {
 	vmode_t vmode;
-	HDMI_Video_Codes_t hdmi_vic;
-
 	struct videomode timing;
 } supported_modes[] = {
-	{ VMODE_VGA,   HDMI_640x480p60, { 25200,    640,  16,  48,  96,  480, 10, 33, 2, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 1 */
-	{ VMODE_480P,  HDMI_480p60,     { 27027,    720,  16,  60,  62,  480,  9, 30, 6, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 2 */
-	{ VMODE_720P,  HDMI_720p60,     { 74250,   1280, 110, 220,  40,  720,  5, 20, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 4 */
-	{ VMODE_1080P, HDMI_1080p60,    { 148500,  1920,  88, 148,  44,  1080, 4, 36, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 16 */
+	{ VMODE_VGA,   { 25200,    640,  16,  48,  96,  480, 10, 33, 2, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 1 */
+	{ VMODE_480P,  { 27027,    720,  16,  60,  62,  480,  9, 30, 6, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 2 */
+	{ VMODE_720P,  { 74250,   1280, 110, 220,  40,  720,  5, 20, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 4 */
+	{ VMODE_1080P, { 148500,  1920,  88, 148,  44,  1080, 4, 36, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 16 */
 };
 
 static vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode)
@@ -583,205 +578,11 @@ fail:
 	return NULL;
 }
 
-/* Encoder */
-
-static void meson_encoder_destroy(struct drm_encoder *encoder)
-{
-	drm_encoder_cleanup(encoder);
-}
-
-static const struct drm_encoder_funcs meson_encoder_funcs = {
-	.destroy        = meson_encoder_destroy,
-};
-
-static void meson_encoder_dpms(struct drm_encoder *encoder, int mode)
-{
-}
-
-static bool meson_encoder_mode_fixup(struct drm_encoder *encoder,
-				     const struct drm_display_mode *mode,
-				     struct drm_display_mode *adjusted_mode)
-{
-	/* nothing needed */
-	return true;
-}
-
-static void meson_encoder_prepare(struct drm_encoder *encoder)
-{
-}
-
-static void meson_encoder_commit(struct drm_encoder *encoder)
-{
-}
-
-static void meson_encoder_mode_set(struct drm_encoder *encoder,
-				   struct drm_display_mode *mode,
-				   struct drm_display_mode *adjusted_mode)
-{
-	/* nothing needed */
-}
-
-static const struct drm_encoder_helper_funcs meson_encoder_helper_funcs = {
-	.dpms           = meson_encoder_dpms,
-	.mode_fixup     = meson_encoder_mode_fixup,
-	.prepare        = meson_encoder_prepare,
-	.commit         = meson_encoder_commit,
-	.mode_set       = meson_encoder_mode_set,
-};
-
-static struct drm_encoder *meson_encoder_create(struct drm_device *dev)
-{
-	struct drm_encoder *encoder;
-	int ret;
-
-	encoder = kzalloc(sizeof(*encoder), GFP_KERNEL);
-	if (!encoder)
-		return NULL;
-
-	encoder->possible_crtcs = 1;
-	ret = drm_encoder_init(dev, encoder, &meson_encoder_funcs, DRM_MODE_ENCODER_DAC);
-	if (ret < 0)
-		goto fail;
-
-	drm_encoder_helper_add(encoder, &meson_encoder_helper_funcs);
-	return encoder;
-
-fail:
-	meson_encoder_destroy(encoder);
-	return NULL;
-}
-
-/* Connector */
-
-struct meson_connector {
-	struct drm_connector base;
-	struct drm_encoder *encoder;
-};
-#define to_meson_connector(x) container_of(x, struct meson_connector, base)
-
-static void meson_connector_destroy(struct drm_connector *connector)
-{
-	struct meson_connector *meson_connector = to_meson_connector(connector);
-	drm_connector_cleanup(connector);
-	kfree(meson_connector);
-}
-
-static enum drm_connector_status meson_connector_detect(struct drm_connector *connector, bool force)
-{
-	return connector_status_connected;
-}
-
-static bool get_mode_type_from_edid(int *mode_type, hdmitx_dev_t *hdmitx, HDMI_Video_Codes_t hdmi_vic)
-{
-	int i;
-
-	if (hdmitx->tv_no_edid)
-		return false;
-
-	if (hdmitx->RXCap.native_VIC == hdmi_vic) {
-		*mode_type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-		return true;
-	}
-
-	for (i = 0; i < hdmitx->RXCap.VIC_count; i++) {
-		if (hdmitx->RXCap.VIC[i] == hdmi_vic) {
-			*mode_type = DRM_MODE_TYPE_DRIVER;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static int meson_connector_get_modes(struct drm_connector *connector)
-{
-	struct drm_device *dev = connector->dev;
-	hdmitx_dev_t *hdmitx = get_hdmitx_device();
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
-		struct drm_display_mode *mode = drm_mode_create(dev);
-
-		if (!get_mode_type_from_edid(&mode->type, hdmitx, supported_modes[i].hdmi_vic))
-			continue;
-
-		drm_display_mode_from_videomode(&supported_modes[i].timing, mode);
-
-		/* Default to 1080P. XXX TODO: Check EDID. */
-		if (supported_modes[i].vmode == VMODE_1080P)
-			mode->type |= DRM_MODE_TYPE_PREFERRED;
-
-		drm_mode_set_name(mode);
-		drm_mode_probed_add(connector, mode);
-	}
-
-	return i;
-}
-
-static int meson_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
-{
-	return MODE_OK;
-}
-
-static struct drm_encoder *meson_connector_best_encoder(struct drm_connector *connector)
-{
-	struct meson_connector *meson_connector = to_meson_connector(connector);
-	return meson_connector->encoder;
-}
-
-static const struct drm_connector_funcs meson_connector_funcs = {
-	.destroy		= meson_connector_destroy,
-	.detect			= meson_connector_detect,
-	.dpms			= drm_helper_connector_dpms,
-	.fill_modes		= drm_helper_probe_single_connector_modes,
-	.reset			= drm_atomic_helper_connector_reset,
-	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
-};
-
-static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
-	.get_modes          = meson_connector_get_modes,
-	.mode_valid         = meson_connector_mode_valid,
-	.best_encoder       = meson_connector_best_encoder,
-};
-
-static struct drm_connector *meson_connector_create(struct drm_device *dev, struct drm_encoder *encoder)
-{
-	struct meson_connector *meson_connector;
-	struct drm_connector *connector;
-	int ret;
-
-	meson_connector = kzalloc(sizeof(*meson_connector), GFP_KERNEL);
-	if (!meson_connector)
-		return NULL;
-
-	connector = &meson_connector->base;
-	meson_connector->encoder = encoder;
-
-	drm_connector_init(dev, connector, &meson_connector_funcs, DRM_MODE_CONNECTOR_HDMIA);
-	drm_connector_helper_add(connector, &meson_connector_helper_funcs);
-
-	connector->interlace_allowed = 0;
-	connector->doublescan_allowed = 0;
-
-	ret = drm_mode_connector_attach_encoder(connector, encoder);
-	if (ret)
-		goto fail;
-
-	drm_connector_register(connector);
-	return connector;
-
-fail:
-	meson_connector_destroy(connector);
-	return NULL;
-}
-
 /* DRM Driver */
 
 struct meson_drm_private {
 	struct drm_crtc *crtc;
-	struct drm_encoder *encoder;
-	struct drm_connector *connector;
+	struct drm_connector *hdmi_connector;
 	struct drm_fbdev_cma *fbdev;
 
 	struct drm_atomic_state *cleanup_state;
@@ -937,8 +738,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	dev->mode_config.funcs = &mode_config_funcs;
 
 	priv->crtc = meson_crtc_create(dev);
-	priv->encoder = meson_encoder_create(dev);
-	priv->connector = meson_connector_create(dev, priv->encoder);
+	priv->hdmi_connector = meson_hdmi_connector_create(dev);
 
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
 	if (ret < 0) {
