@@ -37,7 +37,6 @@
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
-#include <mach/canvas.h>
 #include <linux/amlogic/vout/vout_notify.h>
 
 /* XXX: Move this to a better location. */
