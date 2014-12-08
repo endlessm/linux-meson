@@ -102,7 +102,7 @@ static struct drm_encoder *meson_encoder_create(struct drm_device *dev)
 		return NULL;
 
 	encoder->possible_crtcs = 1;
-	ret = drm_encoder_init(dev, encoder, &meson_encoder_funcs, DRM_MODE_ENCODER_DAC);
+	ret = drm_encoder_init(dev, encoder, &meson_encoder_funcs, DRM_MODE_ENCODER_TMDS);
 	if (ret < 0)
 		goto fail;
 
