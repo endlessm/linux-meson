@@ -29,7 +29,6 @@
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
-#include <mach/canvas.h>
 #include <mach/hdmi_tx_reg.h>
 
 /* XXX: This is for EDID. Figure out how to do it better. */
