@@ -32,7 +32,6 @@
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <mach/hdmi_tx_reg.h>
-#include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
 
 /* Encoder */
 
@@ -127,17 +126,48 @@ static enum drm_connector_status meson_connector_detect(struct drm_connector *co
 	return read_hpd_gpio() ? connector_status_connected : connector_status_disconnected;
 }
 
+static int fetch_edid(void)
+{
+	/* Turn on the EDID power. */
+	aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 0, 8, 2);
+
+	/* Ask for EDID by setting sys_config_trigger high. */
+	hdmi_set_reg_bits(TX_HDCP_EDID_CONFIG, 1, 6, 1);
+
+	/* XXX: Figure out how to turn on the EDID interrupt */
+	msleep(200);
+	if (!(hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4))) {
+		BUG();
+		return -1;
+	}
+
+	return 0;
+}
+
 #define EDID_BLOCKS 4
 #define EDID_BUF_LENGTH (EDID_LENGTH * EDID_BLOCKS)
 
 static bool read_edid(uint8_t *edid_buf)
 {
-	hdmitx_dev_t *hdmitx = get_hdmitx_device();
+	int block, i;
 
-	if (hdmitx->tv_no_edid)
-		return false;
+	if (!(hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4))) {
+		/* If we don't have EDID, then request it from the HW. */
+		int ret;
 
-	memcpy(edid_buf, hdmitx->EDID_buf, EDID_BUF_LENGTH);
+		ret = fetch_edid();
+		if (ret < 0)
+			return false;
+	}
+
+	/* XXX: I wonder, is it possible to do this transfer with DMA
+	 * instead of copying in with the mailbox register one by one? */
+	for (block = 0; block < EDID_BLOCKS; block++) {
+		uint8_t *block_buf = &edid_buf[EDID_LENGTH * block];
+
+		for (i = 0; i < EDID_LENGTH; i++)
+			block_buf[i] = hdmi_rd_reg(TX_RX_EDID_OFFSET + i);
+	}
 
 	/* TODO: Check extension block validity. */
 	if (!drm_edid_block_valid(edid_buf, 0, true))
