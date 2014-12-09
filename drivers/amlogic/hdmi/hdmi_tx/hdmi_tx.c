@@ -1126,6 +1126,7 @@ static int hdmi_task_handle(void *data)
     if(hdmitx_device->HWOp.Cntl){
         hdmitx_device->HWOp.Cntl(hdmitx_device, HDMITX_IP_INTR_MASN_RST, 0);
     }
+#if 0
     while (hdmitx_device->hpd_event != 0xff)
     {
         //if((hdmitx_device->vic_count == 0)&&(hdmitx_device->mux_hpd_if_pin_high_flag)){
@@ -1240,6 +1241,7 @@ edid_op:
         }
         msleep_interruptible(100);
     }
+#endif
     return 0;
 }
 
