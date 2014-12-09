@@ -127,15 +127,32 @@ static enum drm_connector_status meson_connector_detect(struct drm_connector *co
 	return read_hpd_gpio() ? connector_status_connected : connector_status_disconnected;
 }
 
-static int meson_connector_get_modes(struct drm_connector *connector)
+#define EDID_BLOCKS 4
+#define EDID_BUF_LENGTH (EDID_LENGTH * EDID_BLOCKS)
+
+static bool read_edid(uint8_t *edid_buf)
 {
 	hdmitx_dev_t *hdmitx = get_hdmitx_device();
-	struct edid *edid;
 
 	if (hdmitx->tv_no_edid)
-		return 0;
+		return false;
 
-	edid = (struct edid *) hdmitx->EDID_buf;
+	memcpy(edid_buf, hdmitx->EDID_buf, EDID_BUF_LENGTH);
+
+	/* TODO: Check extension block validity. */
+	if (!drm_edid_block_valid(edid_buf, 0, true))
+		return false;
+
+	return true;
+}
+
+static int meson_connector_get_modes(struct drm_connector *connector)
+{
+	char edid_buf[EDID_BUF_LENGTH];
+	struct edid *edid = (struct edid *) edid_buf;
+
+	if (!read_edid(edid_buf))
+		return 0;
 
 	drm_mode_connector_update_edid_property(connector, edid);
 	return drm_add_edid_modes(connector, edid);
