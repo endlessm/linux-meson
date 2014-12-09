@@ -208,6 +208,7 @@ static void delay_us (int us)
     udelay(us);
 } /* delay_us */
 
+#if 0
 static irqreturn_t intr_handler(int irq, void *dev_instance)
 {
     unsigned int data32;
@@ -279,6 +280,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
     //aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR, 1 << 25);  //clear hdmi_tx interrupt
     return IRQ_HANDLED;
 }
+#endif
 
 /*
  * mode: 1 means Progressive;  0 means interlaced
@@ -2467,10 +2469,12 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
     
 static void hdmitx_setupirq(hdmitx_dev_t* hdmitx_device)
 {
+#if 0
    int r;
    r = request_irq(INT_HDMI_TX, &intr_handler,
                     IRQF_SHARED, "amhdmitx",
                     (void *)hdmitx_device);
+#endif
 }    
 
 
