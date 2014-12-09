@@ -27,6 +27,8 @@
 #include <drm/drm_atomic_helper.h>
 #include <video/videomode.h>
 
+#include "meson_modes.h"
+
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <mach/hdmi_tx_reg.h>
@@ -187,7 +189,7 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 
 static int meson_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
 {
-	return MODE_OK;
+	return (drm_mode_to_vmode(mode) >= 0) ? MODE_OK : MODE_BAD;
 }
 
 static struct drm_encoder *meson_connector_best_encoder(struct drm_connector *connector)
