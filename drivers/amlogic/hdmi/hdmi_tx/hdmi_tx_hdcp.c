@@ -66,6 +66,7 @@ int hdcp_ksv_valid(unsigned char * dat)
     return (one_num == 20);
 }
 
+#if 0
 static struct timer_list hdcp_monitor_timer;
 static void hdcp_monitor_func(unsigned long arg)
 {
@@ -77,6 +78,7 @@ static void hdcp_monitor_func(unsigned long arg)
 
     mod_timer(&hdcp_monitor_timer, jiffies + 2 * HZ);
 }
+#endif
 
 static int hdmitx_hdcp_task(void *data)
 {
@@ -84,6 +86,7 @@ static int hdmitx_hdcp_task(void *data)
     static int time_cnt = 0;
     hdmitx_dev_t *hdmitx_device = (hdmitx_dev_t*)data;
 
+#if 0
     init_timer(&hdcp_monitor_timer);
     hdcp_monitor_timer.data = (ulong) data;
     hdcp_monitor_timer.function = hdcp_monitor_func;
@@ -127,6 +130,7 @@ static int hdmitx_hdcp_task(void *data)
         }
         msleep_interruptible(100);
     }
+#endif
 
     return 0;
 }
