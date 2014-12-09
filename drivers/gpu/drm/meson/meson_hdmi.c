@@ -23,9 +23,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <drm/drmP.h>
+#include <drm/drm_edid.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_atomic_helper.h>
-#include <video/videomode.h>
 
 #include "meson_modes.h"
 
@@ -33,20 +33,7 @@
 #include <mach/irqs.h>
 #include <mach/hdmi_tx_reg.h>
 #include <linux/amlogic/vout/vout_notify.h>
-
-/* XXX: This is for EDID. Figure out how to do it better. */
 #include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
-
-/* XXX: Use standard EDID system */
-static const struct {
-	HDMI_Video_Codes_t hdmi_vic;
-	struct videomode timing;
-} supported_modes[] = {
-	{ HDMI_640x480p60, { 25200,    640,  16,  48,  96,  480, 10, 33, 2, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 1 */
-	{ HDMI_480p60,     { 27027,    720,  16,  60,  62,  480,  9, 30, 6, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 2 */
-	{ HDMI_720p60,     { 74250,   1280, 110, 220,  40,  720,  5, 20, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 4 */
-	{ HDMI_1080p60,    { 148500,  1920,  88, 148,  44,  1080, 4, 36, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 16 */
-};
 
 /* Encoder */
 
@@ -141,51 +128,18 @@ static enum drm_connector_status meson_connector_detect(struct drm_connector *co
 	return read_hpd_gpio() ? connector_status_connected : connector_status_disconnected;
 }
 
-static bool get_mode_type_from_edid(int *mode_type, hdmitx_dev_t *hdmitx, HDMI_Video_Codes_t hdmi_vic)
-{
-	int i;
-
-	if (hdmitx->tv_no_edid)
-		return false;
-
-	if (hdmitx->RXCap.native_VIC == hdmi_vic) {
-		*mode_type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-		return true;
-	}
-
-	for (i = 0; i < hdmitx->RXCap.VIC_count; i++) {
-		if (hdmitx->RXCap.VIC[i] == hdmi_vic) {
-			*mode_type = DRM_MODE_TYPE_DRIVER;
-			return true;
-		}
-	}
-
-	return false;
-}
-
 static int meson_connector_get_modes(struct drm_connector *connector)
 {
-	struct drm_device *dev = connector->dev;
 	hdmitx_dev_t *hdmitx = get_hdmitx_device();
-	int i;
+	struct edid *edid;
 
-	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
-		struct drm_display_mode *mode = drm_mode_create(dev);
+	if (hdmitx->tv_no_edid)
+		return 0;
 
-		if (!get_mode_type_from_edid(&mode->type, hdmitx, supported_modes[i].hdmi_vic))
-			continue;
+	edid = (struct edid *) hdmitx->EDID_buf;
 
-		drm_display_mode_from_videomode(&supported_modes[i].timing, mode);
-
-		/* Default to 1080P. XXX TODO: Check EDID. */
-		if (supported_modes[i].hdmi_vic == HDMI_1080p60)
-			mode->type |= DRM_MODE_TYPE_PREFERRED;
-
-		drm_mode_set_name(mode);
-		drm_mode_probed_add(connector, mode);
-	}
-
-	return i;
+	drm_mode_connector_update_edid_property(connector, edid);
+	return drm_add_edid_modes(connector, edid);
 }
 
 static int meson_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
