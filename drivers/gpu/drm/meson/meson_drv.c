@@ -440,6 +440,9 @@ static void meson_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	vmode_t vmode;
 	vmode = drm_mode_to_vmode(&crtc->state->adjusted_mode);
 	set_vmode(vmode);
+
+	/* Make sure to unblank HDMI */
+	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
 }
 
 static void meson_crtc_load_lut(struct drm_crtc *crtc)
