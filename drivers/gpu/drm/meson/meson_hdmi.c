@@ -128,9 +128,14 @@ static void meson_connector_destroy(struct drm_connector *connector)
 	kfree(meson_connector);
 }
 
+static bool read_hpd_gpio(void)
+{
+	return !!(aml_read_reg32(P_PREG_PAD_GPIO3_I) & (1 << 19));
+}
+
 static enum drm_connector_status meson_connector_detect(struct drm_connector *connector, bool force)
 {
-	return connector_status_connected;
+	return read_hpd_gpio() ? connector_status_connected : connector_status_disconnected;
 }
 
 static bool get_mode_type_from_edid(int *mode_type, hdmitx_dev_t *hdmitx, HDMI_Video_Codes_t hdmi_vic)
