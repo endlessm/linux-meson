@@ -29,6 +29,7 @@
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
+#include <mach/hdmi_tx_reg.h>
 #include <linux/amlogic/vout/vout_notify.h>
 
 /* XXX: This is for EDID. Figure out how to do it better. */
@@ -212,6 +213,22 @@ static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
 	.best_encoder       = meson_connector_best_encoder,
 };
 
+static irqreturn_t meson_hdmi_intr_handler(int irq, void *user_data)
+{
+	struct drm_connector *connector = user_data;
+	struct drm_device *dev = connector->dev;
+
+	/* Clear interrupt status flags. We don't actually care what
+	 * the INTR was about. */
+	hdmi_wr_reg(OTHER_BASE_ADDR + HDMI_OTHER_INTR_STAT_CLR, 0xF);
+
+	/* This interrupt means one of three things: HPD rose, HPD fell,
+	 * or EDID has changed. For all three, emit a hotplug event. */
+	drm_kms_helper_hotplug_event(dev);
+
+	return IRQ_HANDLED;
+}
+
 struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev)
 {
 	struct meson_connector *meson_connector;
@@ -238,6 +255,11 @@ struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev)
 
 	ret = drm_mode_connector_attach_encoder(connector, encoder);
 	if (ret)
+		goto fail;
+
+	ret = devm_request_irq(dev->dev, INT_HDMI_TX, meson_hdmi_intr_handler,
+			       0, dev_name(dev->dev), connector);
+	if (ret < 0)
 		goto fail;
 
 	drm_connector_register(connector);
