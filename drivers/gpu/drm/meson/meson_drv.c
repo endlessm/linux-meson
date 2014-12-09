@@ -32,8 +32,9 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_rect.h>
 #include <drm/meson_drm.h>
+
 #include "meson_hdmi.h"
-#include <video/videomode.h>
+#include "meson_modes.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -397,33 +398,6 @@ static void meson_crtc_prepare(struct drm_crtc *crtc)
 
 static void meson_crtc_commit(struct drm_crtc *crtc)
 {
-}
-
-/* XXX: Use standard EDID system */
-static const struct {
-	vmode_t vmode;
-	struct videomode timing;
-} supported_modes[] = {
-	{ VMODE_VGA,   { 25200,    640,  16,  48,  96,  480, 10, 33, 2, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 1 */
-	{ VMODE_480P,  { 27027,    720,  16,  60,  62,  480,  9, 30, 6, DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH } }, /* CEA Mode 2 */
-	{ VMODE_720P,  { 74250,   1280, 110, 220,  40,  720,  5, 20, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 4 */
-	{ VMODE_1080P, { 148500,  1920,  88, 148,  44,  1080, 4, 36, 5, DISPLAY_FLAGS_HSYNC_LOW  | DISPLAY_FLAGS_VSYNC_LOW  } }, /* CEA Mode 16 */
-};
-
-static vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
-		struct drm_display_mode supported_mode = {};
-
-		drm_display_mode_from_videomode(&supported_modes[i].timing, &supported_mode);
-
-		if (drm_mode_equal(mode, &supported_mode))
-			return supported_modes[i].vmode;
-	}
-
-	return -1;
 }
 
 static bool meson_crtc_mode_fixup(struct drm_crtc *crtc,
