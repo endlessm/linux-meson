@@ -27,6 +27,12 @@
 #include <drm/drmP.h>
 #include <linux/amlogic/vout/vout_notify.h>
 
-vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode);
+enum meson_modes_flags {
+	MESON_MODES_HDMI = (1 << 0),
+	MESON_MODES_ALL = ~0,
+};
+
+vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
+			  enum meson_modes_flags flags);
 
 #endif /* __MESON_MODES_H__ */
