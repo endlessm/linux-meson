@@ -26,19 +26,22 @@
 static const struct {
 	const char *drm_mode_name;
 	vmode_t vmode;
+	enum meson_modes_flags flags;
 } supported_modes[] = {
-	{ "640x480",   VMODE_VGA },
-	{ "720x480",   VMODE_480P },
-	{ "1280x720",  VMODE_720P },
-	{ "1920x1080", VMODE_1080P },
+	/* HDMI modes */
+	{ "640x480",     VMODE_VGA,     MESON_MODES_HDMI },
+	{ "720x480",     VMODE_480P,    MESON_MODES_HDMI },
+	{ "1280x720",    VMODE_720P,    MESON_MODES_HDMI },
+	{ "1920x1080",   VMODE_1080P,   MESON_MODES_HDMI },
 };
 
-vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode)
+vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
+			  enum meson_modes_flags flags)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
-		if (strcmp(mode->name, supported_modes[i].drm_mode_name) == 0)
+		if (strcmp(mode->name, supported_modes[i].drm_mode_name) == 0 && (mode->flags & flags))
 			return supported_modes[i].vmode;
 	}
 

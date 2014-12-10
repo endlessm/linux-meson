@@ -406,7 +406,7 @@ static bool meson_crtc_mode_fixup(struct drm_crtc *crtc,
 {
 	vmode_t vmode;
 
-	vmode = drm_mode_to_vmode(mode);
+	vmode = drm_mode_to_vmode(mode, MESON_MODES_ALL);
 
 	/* Invalid mode. */
 	if (vmode < 0)
@@ -438,7 +438,7 @@ static void set_vmode(vmode_t mode)
 static void meson_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	vmode_t vmode;
-	vmode = drm_mode_to_vmode(&crtc->state->adjusted_mode);
+	vmode = drm_mode_to_vmode(&crtc->state->adjusted_mode, MESON_MODES_ALL);
 	set_vmode(vmode);
 
 	/* Make sure to unblank HDMI */
