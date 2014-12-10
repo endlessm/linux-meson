@@ -32,7 +32,6 @@
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <mach/hdmi_tx_reg.h>
-#include <linux/amlogic/vout/vout_notify.h>
 
 /* Encoder */
 
