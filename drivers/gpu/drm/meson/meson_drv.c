@@ -33,6 +33,7 @@
 #include <drm/drm_rect.h>
 #include <drm/meson_drm.h>
 
+#include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
 
@@ -559,6 +560,7 @@ fail:
 struct meson_drm_private {
 	struct drm_crtc *crtc;
 	struct drm_connector *hdmi_connector;
+	struct drm_connector *cvbs_connector;
 	struct drm_fbdev_cma *fbdev;
 
 	struct drm_atomic_state *cleanup_state;
@@ -715,6 +717,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	priv->crtc = meson_crtc_create(dev);
 	priv->hdmi_connector = meson_hdmi_connector_create(dev);
+	priv->cvbs_connector = meson_cvbs_connector_create(dev);
 
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
 	if (ret < 0) {

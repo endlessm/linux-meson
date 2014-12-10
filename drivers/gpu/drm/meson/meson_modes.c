@@ -29,10 +29,14 @@ static const struct {
 	enum meson_modes_flags flags;
 } supported_modes[] = {
 	/* HDMI modes */
-	{ "640x480",     VMODE_VGA,     MESON_MODES_HDMI },
-	{ "720x480",     VMODE_480P,    MESON_MODES_HDMI },
-	{ "1280x720",    VMODE_720P,    MESON_MODES_HDMI },
-	{ "1920x1080",   VMODE_1080P,   MESON_MODES_HDMI },
+	{ "640x480",   VMODE_VGA,     MESON_MODES_HDMI },
+	{ "720x480",   VMODE_480P,    MESON_MODES_HDMI },
+	{ "1280x720",  VMODE_720P,    MESON_MODES_HDMI },
+	{ "1920x1080", VMODE_1080P,   MESON_MODES_HDMI },
+
+	/* CVBS modes */
+	{ "720x576i",  VMODE_576CVBS, MESON_MODES_CVBS },
+	{ "640x480i",  VMODE_480CVBS, MESON_MODES_CVBS },
 };
 
 vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,

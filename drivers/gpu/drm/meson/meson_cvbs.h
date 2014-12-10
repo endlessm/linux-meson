@@ -20,20 +20,14 @@
  *     Jasper St. Pierre <jstpierre@mecheye.net>
  */
 
+#ifndef __MESON_CVBS_H__
+#define __MESON_CVBS_H__
 
-#ifndef __MESON_MODES_H__
-#define __MESON_MODES_H__
-
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
 #include <drm/drmP.h>
-#include <linux/amlogic/vout/vout_notify.h>
 
-enum meson_modes_flags {
-	MESON_MODES_HDMI = (1 << 0),
-	MESON_MODES_CVBS = (1 << 1),
-	MESON_MODES_ALL = ~0,
-};
+struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev);
 
-vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
-			  enum meson_modes_flags flags);
-
-#endif /* __MESON_MODES_H__ */
+#endif
