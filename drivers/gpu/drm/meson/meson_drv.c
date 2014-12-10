@@ -898,6 +898,17 @@ OSD_REGISTERS
 	}
 }
 
+static void update_interlaced_field(struct drm_plane *plane)
+{
+	struct meson_plane *meson_plane = to_meson_plane(plane);
+
+	if (meson_plane->reg.BLK0_CFG_W0 & OSD_INTERLACE_ENABLED) {
+		int field = aml_read_reg32(P_ENCI_INFO_READ) & (1 << 29);
+		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->reg.BLK0_CFG_W0 & ~0x01) |
+						(field ? OSD_INTERLACE_ODD : OSD_INTERLACE_EVEN));
+	}
+}
+
 static irqreturn_t meson_irq(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
@@ -906,6 +917,9 @@ static irqreturn_t meson_irq(int irq, void *arg)
 	drm_handle_vblank(dev, 0);
 
 	meson_crtc_send_vblank_event(priv->crtc);
+
+	update_interlaced_field(priv->crtc->primary);
+	update_interlaced_field(priv->crtc->cursor);
 
 	update_plane_shadow_registers(priv->crtc->primary);
 	update_plane_shadow_registers(priv->crtc->cursor);
