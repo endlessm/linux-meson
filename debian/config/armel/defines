@@ -1,0 +1,81 @@
+[base]
+flavours:
+ iop32x
+ ixp4xx
+ kirkwood
+ mv78xx0
+ orion5x
+ versatile
+kernel-arch: arm
+
+[image]
+suggests: fdutils
+
+[iop32x_build]
+image-file: arch/arm/boot/zImage
+
+[iop32x_description]
+hardware: IOP32x
+hardware-long: IOP32x based systems (Thecus N2100, etc)
+
+[iop32x_image]
+# Thecus N2100: 1441792 - 8 = 1441784
+check-size: 1441784
+configs:
+ armel/config-reduced
+ armel/config.iop32x
+
+[ixp4xx_build]
+image-file: arch/arm/boot/zImage
+
+[ixp4xx_description]
+hardware: IXP4xx
+hardware-long: IXP4xx based systems (Linksys NSLU2, etc)
+
+[ixp4xx_image]
+# Linksys NSLU2: 1441792 - 16 - 16 = 1441760
+check-size: 1441760
+configs:
+ armel/config-reduced
+ armel/config.ixp4xx
+
+[kirkwood_build]
+image-file: arch/arm/boot/zImage
+
+[kirkwood_description]
+hardware: Marvell Kirkwood
+hardware-long: Marvell Kirkwood based systems (SheevaPlug, QNAP TS-119/TS-219, etc)
+
+[kirkwood_image]
+recommends: uboot-mkimage
+# SheevaPlug: 4194304 - 8 - 64 = 4194232
+# QNAP TS-119/TS-219: 2097152 - 8 - 64 = 2097080
+check-size: 2097080
+
+[mv78xx0_build]
+image-file: arch/arm/boot/zImage
+
+[mv78xx0_description]
+hardware: Marvell 78xx0
+hardware-long: Marvell DB-78xx0-BP Development Board
+
+[orion5x_build]
+image-file: arch/arm/boot/zImage
+
+[orion5x_description]
+hardware: Marvell Orion
+hardware-long: Marvell Orion 5181, 5182 and 5281 based systems (QNAP TS-109/TS-209, etc)
+
+[orion5x_image]
+recommends: uboot-mkimage
+# D-Link DNS-323: 1572864 - 8 - 64 = 1572792
+# HP Media Vault mv2120: ca 2 MB
+# QNAP TS-109/TS-209 & TS-409: 2097152 - 8 - 64 = 2097080
+check-size: 1572792
+configs:
+ armel/config-reduced
+ armel/config.orion5x
+
+[versatile_description]
+hardware: Versatile
+hardware-long: Versatile systems (PB, AB, Qemu)

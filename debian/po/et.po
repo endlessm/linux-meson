@@ -1,0 +1,156 @@
+# linux debconf estonian translation
+# linux debconf eesti keele tõlge
+# Copyright (C) 2010 Debian GNU/Linux
+# This file is distributed under the same license as the linux package.
+#
+# mihkel <mihkel turakas com>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linux 2.6.32-11\n"
+"Report-Msgid-Bugs-To: linux@packages.debian.org\n"
+"POT-Creation-Date: 2010-07-16 15:55+0100\n"
+"PO-Revision-Date: 2010-04-24 14:20+0300\n"
+"Last-Translator: mihkel <turakas gmail com>\n"
+"Language-Team: Estonian <et@li.org>\n"
+"Language: et\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Emacs\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Type: error
+#. Description
+#: ../linux-base.templates:8001 ../templates/temp.image.plain/templates:5001
+msgid ""
+"If the boot loader needs to be updated whenever a new kernel is installed, "
+"the boot loader package should install a script in /etc/kernel/postinst.d.  "
+"Alternately, you can specify the command to update the boot loader by "
+"setting the 'postinst_hook' variable in /etc/kernel-img.conf."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid "Abort installation after depmod error?"
+msgstr "Katkesta paigaldus peale depmod veateadet?"
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid ""
+"The 'depmod' command exited with the exit code ${exit_value} "
+"(${SIGNAL}${CORE})."
+msgstr ""
+"'depmod' käsk lõpetas väljumise koodiga ${exit_value} (${SIGNAL}${CORE})."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid ""
+"Since this image uses initrd, the ${modules_base}/=V/modules.dep file will "
+"not be deleted, even though it may be invalid."
+msgstr ""
+"Kuna tõmmis kasutab initrd-d, siis ${modules_base}/=V/modules.dep faili ei "
+"kustutata, kuigi ta võib olla vigane."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid ""
+"You should abort the installation and fix the errors in depmod, or "
+"regenerate the initrd image with a known good modules.dep file. If you don't "
+"abort the installation, there is a danger that the system will fail to boot."
+msgstr ""
+"Sa peaksid paigaldamise katkestama ja parandama depmodi vead või "
+"regenereerima initrd tõmmise heade modules.dep failiga. Kui sa ei katkesta, "
+"siis suure tõenäosusega süsteem enam ei käivitu alglaadimisel."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid "Abort kernel removal?"
+msgstr "Katkesta tuuma eemaldamine?"
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid ""
+"You are running a kernel (version ${running}) and attempting to remove the "
+"same version."
+msgstr ""
+"Sa kasutad tuuma versiooni (version ${running}) ning üritad seda sama "
+"versiooni eemaldada."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid ""
+"This can make the system unbootable as it will remove /boot/vmlinuz-"
+"${running} and all modules under the directory /lib/modules/${running}. This "
+"can only be fixed with a copy of the kernel image and the corresponding "
+"modules."
+msgstr ""
+"See võib süsteemi muuta mitte käivitatavaks kuna eemaldatakse /boot/vmlinuz-"
+"${running} ja kõik moodulid kataloogist /lib/modules/${running}. Seda saab "
+"parandada ainult sama tumma ja vastavate moodulite kopeerimisega õigetesse "
+"kohtadesse."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid ""
+"It is highly recommended to abort the kernel removal unless you are prepared "
+"to fix the system after removal."
+msgstr ""
+"On äärmiselt soovituslik katkestada tuuma eemaldamine, kui sa just pole "
+"valmistunud süsteemi ise parandama."
+
+#. Type: note
+#. Description
+#: ../templates/temp.image.plain/templates:4001
+msgid "Required firmware files may be missing"
+msgstr "Vajalikud püsivara failid võivad olla puudu"
+
+#. Type: note
+#. Description
+#: ../templates/temp.image.plain/templates:4001
+msgid ""
+"This system is currently running Linux ${runningversion} and you are "
+"installing Linux ${version}.  In the new version some of the drivers used on "
+"this system may require additional firmware files:"
+msgstr ""
+"See süsteem kasutab praegu Linuxi versiooni ${runningversion} ja sina "
+"paigaldad versiooni ${version}. Uues versionis võivad mõned ajurid vajada "
+"lisaks püsivara faile:"
+
+#. Type: note
+#. Description
+#: ../templates/temp.image.plain/templates:4001
+msgid ""
+"Most firmware files are not included in the system because they do not "
+"conform to the Debian Free Software Guidelines. You may need to reconfigure "
+"the package manager to include the contrib and non-free sections of the "
+"package archive before you can install these firmware files."
+msgstr ""
+"Enamik püsivara faile ei ole kaasatud süsteemi, sest nad ei vasta Debian "
+"vaba tarkvara juhtnööridele (Debian Free Software Guidelines). Võimalik, et "
+"pead enne oma pakimajandajat ümber seadistama, et kaasata varamutesse ka "
+"contrib ja non-free harud, kui saad need püsivara failid paigaldada."
+
+#. Type: error
+#. Description
+#: ../templates/temp.image.plain/templates:5001
+#, fuzzy
+#| msgid "Boot loader configuration check needed"
+msgid "Boot loader configuration must be updated"
+msgstr "Vajalik alglaaduri konfiguratsiooni kontroll"
+
+#. Type: error
+#. Description
+#: ../templates/temp.image.plain/templates:5001
+msgid ""
+"Kernel packages no longer update a default boot loader.  You should remove "
+"'do_bootloader = yes' from /etc/kernel-img.conf."
+msgstr ""

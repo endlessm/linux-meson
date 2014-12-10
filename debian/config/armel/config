@@ -1,0 +1,129 @@
+##
+## file: arch/arm/Kconfig
+##
+CONFIG_MMU=y
+CONFIG_AEABI=y
+CONFIG_OABI_COMPAT=y
+
+##
+## file: arch/arm/Kconfig.debug
+##
+CONFIG_DEBUG_LL=y
+CONFIG_EARLY_PRINTK=y
+
+##
+## file: arch/arm/mm/Kconfig
+##
+#. Support Thumb user binaries
+CONFIG_ARM_THUMB=y
+
+##
+## file: drivers/input/misc/Kconfig
+##
+CONFIG_INPUT_MISC=y
+CONFIG_INPUT_UINPUT=m
+
+##
+## file: drivers/input/mouse/Kconfig
+##
+CONFIG_INPUT_MOUSE=y
+CONFIG_MOUSE_PS2=m
+CONFIG_MOUSE_APPLETOUCH=m
+
+##
+## file: drivers/input/touchscreen/Kconfig
+##
+# CONFIG_TOUCHSCREEN_EETI is not set
+
+##
+## file: drivers/mtd/maps/Kconfig
+##
+CONFIG_MTD_PHYSMAP=y
+
+##
+## file: drivers/net/hamradio/Kconfig
+##
+CONFIG_BPQETHER=m
+CONFIG_BAYCOM_SER_FDX=m
+CONFIG_BAYCOM_SER_HDX=m
+CONFIG_BAYCOM_PAR=m
+CONFIG_BAYCOM_EPP=m
+CONFIG_YAM=m
+
+##
+## file: drivers/net/wireless/ipw2x00/Kconfig
+##
+# CONFIG_IPW2100 is not set
+
+##
+## file: drivers/parport/Kconfig
+##
+#. Causes lockups on ARM (see #588164)
+# CONFIG_PARPORT_PC is not set
+
+##
+## file: drivers/pci/Kconfig
+##
+# CONFIG_PCI_IOV is not set
+
+##
+## file: drivers/scsi/Kconfig
+##
+# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
+# CONFIG_SCSI_3W_9XXX is not set
+# CONFIG_SCSI_AACRAID is not set
+# CONFIG_SCSI_AIC7XXX_OLD is not set
+# CONFIG_SCSI_HPTIOP is not set
+
+##
+## file: drivers/scsi/aic7xxx/Kconfig.aic79xx
+##
+# CONFIG_SCSI_AIC79XX is not set
+
+##
+## file: drivers/scsi/aic7xxx/Kconfig.aic7xxx
+##
+# CONFIG_SCSI_AIC7XXX is not set
+
+##
+## file: drivers/scsi/aic94xx/Kconfig
+##
+# CONFIG_SCSI_AIC94XX is not set
+
+##
+## file: drivers/scsi/megaraid/Kconfig.megaraid
+##
+# CONFIG_MEGARAID_SAS is not set
+
+##
+## file: drivers/scsi/qla2xxx/Kconfig
+##
+# CONFIG_SCSI_QLA_FC is not set
+
+##
+## file: drivers/scsi/qla4xxx/Kconfig
+##
+# CONFIG_SCSI_QLA_ISCSI is not set
+
+##
+## file: drivers/thermal/Kconfig
+##
+CONFIG_THERMAL=y
+CONFIG_CPU_THERMAL=m
+
+##
+## file: drivers/virtio/Kconfig
+##
+# CONFIG_VIRTIO_PCI is not set
+# CONFIG_VIRTIO_BALLOON is not set
+
+##
+## file: security/apparmor/Kconfig
+##
+# CONFIG_SECURITY_APPARMOR is not set
+
+##
+## file: security/tomoyo/Kconfig
+##
+# CONFIG_SECURITY_TOMOYO is not set
+

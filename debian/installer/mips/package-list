@@ -1,0 +1,9 @@
+# This file is used to build up the control file. The kernel version and
+# "-di" are appended to the package names. Section can be left out. So can
+# architecture, which is derived from the files in the modules directory.
+# It overwrites specifications from /usr/share/kernel-wedge/package-list.
+#
+Package: kernel-image
+Provides: ext2-modules, ext3-modules, ext4-modules, rtc-modules
+Provides_4kc-malta: ata-modules, ext2-modules, ext3-modules, ext4-modules, rtc-modules
+Provides_sb1-bcm91250a: ata-modules, ext2-modules, ext3-modules, ext4-modules, rtc-modules

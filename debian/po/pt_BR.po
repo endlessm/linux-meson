@@ -1,0 +1,163 @@
+# linux Brazilian Portuguese debconf template translation.
+# Copyright (C) 2010 Flamarion Jorge
+# This file is distributed under the same license as the linux package.
+# Flamarion Jorge <jorge.flamarion@gmail.com>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linux\n"
+"Report-Msgid-Bugs-To: linux@packages.debian.org\n"
+"POT-Creation-Date: 2010-09-19 10:42+0200\n"
+"PO-Revision-Date: 2010-10-02 12:29-0300\n"
+"Last-Translator: Flamarion Jorge <jorge.flamarion@gmail.com>\n"
+"Language-Team: Brazilian Portuguese <debian-l10n-portuguese@lists.debian."
+"org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"pt_BR utf-8\n"
+
+#. Type: error
+#. Description
+#: ../linux-base.templates:8001 ../templates/temp.image.plain/templates:5001
+msgid ""
+"If the boot loader needs to be updated whenever a new kernel is installed, "
+"the boot loader package should install a script in /etc/kernel/postinst.d.  "
+"Alternately, you can specify the command to update the boot loader by "
+"setting the 'postinst_hook' variable in /etc/kernel-img.conf."
+msgstr ""
+"Se o carregador de inicialização precisa ser atualizado sempre que um novo "
+"kernel é instalado, o pacote do carregador de inicialização deveria instalar "
+"um script em /etc/kernel/postinst.d. Alternativamente, você pode especificar "
+"o comando para atualizar o carregador de inicialização definindo a variável "
+"'postinst_hook' em /etc/kernel-img.conf."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid "Abort installation after depmod error?"
+msgstr "Cancelar instalação após erro do depmod?"
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid ""
+"The 'depmod' command exited with the exit code ${exit_value} (${SIGNAL}"
+"${CORE})."
+msgstr ""
+"O comando 'depmod' terminou com o código de saída ${exit_value} (${SIGNAL}"
+"${CORE})."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid ""
+"Since this image uses initrd, the ${modules_base}/=V/modules.dep file will "
+"not be deleted, even though it may be invalid."
+msgstr ""
+"Uma vez que esta imagem usa o initrd, o arquivo ${modules_base}/=V/modules."
+"dep não será removido, embora possa ser considerado inválido."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:2001
+msgid ""
+"You should abort the installation and fix the errors in depmod, or "
+"regenerate the initrd image with a known good modules.dep file. If you don't "
+"abort the installation, there is a danger that the system will fail to boot."
+msgstr ""
+"Você deve cancelar a instalação e consertar os erros no depmod, ou regerar a "
+"imagem do initrd com um arquivo modules.dep em bom estado. Se você não "
+"cancelar a instalação, existe um perigo de seu sistema falhar na "
+"inicialização."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid "Abort kernel removal?"
+msgstr "Cancelar remoção do kernel?"
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid ""
+"You are running a kernel (version ${running}) and attempting to remove the "
+"same version."
+msgstr ""
+"Você está executando um kernel (version ${running}) e tentando remover a "
+"mesma versão."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid ""
+"This can make the system unbootable as it will remove /boot/vmlinuz-"
+"${running} and all modules under the directory /lib/modules/${running}. This "
+"can only be fixed with a copy of the kernel image and the corresponding "
+"modules."
+msgstr ""
+"Isto pode tornar o sistema não inicializável, pois removerá /boot/vmlinuz-"
+"${running} e todos os módulos sob o diretório /lib/modules/${running}. Isto "
+"só pode ser consertado com uma cópia da imagem do kernel e dos módulos "
+"correspondentes."
+
+#. Type: boolean
+#. Description
+#: ../templates/temp.image.plain/templates:3001
+msgid ""
+"It is highly recommended to abort the kernel removal unless you are prepared "
+"to fix the system after removal."
+msgstr ""
+"É altamente recomendável cancelar a remoção do kernel, a menos que você "
+"esteja preparado para consertar o sistema após a remoção."
+
+#. Type: note
+#. Description
+#: ../templates/temp.image.plain/templates:4001
+msgid "Required firmware files may be missing"
+msgstr "Arquivos de firmware necessários podem estar faltando"
+
+#. Type: note
+#. Description
+#: ../templates/temp.image.plain/templates:4001
+msgid ""
+"This system is currently running Linux ${runningversion} and you are "
+"installing Linux ${version}.  In the new version some of the drivers used on "
+"this system may require additional firmware files:"
+msgstr ""
+"Este sistema atualmente está executando o Linux ${runningversion} e você "
+"está instalando o Linux ${version}. Na nova versão alguns dos drivers usados "
+"neste sistema podem precisar de arquivos de firmware adicionais:"
+
+#. Type: note
+#. Description
+#: ../templates/temp.image.plain/templates:4001
+msgid ""
+"Most firmware files are not included in the system because they do not "
+"conform to the Debian Free Software Guidelines. You may need to reconfigure "
+"the package manager to include the contrib and non-free sections of the "
+"package archive before you can install these firmware files."
+msgstr ""
+"A maioria dos arquivos de firmware não estão incluídos no sistema porque não "
+"estão em conformidade com a Definição Debian de Software Livre (\"Debian "
+"Free Software Guidelines\"). Você poderá precisar reconfigurar o gerenciador "
+"de pacotes para incluir as seções contrib e non-free do repositório de "
+"pacotes antes de poder instalar estes arquivos de firmware."
+
+#. Type: error
+#. Description
+#: ../templates/temp.image.plain/templates:5001
+msgid "Boot loader configuration must be updated"
+msgstr "A configuração do carregador de inicialização deve ser atualizada"
+
+#. Type: error
+#. Description
+#: ../templates/temp.image.plain/templates:5001
+msgid ""
+"Kernel packages no longer update a default boot loader.  You should remove "
+"'do_bootloader = yes' from /etc/kernel-img.conf."
+msgstr ""
+"Os pacotes do kernel não atualizam mais o carregador de inicialização "
+"padrão. Você deve remover 'do_bootloader = yes' do arquivo /etc/kernel-img."
+"conf."

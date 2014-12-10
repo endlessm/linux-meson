@@ -1,0 +1,33 @@
+From: Arnaud Patard <arnaud.patard@rtp-net.org>
+Subject: drivers/usb/musb/Kconfig: remove the 'Glue Layer' choice.
+Forwarded: no
+
+In the config.omap configuration, we're setting CONFIG_USB_MUSB_OMAP2PLUS
+to 'y' but after running the script to create our configuration file, it's
+set to 'm', even if 'y' is valid. This result in an invalid configuration
+and build failure (missing omap_musb_mailbox symbol in our kernel binary).
+
+Removing the choice entry make things work.
+
+Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
+--- a/drivers/usb/musb/Kconfig
++++ b/drivers/usb/musb/Kconfig
+@@ -27,9 +27,6 @@ config USB_MUSB_HDRC
+ 
+ if USB_MUSB_HDRC
+ 
+-choice
+-	prompt "Platform Glue Layer"
+-
+ config USB_MUSB_DAVINCI
+ 	tristate "DaVinci"
+ 	depends on ARCH_DAVINCI_DMx
+@@ -62,8 +59,6 @@ config USB_MUSB_BLACKFIN
+ config USB_MUSB_UX500
+ 	tristate "U8500 and U5500"
+ 
+-endchoice
+-
+ choice
+ 	prompt 'MUSB DMA mode'
+ 	default MUSB_PIO_ONLY if ARCH_MULTIPLATFORM

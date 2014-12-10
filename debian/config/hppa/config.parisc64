@@ -1,0 +1,21 @@
+##
+## file: arch/parisc/Kconfig
+##
+## choice: Processor type
+# CONFIG_PA7000 is not set
+CONFIG_PA8X00=y
+## end choice
+CONFIG_64BIT=y
+# CONFIG_SMP is not set
+
+##
+## file: drivers/net/ethernet/racal/Kconfig
+##
+
+##
+## file: mm/Kconfig
+##
+## choice: Memory model
+# CONFIG_FLATMEM_MANUAL is not set
+## end choice
+

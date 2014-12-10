@@ -1,0 +1,41 @@
+[base]
+flavours:
+ r4k-ip22
+ r5k-ip32
+ sb1-bcm91250a
+ sb1a-bcm91480b
+ 4kc-malta
+ 5kc-malta
+ octeon
+kernel-arch: mips
+
+[image]
+initramfs: false
+
+[r4k-ip22_description]
+hardware: SGI IP22
+hardware-long: SGI IP22 systems (Indy, Indigo2)
+
+[r5k-ip32_description]
+hardware: SGI IP32
+hardware-long: SGI IP32 systems (O2)
+
+[sb1-bcm91250a_description]
+hardware: BCM91250A
+hardware-long: Broadcom BCM91250A systems (aka SWARM)
+
+[sb1a-bcm91480b_description]
+hardware: BCM91480B
+hardware-long: Broadcom BCM91480B systems (aka BigSur)
+
+[4kc-malta_description]
+hardware: MIPS Malta
+hardware-long: MIPS Malta boards
+
+[5kc-malta_description]
+hardware: MIPS Malta (64-bit)
+hardware-long: MIPS Malta boards (64-bit)
+
+[octeon_description]
+hardware: Octeon
+hardware-long: Cavium Networks Octeon

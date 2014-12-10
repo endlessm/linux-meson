@@ -1,0 +1,51 @@
+[abi]
+abiname: trunk
+
+[base]
+arches:
+ alpha
+ amd64
+ armel
+ armhf
+ hppa
+ i386
+ ia64
+ m68k
+ mips
+ mipsel
+ powerpc
+ powerpcspe
+ ppc64
+ s390
+ s390x
+ sh4
+ sparc
+ sparc64
+ x32
+compiler: gcc-4.7
+featuresets:
+ none
+ rt
+
+[featureset-rt_base]
+enabled: false
+
+[description]
+part-long-up: This kernel is not suitable for SMP (multi-processor,
+ multi-core or hyper-threaded) systems.
+part-long-xen: This kernel also runs on a Xen hypervisor.
+ It supports both privileged (dom0) and unprivileged (domU) operation.
+
+[image]
+initramfs-generators: initramfs-tools initramfs-fallback
+type: plain
+
+[relations]
+# compilers
+gcc-4.4: gcc-4.4
+gcc-4.6: gcc-4.6
+gcc-4.7: gcc-4.7
+
+# initramfs-generators
+initramfs-fallback: linux-initramfs-tool
+initramfs-tools: initramfs-tools (>= 0.110~)
