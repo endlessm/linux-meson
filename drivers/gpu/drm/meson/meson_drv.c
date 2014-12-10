@@ -100,6 +100,10 @@ enum osd_w0_bitflags {
 	OSD_COLOR_MATRIX_32_ARGB = (0x01 << 2),
 	OSD_COLOR_MATRIX_32_ABGR = (0x02 << 2),
 	OSD_COLOR_MATRIX_32_BGRA = (0x03 << 2),
+
+	OSD_INTERLACE_ENABLED  = (0x01 << 1),
+	OSD_INTERLACE_ODD      = (0x01 << 0),
+	OSD_INTERLACE_EVEN     = (0x00 << 0),
 };
 
 /* Dumb metaprogramming, should replace with something better. */
@@ -236,6 +240,9 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		/* Set up BLK0 to point to the right canvas */
 		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->def->canvas_index << 16) |
 						OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
+
+		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE)
+			meson_plane->reg.BLK0_CFG_W0 |= OSD_INTERLACE_ENABLED;
 
 		/* The format of these registers is (x2 << 16 | x1), where x2 is exclusive.
 		 * e.g. +30x1920 would be (1949 << 16) | 30. */
