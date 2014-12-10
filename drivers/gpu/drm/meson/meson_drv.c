@@ -212,6 +212,13 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		if (meson_plane->def->compensate_for_underscan)
 			compensate_for_underscan(&dest, state->crtc);
 
+		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
+			clip.y2 /= 2;
+
+			dest.y1 /= 2;
+			dest.y2 /= 2;
+		}
+
 		visible = drm_rect_clip_scaled(&src, &dest, &clip,
 					       DRM_PLANE_HELPER_NO_SCALING,
 					       DRM_PLANE_HELPER_NO_SCALING);
