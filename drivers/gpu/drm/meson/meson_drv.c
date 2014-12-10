@@ -164,6 +164,7 @@ enum osd_w0_bitflags {
 	M(BLK0_CFG_W4)
 
 struct osd_plane_def {
+	bool uses_scaler;
 	bool compensate_for_underscan;
 
 	uint32_t canvas_index;
@@ -183,6 +184,18 @@ OSD_REGISTERS
 #undef M
 };
 
+enum meson_interlacing_strategy {
+	/* We don't require interlacing -- scan as progressive. */
+	MESON_INTERLACING_STRATEGY_NONE,
+
+	/* We are interlacing out this plane using the OSD interlacer. */
+	MESON_INTERLACING_STRATEGY_OSD,
+
+	/* We are interlacing out this plane using the HW scaler, so
+	 * scan this out as progressive. */
+	MESON_INTERLACING_STRATEGY_SCALER,
+};
+
 struct meson_plane {
 	struct drm_plane base;
 	struct osd_plane_def *def;
@@ -192,6 +205,8 @@ struct meson_plane {
 	 * functions set these and we copy them into the
 	 * real set of mapped registers at runtime. */
 	struct osd_plane_registers reg;
+
+	enum meson_interlacing_strategy interlacing_strategy;
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
@@ -275,6 +290,21 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 	if (visible) {
 		struct drm_gem_cma_object *cma_bo;
 
+		/* If we're interlacing, then figure out what strategy we're
+		 * going to use. */
+		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
+			struct meson_crtc *meson_crtc = to_meson_crtc(state->crtc);
+
+			/* If this plane is going to use the vertical scaler, then scan it out as
+			 * progressive, as the scaler will take care of interlacing for us. */
+			if (meson_plane->def->uses_scaler && (meson_crtc->underscan_type == UNDERSCAN_ON && meson_crtc->underscan_vborder != 0))
+				meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_SCALER;
+			else
+				meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_OSD;
+		} else {
+			meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_NONE;
+		}
+
 		cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
 
 		/* Swap out the OSD canvas with the new addr. */
@@ -294,7 +324,7 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->def->canvas_index << 16) |
 						OSD_ENDIANNESS_LE | OSD_BLK_MODE_32 | OSD_OUTPUT_COLOR_RGB | OSD_COLOR_MATRIX_32_ARGB);
 
-		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE)
+		if (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_OSD)
 			meson_plane->reg.BLK0_CFG_W0 |= OSD_INTERLACE_ENABLED;
 
 		/* The format of these registers is (x2 << 16 | x1), where x2 is exclusive.
@@ -506,6 +536,7 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
  * likely to compete. */
 static struct osd_plane_def osd_plane_defs[] = {
 	{
+		.uses_scaler = true,
 		.compensate_for_underscan = false,
 		.canvas_index = 0x4e,
 		.vpp_misc_postblend = VPP_OSD1_POSTBLEND,
@@ -516,6 +547,7 @@ static struct osd_plane_def osd_plane_defs[] = {
 		}
 	},
 	{
+		.uses_scaler = false,
 		.compensate_for_underscan = true,
 		.canvas_index = 0x4f,
 		.vpp_misc_postblend = VPP_OSD2_POSTBLEND,
@@ -832,6 +864,7 @@ static void meson_crtc_send_vblank_event(struct drm_crtc *crtc)
 static void update_scaler_for_underscan(struct drm_crtc *crtc)
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+	struct meson_plane *meson_plane = to_meson_plane(crtc->primary);
 	struct drm_plane_state *state = crtc->primary->state;
 
 	if (!state)
@@ -841,6 +874,14 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 	    (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_vborder != 0)) {
 		int hborder = meson_crtc->underscan_hborder;
 		int vborder = meson_crtc->underscan_vborder;
+		bool interlace = (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_SCALER);
+
+		int field_h = state->crtc_h;
+
+		if (interlace) {
+			field_h /= 2;
+			vborder /= 2;
+		}
 
 		/* Basic scaler config */
 		aml_write_reg32(P_VPP_OSD_SC_CTRL0,
@@ -851,7 +892,7 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 		aml_write_reg32(P_VPP_OSD_SCO_H_START_END,
 				((hborder) << 16) | ((state->crtc_w - hborder)));
 		aml_write_reg32(P_VPP_OSD_SCO_V_START_END,
-				((vborder) << 16) | ((state->crtc_h - vborder)));
+				((vborder) << 16) | ((field_h - vborder)));
 
 		/* HSC */
 		if (hborder != 0) {
@@ -869,13 +910,18 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 
 		/* VSC */
 		if (vborder != 0) {
-			int vf_phase_step = ((state->crtc_h << 20) / (state->crtc_h - vborder * 2)) << 4;
-			aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step);
+			int vf_phase_step = ((state->crtc_h << 20) / (field_h - vborder * 2));
+
+			aml_write_reg32(P_VPP_OSD_VSC_INI_PHASE, interlace ? (vf_phase_step >> 5) : 0);
+			aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step << 4);
 
 			aml_write_reg32(P_VPP_OSD_VSC_CTRL0,
 					(4 << 0) /* osd_vsc_bank_length */ |
 					(4 << 3) /* osd_vsc_top_ini_rcv_num0 */ |
 					(1 << 8) /* osd_vsc_top_rpt_p0_num0 */ |
+					(6 << 11) /* osd_vsc_bot_ini_rcv_num0 */ |
+					(2 << 16) /* osd_vsc_bot_rpt_p0_num0 */ |
+					((interlace ? 1 : 0) << 23) /* osd_prog_interlace */ |
 					(1 << 24) /* Enable vertical scaler */);
 		} else {
 			aml_write_reg32(P_VPP_OSD_VSC_CTRL0, 0);
@@ -906,7 +952,7 @@ static void update_interlaced_field(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 
-	if (meson_plane->reg.BLK0_CFG_W0 & OSD_INTERLACE_ENABLED) {
+	if (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_OSD) {
 		int field = aml_read_reg32(P_ENCI_INFO_READ) & (1 << 29);
 		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->reg.BLK0_CFG_W0 & ~0x01) |
 						(field ? OSD_INTERLACE_ODD : OSD_INTERLACE_EVEN));
