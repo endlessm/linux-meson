@@ -44,6 +44,9 @@
 /* XXX: Move this to a better location. */
 #include "../../../amlogic/gpu/ump/include/ump/ump_kernel_interface_ref_drv.h"
 
+static bool use_cvbs_connector = false;
+module_param_named(cvbs, use_cvbs_connector, bool, S_IRUGO | S_IWUSR);
+
 #define DRIVER_NAME "meson"
 #define DRIVER_DESC "Amlogic Meson DRM driver"
 
@@ -762,8 +765,11 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	dev->mode_config.funcs = &mode_config_funcs;
 
 	priv->crtc = meson_crtc_create(dev);
-	priv->hdmi_connector = meson_hdmi_connector_create(dev);
-	priv->cvbs_connector = meson_cvbs_connector_create(dev);
+
+	if (use_cvbs_connector)
+		priv->cvbs_connector = meson_cvbs_connector_create(dev);
+	else
+		priv->hdmi_connector = meson_hdmi_connector_create(dev);
 
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
 	if (ret < 0) {
