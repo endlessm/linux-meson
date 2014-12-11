@@ -114,9 +114,18 @@ static void meson_connector_destroy(struct drm_connector *connector)
 	kfree(meson_connector);
 }
 
+static bool read_hpd_gpio(void)
+{
+	return !!(aml_read_reg32(P_PREG_PAD_GPIO3_I) & (1 << 19));
+}
+
 static enum drm_connector_status meson_connector_detect(struct drm_connector *connector, bool force)
 {
-	return connector_status_connected;
+	/* Userspace can get really confused sometimes if we give it
+	 * two connectors that are connected. Detect if HDMI is plugged in,
+	 * and if so, disconnect our connector. */
+
+	return read_hpd_gpio() ? connector_status_disconnected : connector_status_connected;
 }
 
 static int meson_connector_get_modes(struct drm_connector *connector)
