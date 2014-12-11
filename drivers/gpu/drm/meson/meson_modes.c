@@ -36,7 +36,7 @@ static const struct {
 
 	/* CVBS modes */
 	{ "720x576i",  VMODE_576CVBS, MESON_MODES_CVBS },
-	{ "640x480i",  VMODE_480CVBS, MESON_MODES_CVBS },
+	{ "720x480i",  VMODE_480CVBS, MESON_MODES_CVBS },
 };
 
 vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
