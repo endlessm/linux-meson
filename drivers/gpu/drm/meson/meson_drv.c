@@ -842,9 +842,6 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 		int hborder = meson_crtc->underscan_hborder;
 		int vborder = meson_crtc->underscan_vborder;
 
-		int hf_phase_step;
-		int vf_phase_step;
-
 		/* Basic scaler config */
 		aml_write_reg32(P_VPP_OSD_SC_CTRL0,
 				(1 << 3) /* Enable scaler */ |
@@ -858,7 +855,7 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 
 		/* HSC */
 		if (hborder != 0) {
-			hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
+			int hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
 			aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step);
 
 			aml_write_reg32(P_VPP_OSD_HSC_CTRL0,
@@ -872,7 +869,7 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 
 		/* VSC */
 		if (vborder != 0) {
-			vf_phase_step = ((state->crtc_h << 20) / (state->crtc_h - vborder * 2)) << 4;
+			int vf_phase_step = ((state->crtc_h << 20) / (state->crtc_h - vborder * 2)) << 4;
 			aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step);
 
 			aml_write_reg32(P_VPP_OSD_VSC_CTRL0,
