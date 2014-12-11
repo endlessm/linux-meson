@@ -82,6 +82,54 @@ static void canvas_setup(uint32_t canvas_index,
 	CANVAS_READ(DC_CAV_LUT_DATAH);
 }
 
+/* CRTC definition */
+
+enum meson_underscan_type {
+	UNDERSCAN_OFF,
+	UNDERSCAN_ON,
+};
+
+struct meson_crtc {
+	struct drm_crtc base;
+	struct drm_pending_vblank_event *event;
+
+	struct drm_property *prop_underscan;
+	struct drm_property *prop_underscan_hborder;
+	struct drm_property *prop_underscan_vborder;
+
+	enum meson_underscan_type underscan_type;
+	int underscan_hborder;
+	int underscan_vborder;
+};
+#define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
+
+/* Scales from the range 0..a2 to b1..b2 */
+static inline int scale_into(int v, int a2, int b1, int b2)
+{
+	return (v * (b2 - b1) / a2) + b1;
+}
+
+static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crtc)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+
+	if (meson_crtc->underscan_hborder != 0) {
+		int hdisplay = crtc->mode.hdisplay;
+		int hborder = meson_crtc->underscan_hborder;
+		int offs = scale_into(dest->x1, hdisplay, hborder, (hdisplay - hborder)) - dest->x1;
+		dest->x1 += offs;
+		dest->x2 += offs;
+	}
+
+	if (meson_crtc->underscan_vborder != 0) {
+		int vdisplay = crtc->mode.vdisplay;
+		int vborder = meson_crtc->underscan_vborder;
+		int offs = scale_into(dest->y1, vdisplay, vborder, (vdisplay - vborder)) - dest->y1;
+		dest->y1 += offs;
+		dest->y2 += offs;
+	}
+}
+
 /* Plane */
 
 enum osd_w0_bitflags {
@@ -183,8 +231,6 @@ static inline int64_t fixed16_to_int(int64_t value)
 {
 	return value >> 16;
 }
-
-static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crtc);
 
 static void meson_plane_atomic_update(struct drm_plane *plane)
 {
@@ -316,52 +362,6 @@ fail:
 }
 
 /* CRTC */
-
-enum meson_underscan_type {
-	UNDERSCAN_OFF,
-	UNDERSCAN_ON,
-};
-
-struct meson_crtc {
-	struct drm_crtc base;
-	struct drm_pending_vblank_event *event;
-
-	struct drm_property *prop_underscan;
-	struct drm_property *prop_underscan_hborder;
-	struct drm_property *prop_underscan_vborder;
-
-	enum meson_underscan_type underscan_type;
-	int underscan_hborder;
-	int underscan_vborder;
-};
-#define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
-
-/* Scales from the range 0..a2 to b1..b2 */
-static inline int scale_into(int v, int a2, int b1, int b2)
-{
-	return (v * (b2 - b1) / a2) + b1;
-}
-
-static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crtc)
-{
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
-
-	if (meson_crtc->underscan_hborder != 0) {
-		int hdisplay = crtc->mode.hdisplay;
-		int hborder = meson_crtc->underscan_hborder;
-		int offs = scale_into(dest->x1, hdisplay, hborder, (hdisplay - hborder)) - dest->x1;
-		dest->x1 += offs;
-		dest->x2 += offs;
-	}
-
-	if (meson_crtc->underscan_vborder != 0) {
-		int vdisplay = crtc->mode.vdisplay;
-		int vborder = meson_crtc->underscan_vborder;
-		int offs = scale_into(dest->y1, vdisplay, vborder, (vdisplay - vborder)) - dest->y1;
-		dest->y1 += offs;
-		dest->y2 += offs;
-	}
-}
 
 static void meson_crtc_destroy(struct drm_crtc *crtc)
 {
