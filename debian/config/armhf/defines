@@ -1,9 +1,6 @@
 [base]
 flavours:
- armmp
- mx5
- omap
- vexpress
+ meson8b
 kernel-arch: arm
 
 [image]
@@ -43,3 +40,9 @@ image-file: arch/arm/boot/zImage
 hardware: ARM Ltd. Versatile Express
 hardware-long: ARM Ltd. Versatile Express family of processors
 
+[meson8b_build]
+image-file: arch/arm/boot/zImage
+
+[meson8b_description]
+hardware: Amlogic Meson8B
+hardware-long: Amlogic Meson8 BABY SoC family

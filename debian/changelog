@@ -1,3 +1,9 @@
+linux-amlogic (3.10.33-0) eos; urgency=medium
+
+  * Initial packaging
+
+ -- Daniel Drake <drake@endlessm.com>  Wed, 10 Dec 2014 15:17:34 -0800
+
 linux (3.10.1-1) unstable; urgency=low
 
   * New upstream release: http://kernelnewbies.org/Linux_3.10
