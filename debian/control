@@ -1,0 +1,75 @@
+Source: linux-amlogic
+Section: kernel
+Priority: optional
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Uploaders: Bastian Blank <waldi@debian.org>, Frederik Schüler <fs@debian.org>, maximilian attems <maks@debian.org>, Ben Hutchings <ben@decadent.org.uk>
+Standards-Version: 3.9.4
+Build-Depends: debhelper (>> 7), cpio, kmod | module-init-tools, python (>= 2.7), lzma [armel], kernel-wedge (>= 2.84), quilt, patchutils, bc, gcc-4.7 [armhf]
+Build-Depends-Indep: bzip2, xmlto
+Vcs-Svn: svn://svn.debian.org/svn/kernel/dists/trunk/linux/
+Vcs-Browser: http://anonscm.debian.org/viewvc/kernel/dists/trunk/linux/
+Homepage: https://www.kernel.org/
+
+Package: linux-libc-dev
+Architecture: armhf
+Section: devel
+Provides: linux-kernel-headers
+Depends: ${misc:Depends}
+Replaces: linux-kernel-headers
+Conflicts: linux-kernel-headers
+Description: Linux support headers for userspace development
+ This package provides userspaces headers from the Linux kernel.  These
+ headers are used by the installed headers for GNU libc and other system
+ libraries.
+Multi-Arch: same
+
+Package: linux-headers-3.10-trunk-all
+Architecture: armhf
+Depends: linux-headers-3.10-trunk-all-${kernel:Arch} (= ${binary:Version}), ${misc:Depends}
+Description: All header files for Linux 3.10 (meta-package)
+ This package depends against all architecture-specific kernel header files
+ for Linux kernel version 3.10, generally used for building out-of-tree
+ kernel modules.
+
+Package: linux-headers-3.10-trunk-all-armhf
+Architecture: armhf
+Depends: ${misc:Depends}, linux-headers-3.10-trunk-meson8b (= ${binary:Version})
+Description: All header files for Linux 3.10 (meta-package)
+ This package depends against all architecture-specific kernel header files
+ for Linux kernel version 3.10, generally used for building out-of-tree
+ kernel modules.
+
+Package: linux-headers-3.10-trunk-common
+Architecture: armhf
+Depends: ${misc:Depends}
+Description: Common header files for Linux 3.10-trunk
+ This package provides the architecture-specific common kernel header files
+ for Linux kernel version 3.10-trunk, generally used for building
+ out-of-tree kernel modules.  To obtain a complete set of headers you also
+ need to install the linux-headers-3.10-trunk-(flavour) package, matching
+ the flavour of the kernel you intend the build for.
+
+Package: linux-image-3.10-trunk-meson8b
+Architecture: armhf
+Provides: linux-image, linux-modules-3.10-trunk-meson8b
+Pre-Depends: debconf | debconf-2.0
+Depends: kmod | module-init-tools, linux-base (>= 3~), ${misc:Depends}, initramfs-tools (>= 0.110~) [armhf] | linux-initramfs-tool [armhf]
+Recommends: firmware-linux-free (>= 3~)
+Suggests: linux-doc-3.10, debian-kernel-handbook, fdutils [armhf]
+Breaks: at (<< 3.1.12-1+squeeze1), initramfs-tools (<< 0.110~)
+Description: Linux 3.10 for Amlogic Meson8B
+ The Linux kernel 3.10 and modules for use on Amlogic Meson8 BABY SoC
+ family.
+
+Package: linux-headers-3.10-trunk-meson8b
+Architecture: armhf
+Provides: linux-headers
+Depends: linux-headers-3.10-trunk-common (= ${binary:Version}), linux-kbuild-3.10, ${misc:Depends}, gcc-4.7
+Description: Header files for Linux 3.10-trunk-meson8b
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 3.10-trunk-meson8b, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-3.10-trunk-meson8b, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-3.10-trunk-meson8b package.
+
