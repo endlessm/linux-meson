@@ -1,4 +1,4 @@
-linux-amlogic (3.10.33-0) eos; urgency=medium
+linux-meson (3.10.33-0) eos; urgency=medium
 
   * Initial packaging
 
