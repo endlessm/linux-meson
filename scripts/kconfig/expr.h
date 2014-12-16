@@ -109,7 +109,7 @@ struct symbol {
 /* choice values need to be set before calculating this symbol value */
 #define SYMBOL_NEED_SET_CHOICE_VALUES  0x100000
 
-#define SYMBOL_NEW        0x100000 /* symbol is new (loaded config did not provide a value) */
+#define SYMBOL_NEW        0x200000 /* symbol is new (loaded config did not provide a value) */
 
 #define SYMBOL_MAXLENGTH	256
 #define SYMBOL_HASHSIZE		9973
