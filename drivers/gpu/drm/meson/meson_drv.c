@@ -116,20 +116,22 @@ static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crt
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 
-	if (meson_crtc->underscan_hborder != 0) {
-		int hdisplay = crtc->mode.hdisplay;
-		int hborder = meson_crtc->underscan_hborder;
-		int offs = scale_into(dest->x1, hdisplay, hborder, (hdisplay - hborder)) - dest->x1;
-		dest->x1 += offs;
-		dest->x2 += offs;
-	}
+	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
+		if (meson_crtc->underscan_hborder != 0) {
+			int hdisplay = crtc->mode.hdisplay;
+			int hborder = meson_crtc->underscan_hborder;
+			int offs = scale_into(dest->x1, hdisplay, hborder, (hdisplay - hborder)) - dest->x1;
+			dest->x1 += offs;
+			dest->x2 += offs;
+		}
 
-	if (meson_crtc->underscan_vborder != 0) {
-		int vdisplay = crtc->mode.vdisplay;
-		int vborder = meson_crtc->underscan_vborder;
-		int offs = scale_into(dest->y1, vdisplay, vborder, (vdisplay - vborder)) - dest->y1;
-		dest->y1 += offs;
-		dest->y2 += offs;
+		if (meson_crtc->underscan_vborder != 0) {
+			int vdisplay = crtc->mode.vdisplay;
+			int vborder = meson_crtc->underscan_vborder;
+			int offs = scale_into(dest->y1, vdisplay, vborder, (vdisplay - vborder)) - dest->y1;
+			dest->y1 += offs;
+			dest->y2 += offs;
+		}
 	}
 }
 
