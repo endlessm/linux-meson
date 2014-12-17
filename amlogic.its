@@ -19,7 +19,7 @@
 		};
 		fdt@1 {
 			description = "Amlogic M201 Flattened Device Tree blob";
-			data = /incbin/("arch/arm/boot/dts/amlogic/meson8b_m201_1G.dtb");
+			data = /incbin/("arch/arm/boot/dts/meson8b_m201_1G.dtb");
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
