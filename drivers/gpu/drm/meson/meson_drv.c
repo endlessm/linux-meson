@@ -593,6 +593,10 @@ struct drm_crtc *meson_crtc_create(struct drm_device *dev)
 	meson_crtc->prop_underscan_hborder = drm_property_create_range(dev, 0, "underscan hborder", 0, 128);
 	meson_crtc->prop_underscan_vborder = drm_property_create_range(dev, 0, "underscan vborder", 0, 128);
 
+	drm_object_attach_property(&meson_crtc->base.base, meson_crtc->prop_underscan, UNDERSCAN_OFF);
+	drm_object_attach_property(&meson_crtc->base.base, meson_crtc->prop_underscan_hborder, 0);
+	drm_object_attach_property(&meson_crtc->base.base, meson_crtc->prop_underscan_vborder, 0);
+
 	meson_crtc->underscan_type = UNDERSCAN_OFF;
 	meson_crtc->underscan_hborder = 0;
 	meson_crtc->underscan_vborder = 0;
