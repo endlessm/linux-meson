@@ -686,6 +686,7 @@ static void reset_vpp(void)
 	/* Force all planes off -- U-Boot might configure them and
 	 * we shouldn't have any stale planes. */
 	aml_clr_reg32_mask(P_VPP_MISC, VPP_OSD1_POSTBLEND | VPP_OSD2_POSTBLEND);
+	aml_clr_reg32_mask(P_VPP_MISC, VPP_VD1_POSTBLEND | VPP_VD2_POSTBLEND);
 
 	/* Turn on POSTBLEND. */
 	aml_set_reg32_mask(P_VPP_MISC, VPP_POSTBLEND_EN);
