@@ -2028,6 +2028,7 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 	DRM_DEBUG_KMS("[CONNECTOR:%d:?]\n", out_resp->connector_id);
 
 	mutex_lock(&dev->mode_config.mutex);
+	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 
 	connector = drm_connector_find(dev, out_resp->connector_id);
 	if (!connector) {
@@ -2059,14 +2060,11 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 	out_resp->mm_height = connector->display_info.height_mm;
 	out_resp->subpixel = connector->display_info.subpixel_order;
 	out_resp->connection = connector->status;
-	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
-
 	encoder = drm_connector_get_encoder(connector);
 	if (encoder)
 		out_resp->encoder_id = encoder->base.id;
 	else
 		out_resp->encoder_id = 0;
-	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 
 	/*
 	 * This ioctl is called twice, once to determine how much space is
@@ -2132,6 +2130,7 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 	out_resp->count_encoders = encoders_count;
 
 out:
+	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 	mutex_unlock(&dev->mode_config.mutex);
 
 	return ret;
