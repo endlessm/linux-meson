@@ -1622,8 +1622,8 @@ retry:
 		goto fail;
 	}
 
-	ret = crtc->funcs->atomic_set_property(crtc, crtc_state,
-					       property, val);
+	ret = drm_atomic_crtc_set_property(crtc, crtc_state,
+			property, val);
 	if (ret)
 		goto fail;
 
@@ -1681,8 +1681,8 @@ retry:
 		goto fail;
 	}
 
-	ret = plane->funcs->atomic_set_property(plane, plane_state,
-					       property, val);
+	ret = drm_atomic_plane_set_property(plane, plane_state,
+			property, val);
 	if (ret)
 		goto fail;
 
@@ -1740,8 +1740,8 @@ retry:
 		goto fail;
 	}
 
-	ret = connector->funcs->atomic_set_property(connector, connector_state,
-					       property, val);
+	ret = drm_atomic_connector_set_property(connector, connector_state,
+			property, val);
 	if (ret)
 		goto fail;
 
