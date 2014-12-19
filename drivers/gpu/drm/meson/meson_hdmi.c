@@ -106,6 +106,7 @@ fail:
 struct meson_connector {
 	struct drm_connector base;
 	struct drm_encoder *encoder;
+	struct delayed_work hotplug_work;
 };
 #define to_meson_connector(x) container_of(x, struct meson_connector, base)
 
@@ -215,9 +216,11 @@ static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
 	.best_encoder       = meson_connector_best_encoder,
 };
 
-static irqreturn_t meson_hdmi_intr_handler(int irq, void *user_data)
+static void hdmi_hotplug_work_func(struct work_struct *work)
 {
-	struct drm_connector *connector = user_data;
+	struct meson_connector *meson_connector =
+		container_of(work, struct meson_connector, hotplug_work.work);
+	struct drm_connector *connector = &meson_connector->base;
 	struct drm_device *dev = connector->dev;
 
 	/* Clear interrupt status flags. We don't actually care what
@@ -227,6 +230,15 @@ static irqreturn_t meson_hdmi_intr_handler(int irq, void *user_data)
 	/* This interrupt means one of three things: HPD rose, HPD fell,
 	 * or EDID has changed. For all three, emit a hotplug event. */
 	drm_kms_helper_hotplug_event(dev);
+}
+
+static irqreturn_t meson_hdmi_intr_handler(int irq, void *user_data)
+{
+	struct drm_connector *connector = user_data;
+	struct meson_connector *meson_connector = to_meson_connector(connector);
+
+	mod_delayed_work(system_wq, &meson_connector->hotplug_work,
+			 msecs_to_jiffies(200));
 
 	return IRQ_HANDLED;
 }
@@ -258,6 +270,8 @@ struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev)
 	ret = drm_mode_connector_attach_encoder(connector, encoder);
 	if (ret)
 		goto fail;
+
+	INIT_DELAYED_WORK(&meson_connector->hotplug_work, hdmi_hotplug_work_func);
 
 	ret = devm_request_threaded_irq(dev->dev, INT_HDMI_TX, NULL, meson_hdmi_intr_handler,
 					IRQF_ONESHOT, dev_name(dev->dev), connector);
