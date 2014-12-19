@@ -259,8 +259,8 @@ struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev)
 	if (ret)
 		goto fail;
 
-	ret = devm_request_irq(dev->dev, INT_HDMI_TX, meson_hdmi_intr_handler,
-			       0, dev_name(dev->dev), connector);
+	ret = devm_request_threaded_irq(dev->dev, INT_HDMI_TX, NULL, meson_hdmi_intr_handler,
+					IRQF_ONESHOT, dev_name(dev->dev), connector);
 	if (ret < 0)
 		goto fail;
 
