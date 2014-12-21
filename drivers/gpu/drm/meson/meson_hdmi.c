@@ -250,6 +250,16 @@ struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev)
         struct drm_encoder *encoder;
 	int ret;
 
+	/* Clear the VIC field of the AVI InfoFrame, which the boot loader
+	 * might have configured. This has been seen to cause EDID read
+	 * failures and "No signal" reported by the output.
+	 *
+	 * I'm not sure if the presence of a value here has some hardware-level
+	 * effect, or just changes the behaviour of the hdmitx code, but I
+	 * suspect the latter.
+	 */
+	hdmi_wr_reg(TX_PKT_REG_AVI_INFO_BASE_ADDR + 0x04, 0);
+
 	encoder = meson_encoder_create(dev);
 	if (!encoder)
 		return NULL;
