@@ -112,3 +112,5 @@ CONFIG_DRM_MESON=y
 
 # not supported on this mach
 CONFIG_DEBUG_LL=n
+
+CONFIG_ANDROID_PARANOID_NETWORK=n
