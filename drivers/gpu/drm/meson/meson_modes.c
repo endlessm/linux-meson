@@ -26,7 +26,7 @@
 static const struct {
 	const char *drm_mode_name;
 	vmode_t vmode;
-	enum meson_modes_flags flags;
+	enum meson_modes_flags lookup_flags;
 } supported_modes[] = {
 	/* HDMI modes */
 	{ "640x480",   VMODE_VGA,     MESON_MODES_HDMI },
@@ -45,7 +45,8 @@ vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
-		if (strcmp(mode->name, supported_modes[i].drm_mode_name) == 0 && (mode->flags & flags))
+		if (strcmp(mode->name, supported_modes[i].drm_mode_name) == 0 &&
+		    (supported_modes[i].lookup_flags & flags) != 0)
 			return supported_modes[i].vmode;
 	}
 
