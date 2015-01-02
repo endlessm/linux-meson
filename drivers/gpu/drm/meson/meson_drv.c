@@ -459,7 +459,7 @@ static bool meson_crtc_mode_fixup(struct drm_crtc *crtc,
 	vmode = drm_mode_to_vmode(mode, MESON_MODES_ALL);
 
 	/* Invalid mode. */
-	if (vmode < 0)
+	if (vmode == VMODE_MAX)
 		return false;
 
 	return true;
