@@ -144,7 +144,7 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 
 static int meson_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
 {
-	return (drm_mode_to_vmode(mode, MESON_MODES_CVBS) >= 0) ? MODE_OK : MODE_BAD;
+	return (drm_mode_to_vmode(mode, MESON_MODES_CVBS) < VMODE_MAX) ? MODE_OK : MODE_BAD;
 }
 
 static struct drm_encoder *meson_connector_best_encoder(struct drm_connector *connector)

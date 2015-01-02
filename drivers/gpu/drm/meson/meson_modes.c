@@ -49,5 +49,5 @@ vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
 			return supported_modes[i].vmode;
 	}
 
-	return -1;
+	return VMODE_MAX;
 }
