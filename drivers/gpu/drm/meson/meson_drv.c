@@ -670,6 +670,28 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit       = meson_atomic_commit,
 };
 
+static void write_scaling_filter_coefs(const unsigned int *coefs,
+				       bool is_horizontal)
+{
+	int i;
+
+	aml_write_reg32(P_VPP_OSD_SCALE_COEF_IDX, (is_horizontal ? 1 : 0) << 8);
+	for (i = 0; i < 33; i++)
+		aml_write_reg32(P_VPP_OSD_SCALE_COEF, coefs[i]);
+}
+
+/* This table was stolen from osd_hw.c in AML's driver. There is no register
+ * documentation about the filters, so I have no idea what these magic numbers
+ * are. */
+static unsigned int osd_filter_coefs_bicubic[] = {
+    0x00800000, 0x007f0100, 0xff7f0200, 0xfe7f0300, 0xfd7e0500, 0xfc7e0600,
+    0xfb7d0800, 0xfb7c0900, 0xfa7b0b00, 0xfa7a0dff, 0xf9790fff, 0xf97711ff,
+    0xf87613ff, 0xf87416fe, 0xf87218fe, 0xf8701afe, 0xf76f1dfd, 0xf76d1ffd,
+    0xf76b21fd, 0xf76824fd, 0xf76627fc, 0xf76429fc, 0xf7612cfc, 0xf75f2ffb,
+    0xf75d31fb, 0xf75a34fb, 0xf75837fa, 0xf7553afa, 0xf8523cfa, 0xf8503ff9,
+    0xf84d42f9, 0xf84a45f9, 0xf84848f8
+};
+
 /* Configure the VPP to act like how we expect it to. Other drivers,
  * like the ones included in U-Boot, might turn on weird features
  * like the HW scaler or special planes. Reset the VPP to a sane mode
@@ -682,6 +704,11 @@ static void reset_vpp(void)
 	aml_clr_reg32_mask(P_VPP_OSD_SC_CTRL0, 1 << 3);
 	aml_clr_reg32_mask(P_VPP_OSD_VSC_CTRL0, 1 << 24);
 	aml_clr_reg32_mask(P_VPP_OSD_HSC_CTRL0, 1 << 22);
+
+	BUILD_BUG_ON(ARRAY_SIZE(osd_filter_coefs_bicubic) != 33);
+	/* Write in the proper filter coefficients. */
+	write_scaling_filter_coefs(osd_filter_coefs_bicubic, 0);
+	write_scaling_filter_coefs(osd_filter_coefs_bicubic, 1);
 
 	/* Force all planes off -- U-Boot might configure them and
 	 * we shouldn't have any stale planes. */
