@@ -24,19 +24,19 @@
 
 /* XXX: Replace this with our own HDMI driver eventually? */
 static const struct {
-	const char *drm_mode_name;
+	int hdisplay, vdisplay;
 	vmode_t vmode;
 	enum meson_modes_flags lookup_flags;
 } supported_modes[] = {
 	/* HDMI modes */
-	{ "640x480",   VMODE_VGA,     MESON_MODES_HDMI },
-	{ "720x480",   VMODE_480P,    MESON_MODES_HDMI },
-	{ "1280x720",  VMODE_720P,    MESON_MODES_HDMI },
-	{ "1920x1080", VMODE_1080P,   MESON_MODES_HDMI },
+	{ 640,   480, VMODE_VGA,     MESON_MODES_HDMI },
+	{ 720,   480, VMODE_480P,    MESON_MODES_HDMI },
+	{ 1280,  720, VMODE_720P,    MESON_MODES_HDMI },
+	{ 1920, 1080, VMODE_1080P,   MESON_MODES_HDMI },
 
 	/* CVBS modes */
-	{ "720x576i",  VMODE_576CVBS, MESON_MODES_CVBS },
-	{ "720x480i",  VMODE_480CVBS, MESON_MODES_CVBS },
+	{ 720,   576, VMODE_576CVBS, MESON_MODES_CVBS },
+	{ 720,   480, VMODE_480CVBS, MESON_MODES_CVBS },
 };
 
 vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
@@ -45,7 +45,8 @@ vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
-		if (strcmp(mode->name, supported_modes[i].drm_mode_name) == 0 &&
+		if (supported_modes[i].hdisplay == mode->hdisplay &&
+		    supported_modes[i].vdisplay == mode->vdisplay &&
 		    (supported_modes[i].lookup_flags & flags) != 0)
 			return supported_modes[i].vmode;
 	}
