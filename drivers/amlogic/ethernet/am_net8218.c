@@ -104,7 +104,7 @@ static int running = 0;
 static struct net_device *my_ndev = NULL;
 static struct aml_eth_platdata *eth_pdata = NULL;
 static unsigned int g_ethernet_registered = 0;
-static unsigned int g_mac_addr_setup = 0;
+static unsigned int g_mac_addr_setup = 1;
 static unsigned int g_mac_pmt_enable = 0;
 static char DEFMAC[] = "\x00\x01\x23\xcd\xee\xaf";
 
