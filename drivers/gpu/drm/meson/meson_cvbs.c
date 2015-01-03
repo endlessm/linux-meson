@@ -140,6 +140,8 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 	mode = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
 	mode->type |= DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode);
+
+	return 2;
 }
 
 static int meson_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
