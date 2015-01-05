@@ -22,6 +22,18 @@
 
 #include "meson_modes.h"
 
+/* XXX: This table is a horrible hack. Basically, the amlogic HDMI drivers
+ * have its own set of output display modes in its code, in an enum called
+ * vmode_t, and they are things like `VMODE_480P`, `VMODE_1080P`. We need
+ * to map the standard modes that KMS supplies to
+ *
+ * The obvious way to do this would be to match on the mode name that
+ * drm_edid.c assigns to each mode, but for some reason, under very
+ * specific circumstances like hotplug, Xorg seems to hand us a mode with
+ * a blank name and I'm not sure why. So just cheat and only match on the
+ * hdisplay/vdisplay.
+ */
+
 /* XXX: Replace this with our own HDMI driver eventually? */
 static const struct {
 	int hdisplay, vdisplay;
