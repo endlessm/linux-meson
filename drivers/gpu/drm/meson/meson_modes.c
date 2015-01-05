@@ -31,24 +31,24 @@
  * drm_edid.c assigns to each mode, but for some reason, under very
  * specific circumstances like hotplug, Xorg seems to hand us a mode with
  * a blank name and I'm not sure why. So just cheat and only match on the
- * hdisplay/vdisplay.
+ * hdisplay/vdisplay/vrefresh.
  */
 
 /* XXX: Replace this with our own HDMI driver eventually? */
 static const struct {
-	int hdisplay, vdisplay;
+	int hdisplay, vdisplay, vrefresh;
 	vmode_t vmode;
 	enum meson_modes_flags lookup_flags;
 } supported_modes[] = {
 	/* HDMI modes */
-	{ 640,   480, VMODE_VGA,     MESON_MODES_HDMI },
-	{ 720,   480, VMODE_480P,    MESON_MODES_HDMI },
-	{ 1280,  720, VMODE_720P,    MESON_MODES_HDMI },
-	{ 1920, 1080, VMODE_1080P,   MESON_MODES_HDMI },
+	{ 640,   480, 60, VMODE_VGA,     MESON_MODES_HDMI },
+	{ 720,   480, 60, VMODE_480P,    MESON_MODES_HDMI },
+	{ 1280,  720, 60, VMODE_720P,    MESON_MODES_HDMI },
+	{ 1920, 1080, 60, VMODE_1080P,   MESON_MODES_HDMI },
 
 	/* CVBS modes */
-	{ 720,   576, VMODE_576CVBS, MESON_MODES_CVBS },
-	{ 720,   480, VMODE_480CVBS, MESON_MODES_CVBS },
+	{ 720,   576, 50, VMODE_576CVBS, MESON_MODES_CVBS },
+	{ 720,   480, 60, VMODE_480CVBS, MESON_MODES_CVBS },
 };
 
 vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
@@ -59,6 +59,7 @@ vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
 	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
 		if (supported_modes[i].hdisplay == mode->hdisplay &&
 		    supported_modes[i].vdisplay == mode->vdisplay &&
+		    supported_modes[i].vrefresh == mode->vrefresh &&
 		    (supported_modes[i].lookup_flags & flags) != 0)
 			return supported_modes[i].vmode;
 	}
