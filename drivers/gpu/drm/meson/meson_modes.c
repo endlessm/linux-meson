@@ -35,6 +35,32 @@
  */
 
 /* XXX: Replace this with our own HDMI driver eventually? */
+
+/* In order to add modes to this table, you need to match up four pieces
+ * of information:
+ *
+ *  1. drm_edid.c keeps a giant list of standard HDMI modes in a table
+ *     called "edid_cea_modes". Each mode contains above it a comment with the
+ *     standard mode name and a number, the "VIC" (Video Identification Code).
+ *
+ *  2. include/linux/amlogic/hdmi_tx/hdmi_info_global.h has a giant list of
+ *     VICs, "HDMI_Video_Codes_t", which match up to the ones that DRM has
+ *     (the values are from the same specification, CEA-861).
+ *
+ *  3. drivers/amlogic/hdmi/hdmi_tx/hdmi_tx_edid.c has a table of mode names
+ *     to HDMI VICs, "dispmode_VIC_tab". Find the mode name for the VIC you
+ *     got in step 2.
+ *
+ *  4. drivers/amlogic/display/vout/tvconf.c has a table of mode names that
+ *     match up to vmode_t's, "tv_info". Find the mode name from step 3 and
+ *     match it with the vmode_t.
+ *
+ *  5. Steal the vdisplay/hdisplay/vrefresh attributes from DRM's mode table
+ *     and the vmode_t from Step 4 and insert them into the table. It's just
+ *     that simple!
+ *
+ * Alternatively, you can just guess at the correct values. That works too.
+ */
 static const struct {
 	int hdisplay, vdisplay, vrefresh;
 	vmode_t vmode;
