@@ -86,7 +86,7 @@ vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
 	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
 		if (supported_modes[i].hdisplay == mode->hdisplay &&
 		    supported_modes[i].vdisplay == mode->vdisplay &&
-		    supported_modes[i].vrefresh == mode->vrefresh &&
+		    supported_modes[i].vrefresh == drm_mode_vrefresh(mode) &&
 		    (supported_modes[i].lookup_flags & flags) != 0)
 			return supported_modes[i].vmode;
 	}
