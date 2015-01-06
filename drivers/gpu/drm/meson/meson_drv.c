@@ -478,10 +478,9 @@ static void set_vmode(vmode_t mode)
 
 	/* XXX: Replace aml's vout driver with something sensible. */
 
-	if (mode == get_current_vmode())
-		return;
+	if (mode != get_current_vmode())
+		set_current_vmode(mode);
 
-	set_current_vmode(mode);
 	vout_notifier_call_chain(VOUT_EVENT_MODE_CHANGE, &mode);
 }
 
