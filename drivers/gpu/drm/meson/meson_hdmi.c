@@ -150,7 +150,7 @@ static int fetch_edid(void)
 
 static bool read_edid(uint8_t *edid_buf)
 {
-	int block, i;
+	int i;
 
 	if (!(hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4))) {
 		/* If we don't have EDID, then request it from the HW. */
@@ -161,14 +161,8 @@ static bool read_edid(uint8_t *edid_buf)
 			return false;
 	}
 
-	/* XXX: I wonder, is it possible to do this transfer with DMA
-	 * instead of copying in with the mailbox register one by one? */
-	for (block = 0; block < EDID_BLOCKS; block++) {
-		uint8_t *block_buf = &edid_buf[EDID_LENGTH * block];
-
-		for (i = 0; i < EDID_LENGTH; i++)
-			block_buf[i] = hdmi_rd_reg(TX_RX_EDID_OFFSET + i);
-	}
+	for (i = 0; i < EDID_BUF_LENGTH; i++)
+		edid_buf[i] = hdmi_rd_reg(TX_RX_EDID_OFFSET + i);
 
 	/* TODO: Check extension block validity. */
 	if (!drm_edid_block_valid(edid_buf, 0, true))
