@@ -40,6 +40,7 @@ static struct mmc_claim aml_sdio_claim;
 #define     sdio_cmd_busy_bit     4
 int CMD_PROCESS_JIT ;
 int SDIO_IRQ_SUPPORT = 0;
+int timeout_cmd_cnt;
 static int aml_sdio_timeout_cmd(struct amlsd_host *host);
 void aml_sdio_send_stop(struct amlsd_host* host);
 
@@ -353,8 +354,10 @@ void aml_sdio_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
         // del_timer(&host->timeout_tlist);
     // }
     //del_timer(&host->timeout_tlist);
-    if(delayed_work_pending(&host->timeout))
+    if(delayed_work_pending(&host->timeout)) {
+	        timeout_cmd_cnt = 0;
     		cancel_delayed_work(&host->timeout);
+    }
   //  cancel_delayed_work(&host->timeout_cmd);
 
     spin_lock_irqsave(&host->mrq_lock, flags);
@@ -443,7 +446,6 @@ static void aml_sdio_timeout(struct work_struct *work)
 //#ifdef      CONFIG_MMC_AML_DEBUG
     struct amlsd_platform * pdata = mmc_priv(host->mmc);
 //#endif
-	static int timeout_cmd_cnt = 0;
 	int is_mmc_stop = 0;
 
 //	struct timeval ts_current;
