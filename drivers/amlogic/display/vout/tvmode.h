@@ -47,11 +47,14 @@ typedef enum {
     TVMODE_4K2K_25HZ ,
     TVMODE_4K2K_24HZ ,
     TVMODE_4K2K_SMPTE ,
+    TVMODE_1920x1200,
     TVMODE_VGA ,
     TVMODE_SVGA,
     TVMODE_XGA,
     TVMODE_SXGA,
-    TVMODE_MAX    
+    TVMODE_WSXGA,
+    TVMODE_FHDVGA,
+    TVMODE_MAX
 } tvmode_t;
 
 #endif /* TVMODE_H */
