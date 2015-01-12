@@ -33,6 +33,34 @@
 #include <mach/irqs.h>
 #include <mach/hdmi_tx_reg.h>
 
+#include <linux/amlogic/hdmi_tx/hdmi_info_global.h>
+#include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
+
+static void meson_set_hdmi_audio(void)
+{
+	hdmitx_dev_t *hdmitx_device = get_hdmitx_device();
+
+	if (hdmitx_device->HWOp.Cntl) {
+		static int st = 0;
+		st = hdmitx_device->HWOp.CntlMisc(hdmitx_device, MISC_HPD_GPI_ST, 0);
+
+		if ((st == 1) && (hdmitx_device->hpd_state == 0))
+			hdmitx_device->hpd_event = 1;
+
+		if ((hdmitx_device->cur_VIC != HDMI_Unkown) &&
+		   (!(hdmitx_device->HWOp.GetState(hdmitx_device, STAT_AUDIO_PACK, 0))))
+			hdmitx_device->HWOp.CntlConfig(hdmitx_device, CONF_AUDIO_MUTE_OP, AUDIO_UNMUTE);
+	}
+
+	if (hdmitx_device->hpd_event == 1) {
+		hdmitx_device->hpd_event = 0;
+		hdmitx_device->hpd_state = 1;
+
+		/* TODO: 2ch only for now */
+		hdmitx_set_audio(hdmitx_device, &(hdmitx_device->cur_audio_param), 1);
+	}
+}
+
 /* Encoder */
 
 static void meson_encoder_destroy(struct drm_encoder *encoder)
@@ -68,7 +96,7 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 				   struct drm_display_mode *mode,
 				   struct drm_display_mode *adjusted_mode)
 {
-	/* nothing needed */
+	meson_set_hdmi_audio();
 }
 
 static const struct drm_encoder_helper_funcs meson_encoder_helper_funcs = {
