@@ -1063,21 +1063,13 @@ static void update_scaler(struct drm_crtc *crtc)
 static void update_plane_shadow_registers(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
-	struct drm_plane_state *state = plane->state;
 
 	if (meson_plane->visible) {
 		if (meson_plane->fb_changed) {
-			struct drm_gem_cma_object *cma_bo;
-
-			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+			struct drm_plane_state *state = plane->state;
 
 			/* Swap out the OSD canvas with the new addr. */
-			meson_canvas_setup(meson_plane->def->canvas_index,
-					   cma_bo->paddr,
-					   fixed16_to_int(state->src_w) * 4,
-					   fixed16_to_int(state->src_h),
-					   MESON_CANVAS_WRAP_NONE,
-					   MESON_CANVAS_BLKMODE_LINEAR);
+			meson_canvas_setup_fb(meson_plane->def->canvas_index, state->fb);
 
 			meson_plane->fb_changed = false;
 		}

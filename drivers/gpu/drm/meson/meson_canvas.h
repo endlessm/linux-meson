@@ -20,10 +20,12 @@
  *     Jasper St. Pierre <jstpierre@mecheye.net>
  */
 
-#include <linux/kernel.h>
-
 #ifndef __MESON_CANVAS_H__
 #define __MESON_CANVAS_H__
+
+#include <linux/kernel.h>
+
+#include <drm/drmP.h>
 
 enum meson_canvas_wrap {
 	MESON_CANVAS_WRAP_NONE = 0x00,
@@ -42,6 +44,9 @@ void meson_canvas_setup(uint32_t canvas_index,
                         uint32_t stride, uint32_t height,
                         enum meson_canvas_wrap wrap,
                         enum meson_canvas_blkmode blkmode);
+
+void meson_canvas_setup_fb(uint32_t canvas_index,
+                           struct drm_framebuffer *fb);
 
 #endif
 

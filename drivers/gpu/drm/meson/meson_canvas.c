@@ -22,9 +22,12 @@
 
 #include "meson_canvas.h"
 
+#include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_gem_cma_helper.h>
+
 #include <mach/am_regs.h>
 
-/* Set up a canvas. */
+/* Set up a canvas using the raw values. */
 void meson_canvas_setup(uint32_t canvas_index,
                         uint32_t addr,
                         uint32_t stride, uint32_t height,
@@ -43,4 +46,21 @@ void meson_canvas_setup(uint32_t canvas_index,
 
 	/* Force a read-back to make sure everything is flushed. */
 	CANVAS_READ(DC_CAV_LUT_DATAH);
+}
+
+/* Set up a canvas from a DRM framebuffer. It's assumed that
+ * this framebuffer object has been allocated by the FB CMA helper. */
+void meson_canvas_setup_fb(uint32_t canvas_index,
+                           struct drm_framebuffer *fb)
+{
+    struct drm_gem_cma_object *cma_bo;
+
+    cma_bo = drm_fb_cma_get_gem_obj(fb, 0);
+
+    meson_canvas_setup(canvas_index,
+                       cma_bo->paddr,
+                       fb->pitches[0],
+                       fb->height,
+                       MESON_CANVAS_WRAP_NONE,
+                       MESON_CANVAS_BLKMODE_LINEAR);
 }
