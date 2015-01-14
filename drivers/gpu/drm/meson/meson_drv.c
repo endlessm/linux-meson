@@ -1065,6 +1065,35 @@ static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_GEM_CREATE_WITH_UMP, meson_ioctl_create_with_ump, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
+#ifdef CONFIG_DEBUG_FS
+static struct drm_info_list meson_debugfs_list[] = {
+	{ "fb",   drm_fb_cma_debugfs_show, 0 },
+};
+
+static int meson_debugfs_init(struct drm_minor *minor)
+{
+	struct drm_device *dev = minor->dev;
+	int ret;
+
+	ret = drm_debugfs_create_files(meson_debugfs_list,
+			ARRAY_SIZE(meson_debugfs_list),
+			minor->debugfs_root, minor);
+
+	if (ret) {
+		dev_err(dev->dev, "could not install meson_debugfs_list\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static void meson_debugfs_cleanup(struct drm_minor *minor)
+{
+	drm_debugfs_remove_files(meson_debugfs_list,
+				 ARRAY_SIZE(meson_debugfs_list), minor);
+}
+#endif
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
@@ -1102,6 +1131,11 @@ static struct drm_driver meson_driver = {
 	.dumb_destroy       = drm_gem_dumb_destroy,
 	.ioctls             = meson_ioctls,
 	.num_ioctls         = DRM_MESON_NUM_IOCTLS,
+
+#ifdef CONFIG_DEBUG_FS
+	.debugfs_init       = meson_debugfs_init,
+	.debugfs_cleanup    = meson_debugfs_cleanup,
+#endif
 };
 
 static int meson_pdev_probe(struct platform_device *pdev)
