@@ -36,6 +36,7 @@
 #include <drm/meson_drm.h>
 
 #include "meson_canvas.h"
+#include "meson_canvas_def.h"
 #include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
@@ -573,7 +574,7 @@ static struct osd_plane_def osd_plane_defs[] = {
 	{
 		.uses_scaler = true,
 		.compensate_for_scaler = false,
-		.canvas_index = 0x4e,
+		.canvas_index = MESON_DRV_CANVAS_OSD1,
 		.vpp_misc_postblend = VPP_OSD1_POSTBLEND,
 		{
 #define M(n) .n = P_VIU_OSD1_##n ,
@@ -584,7 +585,7 @@ static struct osd_plane_def osd_plane_defs[] = {
 	{
 		.uses_scaler = false,
 		.compensate_for_scaler = true,
-		.canvas_index = 0x4f,
+		.canvas_index = MESON_DRV_CANVAS_OSD2,
 		.vpp_misc_postblend = VPP_OSD2_POSTBLEND,
 		{
 #define M(n) .n = P_VIU_OSD2_##n ,
