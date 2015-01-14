@@ -50,6 +50,10 @@ module_param_named(cvbs, use_cvbs_connector, bool, S_IRUGO | S_IWUSR);
 #define DRIVER_NAME "meson"
 #define DRIVER_DESC "Amlogic Meson DRM driver"
 
+/* For debugging the driver, sometimes it helps to turn off fbdev
+ * to make things simpler. */
+#define NO_FBDEV 0
+
 /* Canvas configuration. */
 
 enum meson_canvas_wrap {
@@ -623,8 +627,10 @@ struct meson_drm_private {
 
 static void meson_fb_output_poll_changed(struct drm_device *dev)
 {
+#if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
+#endif
 }
 
 static void cleanup_atomic_state(struct drm_device *dev, struct drm_atomic_state *state)
@@ -637,6 +643,7 @@ static int meson_atomic_commit(struct drm_device *dev,
 			       struct drm_atomic_state *state,
 			       bool async)
 {
+	struct meson_drm_private *priv = dev->dev_private;
 	int ret;
 
 	ret = drm_atomic_helper_prepare_planes(dev, state);
@@ -654,7 +661,9 @@ static int meson_atomic_commit(struct drm_device *dev,
 	drm_atomic_helper_commit_planes(dev, state);
 	drm_atomic_helper_commit_post_planes(dev, state);
 
-	if (!async) {
+	if (async) {
+		priv->cleanup_state = state;
+	} else {
 		drm_atomic_helper_wait_for_vblanks(dev, state);
 		cleanup_atomic_state(dev, state);
 	}
@@ -822,9 +831,11 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
+#if !NO_FBDEV
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
+#endif
 
 	device_create_file(dev->dev, &dev_attr_underscan_hborder);
 	device_create_file(dev->dev, &dev_attr_underscan_vborder);
@@ -845,8 +856,10 @@ static int meson_unload(struct drm_device *dev)
 
 static void meson_lastclose(struct drm_device *dev)
 {
+#if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_restore_mode(priv->fbdev);
+#endif
 }
 
 static int meson_enable_vblank(struct drm_device *dev, int crtc)
@@ -1065,6 +1078,35 @@ static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_GEM_CREATE_WITH_UMP, meson_ioctl_create_with_ump, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
+#ifdef CONFIG_DEBUG_FS
+static struct drm_info_list meson_debugfs_list[] = {
+	{ "fb",   drm_fb_cma_debugfs_show, 0 },
+};
+
+static int meson_debugfs_init(struct drm_minor *minor)
+{
+	struct drm_device *dev = minor->dev;
+	int ret;
+
+	ret = drm_debugfs_create_files(meson_debugfs_list,
+			ARRAY_SIZE(meson_debugfs_list),
+			minor->debugfs_root, minor);
+
+	if (ret) {
+		dev_err(dev->dev, "could not install meson_debugfs_list\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static void meson_debugfs_cleanup(struct drm_minor *minor)
+{
+	drm_debugfs_remove_files(meson_debugfs_list,
+				 ARRAY_SIZE(meson_debugfs_list), minor);
+}
+#endif
+
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
@@ -1102,6 +1144,11 @@ static struct drm_driver meson_driver = {
 	.dumb_destroy       = drm_gem_dumb_destroy,
 	.ioctls             = meson_ioctls,
 	.num_ioctls         = DRM_MESON_NUM_IOCTLS,
+
+#ifdef CONFIG_DEBUG_FS
+	.debugfs_init       = meson_debugfs_init,
+	.debugfs_cleanup    = meson_debugfs_cleanup,
+#endif
 };
 
 static int meson_pdev_probe(struct platform_device *pdev)
