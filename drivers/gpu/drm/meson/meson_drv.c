@@ -50,6 +50,10 @@ module_param_named(cvbs, use_cvbs_connector, bool, S_IRUGO | S_IWUSR);
 #define DRIVER_NAME "meson"
 #define DRIVER_DESC "Amlogic Meson DRM driver"
 
+/* For debugging the driver, sometimes it helps to turn off fbdev
+ * to make things simpler. */
+#define NO_FBDEV 0
+
 /* Canvas configuration. */
 
 enum meson_canvas_wrap {
@@ -623,8 +627,10 @@ struct meson_drm_private {
 
 static void meson_fb_output_poll_changed(struct drm_device *dev)
 {
+#if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_hotplug_event(priv->fbdev);
+#endif
 }
 
 static void cleanup_atomic_state(struct drm_device *dev, struct drm_atomic_state *state)
@@ -822,9 +828,11 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
+#if !NO_FBDEV
 	priv->fbdev = drm_fbdev_cma_init(dev, 32,
 					 dev->mode_config.num_crtc,
 					 dev->mode_config.num_connector);
+#endif
 
 	device_create_file(dev->dev, &dev_attr_underscan_hborder);
 	device_create_file(dev->dev, &dev_attr_underscan_vborder);
@@ -845,8 +853,10 @@ static int meson_unload(struct drm_device *dev)
 
 static void meson_lastclose(struct drm_device *dev)
 {
+#if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
 	drm_fbdev_cma_restore_mode(priv->fbdev);
+#endif
 }
 
 static int meson_enable_vblank(struct drm_device *dev, int crtc)
