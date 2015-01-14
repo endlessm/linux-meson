@@ -35,6 +35,7 @@
 #include <drm/drm_rect.h>
 #include <drm/meson_drm.h>
 
+#include "meson_canvas.h"
 #include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
@@ -63,39 +64,6 @@ module_param(enabled_connectors, byte, S_IRUGO | S_IWUSR);
 #define NO_FBDEV 0
 
 /* Canvas configuration. */
-
-enum meson_canvas_wrap {
-	MESON_CANVAS_WRAP_NONE = 0x00,
-	MESON_CANVAS_WRAP_X    = 0x01,
-	MESON_CANVAS_WRAP_Y    = 0x02,
-};
-
-enum meson_canvas_blkmode {
-	MESON_CANVAS_BLKMODE_LINEAR = 0x00,
-	MESON_CANVAS_BLKMODE_32x32  = 0x01,
-	MESON_CANVAS_BLKMODE_64x64  = 0x02,
-};
-
-/* Set up a canvas. */
-static void canvas_setup(uint32_t canvas_index,
-			 uint32_t addr,
-			 uint32_t stride, uint32_t height,
-			 enum meson_canvas_wrap wrap,
-			 enum meson_canvas_blkmode blkmode)
-{
-	CANVAS_WRITE(DC_CAV_LUT_DATAL,
-		     (((addr + 7) >> 3)) |
-		     (((stride + 7) >> 3) << CANVAS_WIDTH_LBIT));
-	CANVAS_WRITE(DC_CAV_LUT_DATAH,
-		     ((((stride + 7) >> 3) >> CANVAS_WIDTH_LWID) << CANVAS_WIDTH_HBIT) |
-		     (height << CANVAS_HEIGHT_BIT) |
-		     (wrap << 22) |
-		     (blkmode << CANVAS_BLKMODE_BIT));
-	CANVAS_WRITE(DC_CAV_LUT_ADDR, CANVAS_LUT_WR_EN | canvas_index);
-
-	/* Force a read-back to make sure everything is flushed. */
-	CANVAS_READ(DC_CAV_LUT_DATAH);
-}
 
 /* CRTC definition */
 
@@ -1104,12 +1072,12 @@ static void update_plane_shadow_registers(struct drm_plane *plane)
 			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
 
 			/* Swap out the OSD canvas with the new addr. */
-			canvas_setup(meson_plane->def->canvas_index,
-				     cma_bo->paddr,
-				     state->fb->pitches[0],
-				     state->fb->height,
-				     MESON_CANVAS_WRAP_NONE,
-				     MESON_CANVAS_BLKMODE_LINEAR);
+			meson_canvas_setup(meson_plane->def->canvas_index,
+					   cma_bo->paddr,
+					   fixed16_to_int(state->src_w) * 4,
+					   fixed16_to_int(state->src_h),
+					   MESON_CANVAS_WRAP_NONE,
+					   MESON_CANVAS_BLKMODE_LINEAR);
 
 			meson_plane->fb_changed = false;
 		}
