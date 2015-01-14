@@ -68,11 +68,20 @@ struct drm_meson_cache_operations_control {
 	enum drm_meson_cache_op_control op;
 };
 
+struct drm_meson_ge2d_bitblt {
+	uint32_t src_fb_id;
+	uint32_t dst_fb_id;
+
+	uint32_t dst_x;
+	uint32_t dst_y;
+};
+
 #define DRM_MESON_GEM_CREATE_WITH_UMP       0x00
 #define DRM_MESON_MSYNC                     0x01
 #define DRM_MESON_GEM_SET_DOMAIN            0x02
 #define DRM_MESON_CACHE_OPERATIONS_CONTROL  0x03
 #define DRM_MESON_NUM_IOCTLS                0x04
+#define DRM_MESON_GE2D_BITBLT               0x05
 
 /* Use flags */
 #define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT 0x01
@@ -82,5 +91,6 @@ struct drm_meson_cache_operations_control {
 #define DRM_IOCTL_MESON_MSYNC  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_MSYNC, struct drm_meson_msync)
 #define DRM_IOCTL_MESON_GEM_SET_DOMAIN  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_SET_DOMAIN, struct drm_meson_gem_set_domain)
 #define DRM_IOCTL_MESON_CACHE_OPERATIONS_CONTROL  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_CACHE_OPERATIONS_CONTROL, struct drm_meson_cache_operations_control)
+#define DRM_IOCTL_MESON_GE2D_BITBLT DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GE2D_BITBLT, struct drm_meson_ge2d_bitblt)
 
 #endif

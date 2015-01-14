@@ -37,6 +37,8 @@
 
 #include "meson_canvas.h"
 #include "meson_canvas_def.h"
+#include "meson_ge2d.h"
+
 #include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
@@ -1172,6 +1174,7 @@ static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_MSYNC, meson_ioctl_msync, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MESON_GEM_SET_DOMAIN, meson_ioctl_set_domain, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MESON_CACHE_OPERATIONS_CONTROL, meson_ioctl_cache_operations_control, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MESON_GE2D_BITBLT, meson_ioctl_ge2d_bitblt,     DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 #ifdef CONFIG_DEBUG_FS

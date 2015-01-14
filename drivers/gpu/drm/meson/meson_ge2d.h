@@ -20,20 +20,13 @@
  *     Jasper St. Pierre <jstpierre@mecheye.net>
  */
 
-#ifndef __MESON_CANVAS_DEF_H__
-#define __MESON_CANVAS_DEF_H__
+#include <linux/kernel.h>
 
-/* The assignments in this file are in the "user space" of AML's
- * upstream code. We don't run much of AML's driver together with
- * this, but it helps not to compete.
- *
- * See include/linux/amlogic/amports/canvas.h for the upstream
- * assignments. */
+#ifndef __MESON_GE2D_H__
+#define __MESON_GE2D_H__
 
-#define MESON_DRV_CANVAS_OSD1 0x4e
-#define MESON_DRV_CANVAS_OSD2 0x4f
-
-#define MESON_DRV_CANVAS_BITBLT_SRC 0x50
-#define MESON_DRV_CANVAS_BITBLT_DST 0x51
+int meson_ioctl_ge2d_bitblt(struct drm_device *device, void *arg,
+                            struct drm_file *file);
 
 #endif
+
