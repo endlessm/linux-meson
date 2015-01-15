@@ -719,6 +719,21 @@ static void reset_vpp(void)
 
 	/* Put OSD2 (cursor) on top of OSD1. */
 	aml_set_reg32_mask(P_VPP_MISC, VPP_POST_FG_OSD2 | VPP_PRE_FG_OSD2);
+
+	/* In its default configuration, the display controller can be starved
+	 * of memory bandwidth when the CPU and GPU are busy, causing scanout
+	 * to sometimes get behind where it should be (with parts of the
+	 * display appearing momentarily shifted to the right).
+	 * Increase the priority and burst size of RAM access using the same
+	 * values as Amlogic's driver. */
+	aml_set_reg32_mask(P_VIU_OSD1_FIFO_CTRL_STAT,
+			   1 << 0 | /* Urgent DDR request priority */
+			   3 << 10 /* Increase burst length from 24 to 64 */
+			   );
+	aml_set_reg32_mask(P_VIU_OSD2_FIFO_CTRL_STAT,
+			   1 << 0 | /* Urgent DDR request priority */
+			   3 << 10 /* Increase burst length from 24 to 64 */
+			   );
 }
 
 static ssize_t meson_get_underscan_hborder(struct device *dev,
