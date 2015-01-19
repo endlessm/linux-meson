@@ -44,7 +44,6 @@ extern void __init chrdev_init(void);
 /*
  * namei.c
  */
-extern int __inode_permission(struct inode *, int);
 
 /*
  * namespace.c
@@ -130,12 +129,6 @@ extern struct dentry *__d_alloc(struct super_block *, const struct qstr *);
  * read_write.c
  */
 extern ssize_t __kernel_write(struct file *, const char *, size_t, loff_t *);
-
-/*
- * splice.c
- */
-extern long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
-		loff_t *opos, size_t len, unsigned int flags);
 
 /*
  * pipe.c
