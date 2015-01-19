@@ -89,9 +89,9 @@ static void aml_audio_stop_timer(struct aml_audio_private_data *p_aml_audio)
 static int hp_det_adc_value(struct aml_audio_private_data *p_aml_audio)
 {
     int ret,hp_value,hp_val_sum,loop_num;
+    unsigned int mic_ret = 0;
     hp_val_sum = 0;
     loop_num = 0;
-    unsigned int mic_ret = 0;
     
     while(loop_num < 8){
         hp_value = get_adc_sample(p_aml_audio->hp_adc_ch);
@@ -251,7 +251,9 @@ static int aml_asoc_hw_params(struct snd_pcm_substream *substream,
     }
 
     /* set cpu DAI configuration */
-    if(!strncmp(codec_info.name_bus,"rt5616",6)){
+    if((!strncmp(codec_info.name_bus,"rt5616",strlen("rt5616"))) || 
+        !(strncmp(codec_info.name_bus,"aml_pmu3_codec",strlen("aml_pmu3_codec")))){
+        
         ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S |
             SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_CBM_CFM);
     }else{
@@ -294,6 +296,7 @@ static int aml_m8_spk_enabled;
 static bool aml_audio_i2s_mute_flag = 0;
 static bool aml_audio_spdif_mute_flag = 0;
 
+#if 0
 static int aml_m8_set_spk(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
 {
@@ -309,6 +312,7 @@ static int aml_m8_set_spk(struct snd_kcontrol *kcontrol,
     return 0;
 }
 
+#endif
 static int aml_m8_get_spk(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
 {
@@ -338,7 +342,6 @@ static int aml_audio_get_i2s_mute(struct snd_kcontrol *kcontrol,
 }
 
 
-static bool spdif_mute_flag;
 
 static int aml_audio_set_spdif_mute(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
@@ -492,6 +495,7 @@ static int aml_resume_pre(struct snd_soc_card *card)
 
         p_aml_audio->pin_ctl = devm_pinctrl_get_select(card->dev, "aml_snd_m8");
     }
+    printk(KERN_INFO "enter %s\n", __func__);
     return 0;
 }
 
@@ -512,13 +516,15 @@ static int speaker_events(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
         printk("speaker_events--mute =1\n");
-		amlogic_set_value(p_audio->gpio_mute, 1, "mute_spk");
+		amlogic_gpio_direction_output(p_audio->gpio_mute, 1, "mute_spk");
+		//amlogic_set_value(p_audio->gpio_mute, 1, "mute_spk");
         aml_m8_spk_enabled = 1;
         msleep(p_audio->sleep_time);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
         printk("speaker_events--mute =0\n");
-		amlogic_set_value(p_audio->gpio_mute, 0, "mute_spk");
+		amlogic_gpio_direction_output(p_audio->gpio_mute, 0, "mute_spk");
+		//amlogic_set_value(p_audio->gpio_mute, 0, "mute_spk");
         aml_m8_spk_enabled = 0;
 		break;
 	}

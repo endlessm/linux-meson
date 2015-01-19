@@ -13,8 +13,7 @@ endif
 
 obj-$(CONFIG_VSYNC_RDMA) += osd_rdma.o
 
-EXTRA_CFLAGS += -Iinclude/linux/osd/
-
+EXTRA_CFLAGS += -Iinclude/linux/osd/ -Idrivers/staging/android/
 
 
 

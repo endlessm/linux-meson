@@ -60,6 +60,8 @@ static const  reg_t tvreg_vclk_hd[]={
 };
 
 static const  reg_t tvregs_720p[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
 
     {P_HHI_VID_CLK_CNTL,           0x0,},
@@ -127,6 +129,8 @@ static const  reg_t tvregs_720p[] = {
 };
 
 static const  reg_t tvregs_720p_50hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
     {P_HHI_VID_CLK_CNTL,           0x0,},
     {P_HHI_VID_PLL_CNTL2,          0x814d3928},
@@ -214,6 +218,8 @@ static const  reg_t tvregs_720p_50hz[] = {
 };
 
 static const reg_t tvregs_480i[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,            0xff,  },
 
     {P_HHI_VID_CLK_CNTL,           0x0,       },
@@ -276,6 +282,8 @@ static const reg_t tvregs_480i[] = {
 };
 
 static const reg_t tvregs_480cvbs[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
      {P_VENC_VDAC_SETTING,            0xff,  },
 
     {P_HHI_VID_CLK_CNTL,           0x0,       },
@@ -342,6 +350,8 @@ static const reg_t tvregs_480cvbs[] = {
 };
 
 static const reg_t tvregs_480p[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
     {P_HHI_VID_CLK_CNTL,           0x0,       },
     {P_HHI_VID_PLL_CNTL,           0x2001042d,},
@@ -411,6 +421,8 @@ static const reg_t tvregs_480p[] = {
 };
 
 static const reg_t tvregs_576i[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,               0xff,      },
 
     {P_HHI_VID_CLK_CNTL,           0x0,       },
@@ -473,6 +485,8 @@ static const reg_t tvregs_576i[] = {
 };
 
 static const reg_t tvregs_576cvbs[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,               0xff,      },
 
     {P_HHI_VID_CLK_CNTL,           0x0,       },
@@ -539,6 +553,8 @@ static const reg_t tvregs_576cvbs[] = {
 };
 
 static const reg_t tvregs_576p[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,      },
     {P_HHI_VID_CLK_CNTL,           0x0,       },
     {P_HHI_VID_PLL_CNTL,           0x2001042d,},
@@ -608,6 +624,8 @@ static const reg_t tvregs_576p[] = {
 };
 
 static const reg_t tvregs_1080i[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
 //	{VCLK_HD},
     {P_HHI_VID_CLK_CNTL,           0x0,},
@@ -673,6 +691,8 @@ static const reg_t tvregs_1080i[] = {
 };
 
 static const reg_t tvregs_1080i_50hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
 //	{VCLK_HD},
     {P_HHI_VID_CLK_CNTL,           0x0,},
@@ -760,6 +780,8 @@ static const reg_t tvregs_1080i_50hz[] = {
 };
 
 static const reg_t tvregs_1080p[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
 
     {P_HHI_VID_CLK_CNTL,           0x0,},
@@ -821,6 +843,8 @@ static const reg_t tvregs_1080p[] = {
 };
 
 static const reg_t tvregs_1080p_50hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
     {P_HHI_VID_CLK_CNTL,           0x0,},
     {P_HHI_VID_PLL_CNTL2,          0x814d3928},
@@ -909,6 +933,8 @@ static const reg_t tvregs_1080p_50hz[] = {
 };
 
 static const reg_t tvregs_1080p_24hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_VENC_VDAC_SETTING,          0xff,  },
     {P_HHI_VID_CLK_CNTL,           0x0,},
     {P_HHI_VID_PLL_CNTL2,          0x814d3928},
@@ -997,6 +1023,8 @@ static const reg_t tvregs_1080p_24hz[] = {
 };
 
 static const reg_t tvregs_4k2k_30hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_ENCP_VIDEO_MODE,             0x4040}, // Enable Hsync and equalization pulse switch in center; bit[14] cfg_de_v = 1
     {P_ENCP_VIDEO_MODE_ADV,         0x0008}, // Sampling rate: 1
     {P_ENCP_VIDEO_YFP1_HTIME,       140},
@@ -1026,10 +1054,14 @@ static const reg_t tvregs_4k2k_30hz[] = {
     {P_ENCP_VIDEO_MAX_LNCNT,        2249},
 
     {P_ENCP_VIDEO_FILT_CTRL,        0x1000}, //bypass filter
+    {P_ENCP_VIDEO_EN,              1,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {MREG_END_MARKER,            0      },
 };
 
 static const reg_t tvregs_4k2k_25hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_ENCP_VIDEO_MODE,             0x4040}, // Enable Hsync and equalization pulse switch in center; bit[14] cfg_de_v = 1
     {P_ENCP_VIDEO_MODE_ADV,         0x0008}, // Sampling rate: 1
     {P_ENCP_VIDEO_YFP1_HTIME,       140},
@@ -1059,10 +1091,14 @@ static const reg_t tvregs_4k2k_25hz[] = {
     {P_ENCP_VIDEO_MAX_LNCNT,        2249},
 
     {P_ENCP_VIDEO_FILT_CTRL,        0x1000}, //bypass filter
+    {P_ENCP_VIDEO_EN,              1,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {MREG_END_MARKER,            0      },
 };
 
 static const reg_t tvregs_4k2k_24hz[] = {
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_ENCP_VIDEO_MODE,             0x4040}, // Enable Hsync and equalization pulse switch in center; bit[14] cfg_de_v = 1
     {P_ENCP_VIDEO_MODE_ADV,         0x0008}, // Sampling rate: 1
     {P_ENCP_VIDEO_YFP1_HTIME,       140},
@@ -1092,11 +1128,14 @@ static const reg_t tvregs_4k2k_24hz[] = {
     {P_ENCP_VIDEO_MAX_LNCNT,        2249},
 
     {P_ENCP_VIDEO_FILT_CTRL,        0x1000}, //bypass filter
-
+    {P_ENCP_VIDEO_EN,              1,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {MREG_END_MARKER,            0      },
 };
 
 static const reg_t tvregs_4k2k_smpte[] = {      //24hz
+    {P_ENCP_VIDEO_EN,              0,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {P_ENCP_VIDEO_MODE,             0x4040}, // Enable Hsync and equalization pulse switch in center; bit[14] cfg_de_v = 1
     {P_ENCP_VIDEO_MODE_ADV,         0x0008}, // Sampling rate: 1
     {P_ENCP_VIDEO_YFP1_HTIME,       140},
@@ -1126,6 +1165,8 @@ static const reg_t tvregs_4k2k_smpte[] = {      //24hz
     {P_ENCP_VIDEO_MAX_LNCNT,        2249},
 
     {P_ENCP_VIDEO_FILT_CTRL,        0x1000}, //bypass filter
+    {P_ENCP_VIDEO_EN,              1,     },
+    {P_ENCI_VIDEO_EN,              0,     },
     {MREG_END_MARKER,            0      },
 };
 
@@ -1391,6 +1432,9 @@ static const reg_t *tvregsTab[] = {
     tvregs_480i,        // For REPEAT MODE use, ENC setting is same
     tvregs_480cvbs,
     tvregs_480p,
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_480p,
+#endif
     tvregs_480p,        // For REPEAT MODE use, ENC setting is same
     tvregs_576i,
     tvregs_576i,        // For REPEAT MODE use, ENC setting is same
@@ -1398,15 +1442,33 @@ static const reg_t *tvregsTab[] = {
     tvregs_576p,
     tvregs_576p,        // For REPEAT MODE use, ENC setting is same
     tvregs_720p,
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_720p,
+#endif
     tvregs_1080i,       //Adjust tvregs_* sequences and match the enum define in tvmode.h
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_1080i,
+#endif
     tvregs_1080p,
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_1080p,
+#endif
     tvregs_720p_50hz,
     tvregs_1080i_50hz,
     tvregs_1080p_50hz,
     tvregs_1080p_24hz,
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_1080p_24hz,
+#endif
     tvregs_4k2k_30hz,
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_4k2k_30hz,
+#endif
     tvregs_4k2k_25hz,
     tvregs_4k2k_24hz,
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	tvregs_4k2k_24hz,
+#endif
     tvregs_4k2k_smpte,
     tvregs_vga_640x480,
     tvregs_svga_800x600,
@@ -1418,6 +1480,9 @@ static const tvinfo_t tvinfoTab[] = {
     {.xres =  720, .yres =  480, .id = "480i_rpt"},
     {.xres =  720, .yres =  480, .id = "480cvbs"},
     {.xres =  720, .yres =  480, .id = "480p"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	{.xres =  720, .yres =  480, .id = "480p59hz"},
+#endif
     {.xres =  720, .yres =  480, .id = "480p_rpt"},
     {.xres =  720, .yres =  576, .id = "576i"},
     {.xres =  720, .yres =  576, .id = "576i_rpt"},
@@ -1425,15 +1490,33 @@ static const tvinfo_t tvinfoTab[] = {
     {.xres =  720, .yres =  576, .id = "576p"},
     {.xres =  720, .yres =  576, .id = "576p_prt"},
     {.xres = 1280, .yres =  720, .id = "720p"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	{.xres = 1280, .yres =  720, .id = "720p59hz"},
+#endif
     {.xres = 1920, .yres = 1080, .id = "1080i"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION    
+  	{.xres = 1920, .yres = 1080, .id = "1080i59hz"},
+#endif  	
     {.xres = 1920, .yres = 1080, .id = "1080p"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	{.xres = 1920, .yres = 1080, .id = "1080p59hz"},
+#endif
     {.xres = 1280, .yres =  720, .id = "720p50hz"},
     {.xres = 1920, .yres = 1080, .id = "1080i50hz"},
     {.xres = 1920, .yres = 1080, .id = "1080p50hz"},
     {.xres = 1920, .yres = 1080, .id = "1080p24hz"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	{.xres = 1920, .yres = 1080, .id = "1080p23hz"},
+#endif
     {.xres = 3840, .yres = 2160, .id = "4k2k30hz"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	{.xres = 3840, .yres = 2160, .id = "4k2k29hz"},
+#endif
     {.xres = 3840, .yres = 2160, .id = "4k2k25hz"},
     {.xres = 3840, .yres = 2160, .id = "4k2k24hz"},
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	{.xres = 3840, .yres = 2160, .id = "4k2k23hz"},
+#endif
     {.xres = 4096, .yres = 2160, .id = "4k2ksmpte"},
     {.xres = 640, .yres = 480, .id = "vga"},
     {.xres = 800, .yres = 600, .id = "svga"},

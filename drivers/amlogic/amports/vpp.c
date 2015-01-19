@@ -180,6 +180,21 @@ module_param(force_filter_mode, int, 0664);
 
 #endif
 
+#if 0
+#define DECL_PARM(name)\
+static int name;\
+MODULE_PARM_DESC(name, "\n "#name"  \n");\
+module_param(name, int, 0664);
+
+DECL_PARM(debug_wide_mode)
+DECL_PARM(debug_video_left)
+DECL_PARM(debug_video_top)
+DECL_PARM(debug_video_width)
+DECL_PARM(debug_video_height)
+DECL_PARM(debug_ratio_x)
+DECL_PARM(debug_ratio_y)
+#endif
+
 #define ZOOM_BITS       18
 #define PHASE_BITS      8
 
@@ -290,7 +305,8 @@ vpp_process_speed_check(s32 width_in,
                         s32 height_out,
                         s32 height_screen,
                         vpp_frame_par_t *next_frame_par,
-                        const vinfo_t *vinfo)
+                        const vinfo_t *vinfo,
+                        vframe_t *vf)
 {
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     if ((width_in <= 0) || (height_in <= 0) || (height_out <= 0) || (height_screen <= 0)) {
@@ -298,11 +314,24 @@ vpp_process_speed_check(s32 width_in,
     }
 
     if (height_in > height_out) {
-        if (height_out == 0 || div_u64(VPP_SPEED_FACTOR * width_in * height_in * vinfo->sync_duration_num * height_screen,
-                    height_out * vinfo->sync_duration_den * 256) > get_vpu_clk()) {
-            return SPEED_CHECK_VSKIP;
-        } else {
-            return SPEED_CHECK_DONE;
+
+        if(vf->type & VIDTYPE_VIU_422)
+        {
+            if (height_out == 0 || div_u64(VPP_SPEED_FACTOR * width_in * height_in * vinfo->sync_duration_num * height_screen,
+                        height_out * vinfo->sync_duration_den * 196) > get_vpu_clk()) {
+                return SPEED_CHECK_VSKIP;
+            }else {
+                return SPEED_CHECK_DONE;
+            }
+        }
+        else
+        {
+            if (height_out == 0 || div_u64(VPP_SPEED_FACTOR * width_in * height_in * vinfo->sync_duration_num * height_screen,
+                        height_out * vinfo->sync_duration_den * 256) > get_vpu_clk()) {
+                return SPEED_CHECK_VSKIP;
+            }else {
+                return SPEED_CHECK_DONE;
+            }
         }
     } else if (next_frame_par->hscale_skip_count== 0) {
         if (div_u64(VPP_SPEED_FACTOR * width_in * vinfo->sync_duration_num * height_screen,
@@ -315,6 +344,11 @@ vpp_process_speed_check(s32 width_in,
 
     return SPEED_CHECK_DONE;
 #else
+    /* return okay if vpp preblend enabled */
+    if ((aml_read_reg32(P_VPP_MISC) & VPP_PREBLEND_EN)&&(aml_read_reg32(P_VPP_MISC) & VPP_OSD1_PREBLEND)) {
+        return SPEED_CHECK_DONE;
+    }
+
     /* if (video_speed_check_width * video_speed_check_height * height_out > height_screen * width_in * height_in) { */
     if (height_out > height_in) {
         return SPEED_CHECK_DONE;
@@ -331,7 +365,8 @@ vpp_set_filters2(u32 width_in,
                  u32 height_in,
                  const vinfo_t *vinfo,
                  u32 vpp_flags,
-                 vpp_frame_par_t *next_frame_par)
+                 vpp_frame_par_t *next_frame_par,
+                 vframe_t *vf)
 {
     u32 screen_width, screen_height;
     s32 start, end;
@@ -352,6 +387,9 @@ vpp_set_filters2(u32 width_in,
     u32 width_out = vinfo->width;
     u32 height_out = vinfo->height;
     u32 aspect_ratio_out = (vinfo->aspect_ratio_den << 8) / vinfo->aspect_ratio_num;
+	bool fill_match = true;
+	u32 orig_aspect = 0;
+	u32 screen_aspect = 0;
 
     if (likely(w_in > (video_source_crop_left + video_source_crop_right))) {
         w_in -= video_source_crop_left + video_source_crop_right;
@@ -383,7 +421,7 @@ RESTART:
     wide_mode = vpp_flags & VPP_FLAG_WIDEMODE_MASK;
 
     /* keep 8 bits resolution for aspect conversion */
-    if (wide_mode == VIDEO_WIDEOPTION_4_3) {
+    if (wide_mode == VIDEO_WIDEOPTION_4_3) {	
         if (vpp_flags & VPP_FLAG_PORTRAIT_MODE)
             aspect_factor = 0x155;
         else
@@ -397,6 +435,20 @@ RESTART:
             aspect_factor = 0x90;
         wide_mode = VIDEO_WIDEOPTION_NORMAL;
     }
+	else if ((wide_mode >= VIDEO_WIDEOPTION_4_3_IGNORE) && (wide_mode <= VIDEO_WIDEOPTION_4_3_COMBINED)) {
+		if (aspect_factor != 0xc0)
+			fill_match = false;
+
+		orig_aspect = aspect_factor;
+		screen_aspect = 0xc0;
+	}
+	else if ((wide_mode >= VIDEO_WIDEOPTION_16_9_IGNORE) && (wide_mode <= VIDEO_WIDEOPTION_16_9_COMBINED)) {
+		if (aspect_factor != 0x90)
+			fill_match = false;
+
+		orig_aspect = aspect_factor;
+		screen_aspect = 0x90;
+	}
 
     if ((aspect_factor == 0) || (wide_mode == VIDEO_WIDEOPTION_FULL_STRETCH) || (wide_mode == VIDEO_WIDEOPTION_NONLINEAR)) {
         aspect_factor = 0x100;
@@ -449,38 +501,103 @@ RESTART:
         }
     }
 
-    screen_width = video_width * vpp_zoom_ratio / 100;
-    screen_height = video_height * vpp_zoom_ratio / 100;
-
-    ratio_x = (w_in << 18) / screen_width;
-    if (ratio_x * screen_width < (w_in << 18)) {
-        ratio_x++;
-    }
-
-    ratio_y = (height_after_ratio << 18) / screen_height;
-
-    if (wide_mode == VIDEO_WIDEOPTION_NORMAL) {
-        ratio_x = ratio_y = max(ratio_x, ratio_y);
-        ratio_y = (ratio_y << 8) / aspect_factor;
-    }
-    else if (wide_mode == VIDEO_WIDEOPTION_NORMAL_NOSCALEUP) {
-        u32 r1, r2;
-        r1 = max(ratio_x, ratio_y);
-        r2 = (r1 << 8) / aspect_factor;
-
-		if ((r1 < (1<<18)) || (r2 < (1<<18))) {
-			if (r1 < r2) {
-				ratio_x = 1 << 18;
-				ratio_y = (ratio_x << 8) / aspect_factor;
-			} else {
-				ratio_y = 1 << 18;
-				ratio_x = aspect_factor << 10;
-			}
-		} else {
-			ratio_x = r1;
-			ratio_y = r2;
+	/*aspect ratio match*/
+	if ((wide_mode >= VIDEO_WIDEOPTION_4_3_IGNORE) && (wide_mode <= VIDEO_WIDEOPTION_16_9_COMBINED) && orig_aspect) {
+		if(vinfo->width && vinfo->height){
+			aspect_ratio_out = (vinfo->height << 8) / vinfo->width;
 		}
-    }
+
+		if ((video_height << 8) > (video_width * aspect_ratio_out)) {
+			u32 real_video_height = (video_width * aspect_ratio_out) >> 8;
+
+			video_top   += (video_height - real_video_height) >> 1;
+			video_height = real_video_height;
+		}
+		else {
+			u32 real_video_width = (video_height << 8) / aspect_ratio_out;
+
+			video_left  += (video_width - real_video_width) >> 1;
+			video_width  = real_video_width;
+		}
+
+		if (!fill_match) {
+			u32 screen_ratio_x, screen_ratio_y;
+
+			screen_ratio_x = 1 << 18;
+			screen_ratio_y = (orig_aspect << 18) / screen_aspect;
+
+			switch (wide_mode) {
+				case VIDEO_WIDEOPTION_4_3_LETTER_BOX:
+				case VIDEO_WIDEOPTION_16_9_LETTER_BOX:
+					screen_ratio_x = screen_ratio_y = max(screen_ratio_x, screen_ratio_y);
+					break;
+				case VIDEO_WIDEOPTION_4_3_PAN_SCAN:
+				case VIDEO_WIDEOPTION_16_9_PAN_SCAN:
+					screen_ratio_x = screen_ratio_y = min(screen_ratio_x, screen_ratio_y);
+					break;
+				case VIDEO_WIDEOPTION_4_3_COMBINED:
+				case VIDEO_WIDEOPTION_16_9_COMBINED:
+					screen_ratio_x = screen_ratio_y = ((screen_ratio_x + screen_ratio_y) >> 1);
+					break;
+				default:
+					break;
+			}
+
+			ratio_x = screen_ratio_x * w_in / video_width;
+			ratio_y = screen_ratio_y * h_in / orig_aspect * screen_aspect / video_height;
+		}
+		else {
+			screen_width  = video_width * vpp_zoom_ratio / 100;
+			screen_height = video_height * vpp_zoom_ratio / 100;
+			
+			ratio_x = (w_in << 18) / screen_width;
+			ratio_y = (h_in << 18) / screen_height;
+		}
+	}
+	else {
+		screen_width = video_width * vpp_zoom_ratio / 100;
+		screen_height = video_height * vpp_zoom_ratio / 100;
+
+		ratio_x = (w_in << 18) / screen_width;
+		if (ratio_x * screen_width < (w_in << 18)) {
+			ratio_x++;
+		}
+
+		ratio_y = (height_after_ratio << 18) / screen_height;
+
+		if (wide_mode == VIDEO_WIDEOPTION_NORMAL) {
+			ratio_x = ratio_y = max(ratio_x, ratio_y);
+			ratio_y = (ratio_y << 8) / aspect_factor;
+		}
+		else if (wide_mode == VIDEO_WIDEOPTION_NORMAL_NOSCALEUP) {
+			u32 r1, r2;
+			r1 = max(ratio_x, ratio_y);
+			r2 = (r1 << 8) / aspect_factor;
+
+			if ((r1 < (1<<18)) || (r2 < (1<<18))) {
+				if (r1 < r2) {
+					ratio_x = 1 << 18;
+					ratio_y = (ratio_x << 8) / aspect_factor;
+				} else {
+					ratio_y = 1 << 18;
+					ratio_x = aspect_factor << 10;
+				}
+			} else {
+				ratio_x = r1;
+				ratio_y = r2;
+			}
+		}
+	}
+
+#if 0
+	debug_video_left   = video_left;
+	debug_video_top    = video_top;
+	debug_video_width  = video_width;
+	debug_video_height = video_height;
+	debug_ratio_x = ratio_x;
+	debug_ratio_y = ratio_y;
+	debug_wide_mode = wide_mode;
+#endif
 
     /* vertical */
     ini_vphase = vpp_zoom_center_y & 0xff;
@@ -661,7 +778,8 @@ RESTART:
                        next_frame_par->VPP_vsc_endp - next_frame_par->VPP_vsc_startp,
                        height_out >> ((vpp_flags & VPP_FLAG_INTERLACE_OUT) ? 1 : 0),
                        next_frame_par,
-                       vinfo);
+                       vinfo,
+                       vf);
 
         if (skip == SPEED_CHECK_VSKIP) {
             if (vpp_flags & VPP_FLAG_INTERLACE_IN) {
@@ -942,7 +1060,7 @@ vpp_set_filters(u32 process_3d_type,u32 wide_mode,
     next_frame_par->VPP_post_blend_vd_h_end_ = vinfo->width - 1;
     next_frame_par->VPP_post_blend_h_size_ = vinfo->width;
 
-    vpp_set_filters2(src_width, src_height, vinfo, vpp_flags, next_frame_par);
+    vpp_set_filters2(src_width, src_height, vinfo, vpp_flags, next_frame_par, vf);
 }
 
 #if HAS_VPU_PROT
@@ -1012,7 +1130,7 @@ prot_get_parameter(u32 wide_mode,
     next_frame_par->VPP_post_blend_vd_h_end_ = vinfo->width - 1;
     next_frame_par->VPP_post_blend_h_size_ = vinfo->width;
 
-    vpp_set_filters2(src_width, src_height, vinfo, vpp_flags, next_frame_par);
+    vpp_set_filters2(src_width, src_height, vinfo, vpp_flags, next_frame_par, vf);
 }
 #endif
 

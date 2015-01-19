@@ -55,12 +55,13 @@ extern struct arm_delay_ops arm_delay_ops;
 
 static DEFINE_SPINLOCK(clockfw_lock);
 static DEFINE_MUTEX(clock_ops_lock);
+static int measure_cpu_clock = 0;
 
 /**************** SYS PLL**************************/
 #define SYS_PLL_TABLE_MIN	 24000000
 #define SYS_PLL_TABLE_MAX	2112000000
 
-#define CPU_FREQ_LIMIT 1488000000
+#define CPU_FREQ_LIMIT 1536000000
 
 struct sys_pll_s {
     unsigned int freq;
@@ -85,39 +86,39 @@ typedef union latency_data {
 } latency_data_t;
 
 static unsigned sys_pll_settings[][3] = {
-                {   24, 0x40020238, 0x01063546 }, /* fvco 1344, / 4, /14 */
-                {   48, 0x40020240, 0x01033546 }, /* fvco 1536, / 4, / 8 */
+                {   24, 0x40020238, 0x00063546 }, /* fvco 1344, / 4, /14 */
+                {   48, 0x40020240, 0x00033546 }, /* fvco 1536, / 4, / 8 */
                 {   72, 0x40020248, 0x03023546 }, /* fvco 1728, / 4, / 6 */
-                {   96, 0x40020240, 0x01013546 }, /* fvco 1536, / 4, / 4 */
+                {   96, 0x40020240, 0x00013546 }, /* fvco 1536, / 4, / 4 */
                 {  120, 0x40020250, 0x03013546 }, /* fvco 1920, / 4, / 4 */
-                {  144, 0x40020260, 0x03013546 }, /* fvco 2304, / 4, / 4 */
-                {  168, 0x40010238, 0x01013546 }, /* fvco 1344, / 2, / 4 */
-                {  192, 0x40010240, 0x01013546 }, /* fvco 1536, / 2, / 4 */
+                {  144, 0x40020260, 0x00013546 }, /* fvco 2304, / 4, / 4 */
+                {  168, 0x40010238, 0x00013546 }, /* fvco 1344, / 2, / 4 */
+                {  192, 0x40010240, 0x00013546 }, /* fvco 1536, / 2, / 4 */
                 {  216, 0x40010248, 0x03013546 }, /* fvco 1728, / 2, / 4 */
                 {  240, 0x40010250, 0x03013546 }, /* fvco 1920, / 2, / 4 */
-                {  264, 0x40010258, 0x03013546 }, /* fvco 2112, / 2, / 4 */
-                {  288, 0x40010260, 0x03013546 }, /* fvco 2304, / 2, / 4 */
-                {  312, 0x40020234, 0x01003546 }, /* fvco 1248, / 4, / 1 */
-                {  336, 0x40020238, 0x01003546 }, /* fvco 1344, / 4, / 1 */
-                {  360, 0x4002023C, 0x01003546 }, /* fvco 1440, / 4, / 1 */
-                {  384, 0x40020240, 0x01003546 }, /* fvco 1536, / 4, / 1 */
+                {  264, 0x40010258, 0x00013546 }, /* fvco 2112, / 2, / 4 */
+                {  288, 0x40010260, 0x00013546 }, /* fvco 2304, / 2, / 4 */
+                {  312, 0x40020234, 0x00003546 }, /* fvco 1248, / 4, / 1 */
+                {  336, 0x40020238, 0x00003546 }, /* fvco 1344, / 4, / 1 */
+                {  360, 0x4002023C, 0x00003546 }, /* fvco 1440, / 4, / 1 */
+                {  384, 0x40020240, 0x00003546 }, /* fvco 1536, / 4, / 1 */
                 {  408, 0x40020244, 0x01003546 }, /* fvco 1632, / 4, / 1 */
                 {  432, 0x40020248, 0x03003546 }, /* fvco 1728, / 4, / 1 */
                 {  456, 0x4002024C, 0x03003546 }, /* fvco 1824, / 4, / 1 */
                 {  480, 0x40020250, 0x03003546 }, /* fvco 1920, / 4, / 1 */
                 {  504, 0x40020254, 0x03003546 }, /* fvco 2016, / 4, / 1 */
-                {  528, 0x40020258, 0x03003546 }, /* fvco 2112, / 4, / 1 */
-                {  552, 0x4002025C, 0x03003546 }, /* fvco 2208, / 4, / 1 */
-                {  576, 0x40020260, 0x03003546 }, /* fvco 2304, / 4, / 1 */
-                {  600, 0x40010232, 0x01003546 }, /* fvco 1200, / 2, / 1 */
-                {  624, 0x40010234, 0x01003546 }, /* fvco 1248, / 2, / 1 */
-                {  648, 0x40010236, 0x01003546 }, /* fvco 1296, / 2, / 1 */
-                {  672, 0x40010238, 0x01003546 }, /* fvco 1344, / 2, / 1 */
-                {  696, 0x4001023A, 0x01003546 }, /* fvco 1392, / 2, / 1 */
-                {  720, 0x4001023C, 0x01003546 }, /* fvco 1440, / 2, / 1 */
-                {  744, 0x4001023E, 0x01003546 }, /* fvco 1488, / 2, / 1 */
-                {  768, 0x40010240, 0x01003546 }, /* fvco 1536, / 2, / 1 */
-                {  792, 0x40010242, 0x01003546 }, /* fvco 1584, / 2, / 1 */
+                {  528, 0x40020258, 0x00003546 }, /* fvco 2112, / 4, / 1 */
+                {  552, 0x4002025C, 0x00003546 }, /* fvco 2208, / 4, / 1 */
+                {  576, 0x40020260, 0x00003546 }, /* fvco 2304, / 4, / 1 */
+                {  600, 0x40010232, 0x00003546 }, /* fvco 1200, / 2, / 1 */
+                {  624, 0x40010234, 0x00003546 }, /* fvco 1248, / 2, / 1 */
+                {  648, 0x40010236, 0x00003546 }, /* fvco 1296, / 2, / 1 */
+                {  672, 0x40010238, 0x00003546 }, /* fvco 1344, / 2, / 1 */
+                {  696, 0x4001023A, 0x00003546 }, /* fvco 1392, / 2, / 1 */
+                {  720, 0x4001023C, 0x00003546 }, /* fvco 1440, / 2, / 1 */
+                {  744, 0x4001023E, 0x00003546 }, /* fvco 1488, / 2, / 1 */
+                {  768, 0x40010240, 0x00003546 }, /* fvco 1536, / 2, / 1 */
+                {  792, 0x40010242, 0x00003546 }, /* fvco 1584, / 2, / 1 */
                 {  816, 0x40010244, 0x01003546 }, /* fvco 1632, / 2, / 1 */
                 {  840, 0x40010246, 0x01003546 }, /* fvco 1680, / 2, / 1 */
                 {  864, 0x40010248, 0x03003546 }, /* fvco 1728, / 2, / 1 */
@@ -128,29 +129,29 @@ static unsigned sys_pll_settings[][3] = {
                 {  984, 0x40010252, 0x03003546 }, /* fvco 1968, / 2, / 1 */
                 { 1008, 0x40010254, 0x03003546 }, /* fvco 2016, / 2, / 1 */
                 { 1032, 0x40010256, 0x03003546 }, /* fvco 2064, / 2, / 1 */
-                { 1056, 0x40010258, 0x03003546 }, /* fvco 2112, / 2, / 1 */
-                { 1080, 0x4001025A, 0x03003546 }, /* fvco 2160, / 2, / 1 */
-                { 1104, 0x4001025C, 0x03003546 }, /* fvco 2208, / 2, / 1 */
-                { 1128, 0x4001025E, 0x03003546 }, /* fvco 2256, / 2, / 1 */
-                { 1152, 0x40010260, 0x03003546 }, /* fvco 2304, / 2, / 1 */
-                { 1176, 0x40010262, 0x03003546 }, /* fvco 2352, / 2, / 1 */
-                { 1200, 0x40000232, 0x01003546 }, /* fvco 1200, / 1, / 1 */
-                { 1224, 0x40000233, 0x01003546 }, /* fvco 1224, / 1, / 1 */
-                { 1248, 0x40000234, 0x01003546 }, /* fvco 1248, / 1, / 1 */
-                { 1272, 0x40000235, 0x01003546 }, /* fvco 1272, / 1, / 1 */
-                { 1296, 0x40000236, 0x01003546 }, /* fvco 1296, / 1, / 1 */
-                { 1320, 0x40000237, 0x01003546 }, /* fvco 1320, / 1, / 1 */
-                { 1344, 0x40000238, 0x01003546 }, /* fvco 1344, / 1, / 1 */
-                { 1368, 0x40000239, 0x01003546 }, /* fvco 1368, / 1, / 1 */
-                { 1392, 0x4000023A, 0x01003546 }, /* fvco 1392, / 1, / 1 */
-                { 1416, 0x4000023B, 0x01003546 }, /* fvco 1416, / 1, / 1 */
-                { 1440, 0x4000023C, 0x01003546 }, /* fvco 1440, / 1, / 1 */
-                { 1464, 0x4000023D, 0x01003546 }, /* fvco 1464, / 1, / 1 */
-                { 1488, 0x4000023E, 0x01003546 }, /* fvco 1488, / 1, / 1 */
-                { 1512, 0x4000023F, 0x01003546 }, /* fvco 1512, / 1, / 1 */
-                { 1536, 0x40000240, 0x01003546 }, /* fvco 1536, / 1, / 1 */
-                { 1560, 0x40000241, 0x01003546 }, /* fvco 1560, / 1, / 1 */
-                { 1584, 0x40000242, 0x01003546 }, /* fvco 1584, / 1, / 1 */
+                { 1056, 0x40010258, 0x00003546 }, /* fvco 2112, / 2, / 1 */
+                { 1080, 0x4001025A, 0x00003546 }, /* fvco 2160, / 2, / 1 */
+                { 1104, 0x4001025C, 0x00003546 }, /* fvco 2208, / 2, / 1 */
+                { 1128, 0x4001025E, 0x00003546 }, /* fvco 2256, / 2, / 1 */
+                { 1152, 0x40010260, 0x00003546 }, /* fvco 2304, / 2, / 1 */
+                { 1176, 0x40010262, 0x00003546 }, /* fvco 2352, / 2, / 1 */
+                { 1200, 0x40000232, 0x00003546 }, /* fvco 1200, / 1, / 1 */
+                { 1224, 0x40000233, 0x00003546 }, /* fvco 1224, / 1, / 1 */
+                { 1248, 0x40000234, 0x00003546 }, /* fvco 1248, / 1, / 1 */
+                { 1272, 0x40000235, 0x00003546 }, /* fvco 1272, / 1, / 1 */
+                { 1296, 0x40000236, 0x00003546 }, /* fvco 1296, / 1, / 1 */
+                { 1320, 0x40000237, 0x00003546 }, /* fvco 1320, / 1, / 1 */
+                { 1344, 0x40000238, 0x00003546 }, /* fvco 1344, / 1, / 1 */
+                { 1368, 0x40000239, 0x00003546 }, /* fvco 1368, / 1, / 1 */
+                { 1392, 0x4000023A, 0x00003546 }, /* fvco 1392, / 1, / 1 */
+                { 1416, 0x4000023B, 0x00003546 }, /* fvco 1416, / 1, / 1 */
+                { 1440, 0x4000023C, 0x00003546 }, /* fvco 1440, / 1, / 1 */
+                { 1464, 0x4000023D, 0x00003546 }, /* fvco 1464, / 1, / 1 */
+                { 1488, 0x4000023E, 0x00003546 }, /* fvco 1488, / 1, / 1 */
+                { 1512, 0x4000023F, 0x00003546 }, /* fvco 1512, / 1, / 1 */
+                { 1536, 0x40000240, 0x00003546 }, /* fvco 1536, / 1, / 1 */
+                { 1560, 0x40000241, 0x00003546 }, /* fvco 1560, / 1, / 1 */
+                { 1584, 0x40000242, 0x00003546 }, /* fvco 1584, / 1, / 1 */
                 { 1608, 0x40000243, 0x01003546 }, /* fvco 1608, / 1, / 1 */
                 { 1632, 0x40000244, 0x01003546 }, /* fvco 1632, / 1, / 1 */
                 { 1656, 0x40004244, 0x01003546 }, /* fvco 1656, / 1, / 1 */
@@ -172,7 +173,7 @@ static unsigned sys_pll_settings[][3] = {
                 { 2040, 0x40004248, 0x01003546 }, /* fvco 2040, / 1, / 1 */
                 { 2064, 0x40008248, 0x01003546 }, /* fvco 2064, / 1, / 1 */
                 { 2088, 0x4000c248, 0x01003546 }, /* fvco 2088, / 1, / 1 */
-                { 2112, 0x40000249, 0x01003546 }, /* fvco 2112, / 1, / 1 */
+                { 2112, 0x40000249, 0x00003546 }, /* fvco 2112, / 1, / 1 */
 };
 static unsigned setup_a9_clk_max = CPU_FREQ_LIMIT;
 static unsigned setup_a9_clk_min =    24000000;
@@ -339,10 +340,11 @@ long clk_round_rate_sys(struct clk *clk, unsigned long rate)
 		dst = setup_a9_clk_min;
 	else if(dst > setup_a9_clk_max)
 		dst = setup_a9_clk_max;
- 	 
-	idx = ((dst - SYS_PLL_TABLE_MIN) / 1000000) / 24;
-	//printk("sys round rate: %d -- %d\n",rate,sys_pll_settings[idx][0]);
-	rate = sys_pll_settings[idx][0] * 1000000;
+ 	if ((rate != 1250000000)) {
+	    idx = ((dst - SYS_PLL_TABLE_MIN) / 1000000) / 24;
+        //printk("sys round rate: %ld -- %d\n",rate,sys_pll_settings[idx][0]);
+        rate = sys_pll_settings[idx][0] * 1000000;
+    } 
 	
 	return rate;
 }
@@ -744,8 +746,11 @@ static unsigned long clk_get_rate_a9(struct clk * clkdev)
 			parent_clk = clk_get_rate_xtal(NULL);
 		else if(pll_sel == 1)
 			parent_clk = clk_get_rate_sys(clkdev->parent);
-		else
+	    else if (pll_sel == 2) {
+            clk = 1250000000;   // from MPLL / 2 
+        } else { 
 			printk(KERN_INFO "Error : A9 parent pll selection incorrect!\n");
+        }
 		if(parent_clk > 0){
 			unsigned int N = (aml_read_reg32(P_HHI_SYS_CPU_CLK_CNTL1) >> 20) & 0x3FF;
 			unsigned int div = 1;
@@ -792,11 +797,14 @@ static int _clk_set_rate_cpu(struct clk *clk, unsigned long cpu, unsigned long g
 	unsigned long parent = 0;
 	unsigned long oldcpu = clk_get_rate_a9(clk);
 	unsigned int cpu_clk_cntl = aml_read_reg32(P_HHI_SYS_CPU_CLK_CNTL);
+	int test_n = 0;
 	
 //	if ((cpu_clk_cntl & 3) == 1) {
 	{
+		unsigned long real_cpu;
 		parent = clk_get_rate_sys(clk->parent);
 		// CPU switch to xtal 
+
 		aml_write_reg32(P_HHI_SYS_CPU_CLK_CNTL, cpu_clk_cntl & ~(1 << 7));
 		if (oldcpu <= cpu) {
 			// when increasing frequency, lpj has already been adjusted
@@ -805,7 +813,19 @@ static int _clk_set_rate_cpu(struct clk *clk, unsigned long cpu, unsigned long g
 			// when decreasing frequency, lpj has not yet been adjusted
 			udelay_scaled(10, oldcpu / 1000000, 24 /*clk_get_rate_xtal*/);
 		}
-		set_sys_pll(clk->parent, cpu);
+
+	    aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 1, 0, 2);    // path select to syspll
+        if (cpu == 1250000000) {
+	    	aml_set_reg32_bits(P_HHI_MPLL_CNTL6, 1, 27, 1);
+	    	aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 2, 0, 2);    // select to mpll
+			aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 0, 2, 2);    // cancel external od
+		    udelay_scaled(500, oldcpu / 1000000, 24 /*clk_get_rate_xtal*/);
+	        printk(KERN_DEBUG"CTS_CPU_CLK %4ld --> %4ld (MHz)\n",
+									clk->rate / 1000000, cpu / 1000000);
+            clk->parent->rate = cpu;
+        } else {
+    		set_sys_pll(clk->parent, cpu);
+        }
 
 		// Read CBUS for short delay, then CPU switch to sys pll
 		cpu_clk_cntl = aml_read_reg32(P_HHI_SYS_CPU_CLK_CNTL);
@@ -818,6 +838,16 @@ static int _clk_set_rate_cpu(struct clk *clk, unsigned long cpu, unsigned long g
 			udelay_scaled(100, oldcpu / 1000000, cpu / 1000000);
 		}
 
+        if (measure_cpu_clock) {
+            while (test_n < 5) {
+	            real_cpu = clk_util_clk_msr(18) << 4;
+	            if ((real_cpu < cpu && (cpu - real_cpu) > 48000000) ||
+	            	(real_cpu > cpu && (real_cpu - cpu) > 48000000)) {
+	            	pr_info("hope to set cpu clk as %ld, real value is %ld, time %d\n", cpu, real_cpu, test_n);
+	            }
+                test_n++;
+            }
+        }
 		// CPU switch to sys pll
 		//cpu_clk_cntl = aml_read_reg32(P_HHI_SYS_CPU_CLK_CNTL);
 		//aml_set_reg32_mask(P_HHI_SYS_CPU_CLK_CNTL, (1 << 7));
@@ -864,8 +894,8 @@ void meson_set_cpu_power_ctrl(uint32_t cpu,int is_power_on)
 		aml_set_reg32_bits(P_AO_RTI_PWR_A9_CNTL1, 0x0, ((cpu +1) << 1 ), 2);
 
 		udelay(10);
-		while(!(readl(P_AO_RTI_PWR_A9_CNTL1) & (1<<(cpu+16)))){
-			printk("wait power...0x%08x 0x%08x\n",readl(P_AO_RTI_PWR_A9_CNTL0),readl(P_AO_RTI_PWR_A9_CNTL1));
+		while(!(aml_read_reg32(P_AO_RTI_PWR_A9_CNTL1) & (1<<(cpu+16)))){
+			printk("wait power...0x%08x 0x%08x\n",aml_read_reg32(P_AO_RTI_PWR_A9_CNTL0),aml_read_reg32(P_AO_RTI_PWR_A9_CNTL1));
 			udelay(10);
 		};
 		/* Isolation disable */
@@ -1178,7 +1208,12 @@ SETPLL:
 			aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 3, 2, 2);
 		else
 			aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 0, 2, 2);
-		aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl | (1 << 29));
+      //aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl | (1 << 29));
+        if((cpu_clk_cntl & 0x3fff) != (curr_cntl & 0x3fff)) {
+            //dest M,N is equal to curr_cntl, So, we neednot reset the pll, just change the OD.
+            aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl | (1 << 29));
+        }
+
 		if(only_once == 99){
 			only_once = 1;
 			aml_write_reg32(P_HHI_SYS_PLL_CNTL2, M8_SYS_PLL_CNTL_2);
@@ -1191,7 +1226,7 @@ SETPLL:
 
 		aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl);
 
-		udelay_scaled(100, dst / 1000000, 24 /*clk_get_rate_xtal*/);
+		udelay_scaled(500, dst / 1000000, 24 /*clk_get_rate_xtal*/);
 
 		cntl = aml_read_reg32(P_HHI_SYS_PLL_CNTL);
 		if((cntl & (1<<31)) == 0){
@@ -1689,9 +1724,25 @@ static ssize_t freq_limit_show(struct class *cla, struct class_attribute *attr, 
 	return sprintf(buf, "%d\n", freq_limit);
 }
 
+static ssize_t check_clock_store(struct class *cla, struct class_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	measure_cpu_clock = input;
+	return count;
+}
+static ssize_t check_clock_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+	printk("%u\n", measure_cpu_clock);
+	return sprintf(buf, "%d\n", measure_cpu_clock);
+}
 
 static struct class_attribute freq_limit_class_attrs[] = {
 	__ATTR(limit, S_IRUGO|S_IWUSR|S_IWGRP, freq_limit_show, freq_limit_store),
+	__ATTR(check_clock, S_IRUGO|S_IWUSR|S_IWGRP, check_clock_show, check_clock_store),
 	__ATTR_NULL,
 };
 

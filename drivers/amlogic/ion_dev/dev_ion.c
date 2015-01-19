@@ -46,13 +46,13 @@ static struct resource memobj;
 int dev_ion_probe(struct platform_device *pdev) {
     int err;
     int i;
-    num_heaps = 1;
-    
+
     struct resource *res;
     struct device_node	*of_node = pdev->dev.of_node;
     const void *name;
     int offset,size;
 
+    num_heaps = 1;
     my_ion_heap[0].type = ION_HEAP_TYPE_SYSTEM;
     my_ion_heap[0].id = ION_HEAP_TYPE_SYSTEM;
     my_ion_heap[0].name = "vmalloc_ion";
@@ -70,7 +70,7 @@ int dev_ion_probe(struct platform_device *pdev) {
 	 }
 	 else
 	 {
-		i= find_reserve_block_by_name(name);
+		i= find_reserve_block_by_name((char *)name);
 		if(i<0)
 		{
 			printk("\ndev_ion memory resource undefined2.\n");
@@ -92,11 +92,11 @@ int dev_ion_probe(struct platform_device *pdev) {
 			printk("\ndev_ion memory resource undefined4.\n");
         		return -EFAULT;
 		}
-		
-		
+
+
 		res->start = (phys_addr_t)get_reserve_block_addr(i)+offset;
     		res->end = res->start+ size-1;
-		
+
 	 }
     }
     else
@@ -110,7 +110,7 @@ int dev_ion_probe(struct platform_device *pdev) {
         my_ion_heap[1].type = ION_HEAP_TYPE_CARVEOUT;//ION_HEAP_TYPE_CHUNK;//ION_HEAP_TYPE_CARVEOUT;
         my_ion_heap[1].id = ION_HEAP_TYPE_CARVEOUT;
         my_ion_heap[1].name = "carveout_ion";
-        my_ion_heap[1].base = (ion_phys_addr_t *) res->start;
+        my_ion_heap[1].base = (ion_phys_addr_t) res->start;
         my_ion_heap[1].size = res->end - res->start + 1;
     }
     heaps = kzalloc(sizeof(struct ion_heap *) * num_heaps, GFP_KERNEL);
@@ -133,7 +133,7 @@ int dev_ion_probe(struct platform_device *pdev) {
     }
     platform_set_drvdata(pdev, idev);
     return 0;
-err: 
+err:
 	for (i = 0; i < num_heaps; i++) {
         if (heaps[i])
             ion_heap_destroy(heaps[i]);

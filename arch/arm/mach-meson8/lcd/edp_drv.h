@@ -1,5 +1,6 @@
 #ifndef EDP_DRV_H
 #define EDP_DRV_H
+#include <linux/amlogic/vout/lcdoutc.h>
 
 //********************************************************//
 // displayport host (tx) control
@@ -183,12 +184,7 @@ static const unsigned char edp_link_rate_table[] = {
     VAL_EDP_TX_LINK_BW_SET_540,
     VAL_EDP_TX_INVALID_VALUE,
 };
-static const char *edp_link_rate_string_table[]={
-    "1.62Gbps",
-    "2.70Gbps",
-    "5.40Gbps",
-    "invalid",
-};
+
 static const unsigned char edp_lane_count_table[] = {1, 2, 4, VAL_EDP_TX_INVALID_VALUE};
 #define LINK_RATE_TO_CAPACITY(x)    (x * 8 / 10) //8/10 coding
 static const unsigned edp_link_capacity_table[] = { //Mbps
@@ -223,9 +219,9 @@ typedef struct {
 	unsigned char max_lane_count;
 	unsigned char max_link_rate;
 	unsigned char downstream_port_caps[10];
-	char *downstream_port_types[10];
-	char *rev_string;
-	char *link_rate_string;
+	unsigned char downstream_port_types[10];
+	unsigned char rev_string;
+	unsigned char link_rate_string;
 	char *port_type_string;
 	unsigned num_rcv_ports;
 	unsigned num_downstream_ports;
@@ -282,7 +278,7 @@ extern void edp_phy_config_update(unsigned char vswing_tx, unsigned char preemp_
 extern int dplpm_link_policy_maker(EDP_Link_Config_t *mlconfig, EDP_MSA_t *vm);
 extern int dplpm_link_off(void);
 extern void dplpm_off(void);
-extern void edp_probe(void);
-extern void edp_remove(void);
+extern void edp_probe(Lcd_Config_t *pConf);
+extern void edp_remove(Lcd_Config_t *pConf);
 
 #endif

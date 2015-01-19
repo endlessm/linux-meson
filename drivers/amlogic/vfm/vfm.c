@@ -67,7 +67,7 @@ void vf_update_active_map(void)
             }
         }
     }
-    
+
 }
 
 static int get_vfm_map_index(const char* id)
@@ -99,7 +99,7 @@ static int vfm_map_remove_by_index(int index)
             printk("%s: VFRAME_EVENT_RECEIVER_FORCE_UNREG %s\n", __func__, vfm_map[index]->name[i]);
         }
     }
-    
+
     for (i = 0; i < (vfm_map[index]->vfm_map_size - 1); i++) {
         vfp = vf_get_provider_by_name(vfm_map[index]->name[i]);
         if(vfp){
@@ -112,7 +112,7 @@ static int vfm_map_remove_by_index(int index)
         ret = -1;
     }
     vfm_map[index]->valid = 0;
-    
+
     return ret;
 
 }
@@ -167,18 +167,18 @@ static int vfm_map_add(char* id,   char* name_chain)
                     (!strcmp(vfm_map[i]->id, p->id))){
                     for(j=0; j<p->vfm_map_size; j++){
                         if(strcmp(vfm_map[i]->name[j], p->name[j])){
-                            break;    
-                        } 
-                    }          
+                            break;
+                        }
+                    }
                     if(j == p->vfm_map_size){
                         vfm_map[i]->valid = 1;
                         kfree(p);
                         break;
-                    }          
+                    }
                 }
             }
         }
-        
+
         if(i == vfm_map_num){
             if(i<VFM_MAP_COUNT){
                 vfm_map[i] = p;
@@ -186,7 +186,7 @@ static int vfm_map_add(char* id,   char* name_chain)
             }
             else{
                 printk("%s: Error, vfm_map full\n", __func__);
-                ret = -1;   
+                ret = -1;
             }
         }
 
@@ -259,7 +259,7 @@ static void vfm_init(void)
 #else
     char def_id[] = "default";
     char def_name_chain[] = "decoder amvideo";
-#endif    
+#endif
 #ifdef CONFIG_TVIN_VIUIN
     char def_ext_id[] = "default_ext";
     char def_ext_name_chain[] = "vdin amvideo2";
@@ -271,7 +271,7 @@ static void vfm_init(void)
 #else
     char def_ext_name_chain[] = "vdin0 vm amvideo";
 #endif
-#endif    
+#endif
 #endif
     char def_osd_id[] = "default_osd";
     char def_osd_name_chain[] = "osd amvideo4osd";
@@ -280,13 +280,17 @@ static void vfm_init(void)
 #ifdef CONFIG_VDIN_MIPI
     char def_mipi_id[] = "default_mipi";
     char def_mipi_name_chain[] = "vdin mipi";
-#endif  
+#endif
 
 #ifdef CONFIG_V4L_AMLOGIC_VIDEO2
     char def_amlvideo2_id[] = "default_amlvideo2";
     char def_amlvideo2_chain[] = "vdin1 amlvideo2";
 #endif
 
+#if (defined CONFIG_TVIN_AFE)||(defined CONFIG_TVIN_HDMI)
+	char tvpath_id[] = "tvpath";
+	char tvpath_chain[]="vdin0 deinterlace amvideo";
+#endif
     int i;
     for(i=0; i<VFM_MAP_COUNT; i++){
         vfm_map[i] = NULL;
@@ -298,10 +302,8 @@ static void vfm_init(void)
 #endif
 #ifdef CONFIG_AMLOGIC_VIDEOIN_MANAGER
     vfm_map_add(def_ext_id, def_ext_name_chain);
-#endif    
-#if (defined CONFIG_TVIN_AFE)||(defined CONFIG_TVIN_HDMI)     
-    char tvpath_id[] = "tvpath";
-    char tvpath_chain[]="vdin0 deinterlace amvideo";
+#endif
+#if (defined CONFIG_TVIN_AFE)||(defined CONFIG_TVIN_HDMI)
     vfm_map_add(tvpath_id, tvpath_chain);
 #endif
 #ifdef CONFIG_V4L_AMLOGIC_VIDEO2
@@ -330,7 +332,7 @@ static ssize_t vfm_map_show(struct class *class,
                 }
             }
             len += sprintf(buf+len, "}\n");
-        } 
+        }
     }
     len += provider_list(buf+len);
     len += receiver_list(buf+len);
@@ -355,12 +357,12 @@ static ssize_t vfm_map_store(struct class *class,
     int i = 0;
     int cmd = 0;
     char* id = NULL;
-  
+
   if(vfm_debug_flag&0x10000){
     return count;
   }
   printk("%s:%s\n", __func__, buf);
-  
+
 	buf_orig = kstrdup(buf, GFP_KERNEL);
 	ps = buf_orig;
 	while (1) {

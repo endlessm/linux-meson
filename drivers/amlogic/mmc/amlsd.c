@@ -1155,13 +1155,19 @@ irqreturn_t aml_irq_cd_thread(int irq, void *data)
 
     mdelay(20);
     aml_sd_uart_detect(pdata);
-    
-    if((pdata->is_in == 0) && aml_card_type_sd(pdata)) {
+
+    if((pdata->is_in == 0) && aml_card_type_non_sdio(pdata)) {
         pdata->host->init_flag = 0;
     }
-        
+
     //mdelay(500);
-    mmc_detect_change(pdata->mmc, msecs_to_jiffies(200));
+    if(pdata->is_in == 0){
+    	mmc_detect_change(pdata->mmc, msecs_to_jiffies(2));
+    	
+    }
+    else{
+    	mmc_detect_change(pdata->mmc, msecs_to_jiffies(500));
+    }
 
 	return IRQ_HANDLED;
 }
@@ -1328,7 +1334,7 @@ void aml_emmc_hw_reset(struct mmc_host *mmc)
     //clr nand ce1 pinmux
     aml_clr_reg32_mask(P_PERIPHS_PIN_MUX_2, (1<<24));
 
-    //set out    
+    //set out
     aml_clr_reg32_mask(P_PREG_PAD_GPIO3_EN_N, (1<<9));
 
     //high
@@ -1343,8 +1349,8 @@ void aml_emmc_hw_reset(struct mmc_host *mmc)
     aml_set_reg32_mask(P_PREG_PAD_GPIO3_O, (1<<9));
     mdelay(1);
  #endif
- 
-    return; 
+
+    return;
 }
 
 

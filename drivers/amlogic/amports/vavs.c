@@ -231,6 +231,7 @@ static void set_frame_info(vframe_t *vf, unsigned* duration)
         vf->ratio_control = (ar<<DISP_RATIO_ASPECT_RATIO_BIT);
         //vf->ratio_control |= DISP_RATIO_FORCECONFIG | DISP_RATIO_KEEPRATIO;
 
+    vf->flag = 0;
 }
 
 #ifdef HANDLE_AVS_IRQ
@@ -806,6 +807,8 @@ static s32 vavs_init(void)
     vf_reg_provider(&vavs_vf_prov);
  #endif 
 
+        vf_notify_receiver(PROVIDER_NAME, VFRAME_EVENT_PROVIDER_FR_HINT, (void *)vavs_amstream_dec_info.rate);
+
         stat |= STAT_VF_HOOK;
 
         recycle_timer.data = (ulong) & recycle_timer;
@@ -877,6 +880,8 @@ static int amvdec_avs_remove(struct platform_device *pdev)
 
         if (stat & STAT_VF_HOOK)
         {
+                vf_notify_receiver(PROVIDER_NAME, VFRAME_EVENT_PROVIDER_FR_END_HINT, NULL);
+
                 vf_unreg_provider(&vavs_vf_prov);
                 stat &= ~STAT_VF_HOOK;
         }

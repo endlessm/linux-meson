@@ -214,7 +214,7 @@ static int video_onoff_state = VIDEO_ENABLE_STATE_IDLE;
         spin_unlock_irqrestore(&delay_work_lock, flags); \
     } while (0)
 #else
-#define PROT_MEM_POWER_ON() 
+#define PROT_MEM_POWER_ON()
 #define PROT_MEM_POWER_OFF()
 #endif
 #else
@@ -439,6 +439,18 @@ u32 get_video_angle(void) { return video_angle; }
 EXPORT_SYMBOL(get_video_angle);
 extern void prot_get_parameter(u32 wide_mode, vframe_t * vf, vpp_frame_par_t * next_frame_par, const vinfo_t *vinfo);
 #endif
+static inline ulong keep_phy_addr(ulong addr)
+{
+    if (addr == 0) {
+        return 0;
+    }
+
+#ifdef CONFIG_KEEP_FRAME_RESERVED
+    return addr;
+#else
+    return (ulong)virt_to_phys((u8 *)addr);
+#endif
+}
 
 #ifdef CONFIG_AM_VIDEO2
 void set_clone_frame_rate(unsigned int frame_rate, unsigned int delay);
@@ -579,6 +591,10 @@ static u32 force_blackout = 0;
 /* disable video */
 static u32 disable_video = VIDEO_DISABLE_NONE;
 
+/* show first frame*/
+static bool show_first_frame_nosync=false;
+//static bool first_frame=false;
+
 /* test screen*/
 static u32 test_screen = 0;
 
@@ -594,6 +610,8 @@ static const vinfo_t *vinfo = NULL;
 static vframe_t *cur_dispbuf = NULL;
 static vframe_t vf_local;
 static u32 vsync_pts_inc;
+static u32 vsync_pts_inc_scale;
+static u32 vsync_pts_inc_scale_base = 1;
 static u32 vsync_pts_inc_upint = 0;
 static u32 vsync_pts_inc_adj = 0;
 static u32 vsync_pts_125 = 0;
@@ -640,7 +658,7 @@ char file_name[512];
 static u32 freerun_mode;
 
 void set_freerun_mode(int mode){
-	freerun_mode = mode;	
+	freerun_mode = mode;
 }
 EXPORT_SYMBOL(set_freerun_mode);
 
@@ -679,7 +697,7 @@ static int noneseamless_play_clone_rate = 5;
 
 #ifdef CONFIG_GE2D_KEEP_FRAME
 static ge2d_context_t *ge2d_video_context = NULL;
-static int ge2d_videotask_init()
+static int ge2d_videotask_init(void)
 {
     if (ge2d_video_context == NULL)
             ge2d_video_context = create_ge2d_work_queue();
@@ -692,7 +710,7 @@ static int ge2d_videotask_init()
 
     return 0;
 }
-static int ge2d_videotask_release()
+static int ge2d_videotask_release(void)
 {
     if (ge2d_video_context) {
             destroy_ge2d_work_queue(ge2d_video_context);
@@ -701,79 +719,101 @@ static int ge2d_videotask_release()
     return 0;
 }
 
-static int ge2d_canvas_dup(canvas_t *srcy ,canvas_t *srcu,canvas_t *des,
-    int format,u32 srcindex,u32 desindex)
+static int ge2d_store_frame_YUV444(u32 cur_index)
 {
-    printk("ge2d_canvas_dup ADDR srcy[0x%x] srcu[0x%x] des[0x%x]\n",srcy->addr,srcu->addr,des->addr);
-
+    u32 y_index, des_index,src_index;
+    canvas_t cs, cd;
+    ulong yaddr;
+    u32  ydupindex;
     config_para_ex_t ge2d_config;
     memset(&ge2d_config,0,sizeof(config_para_ex_t));
+    
+    ydupindex = DISPLAY_CANVAS_YDUP_INDEX;
+
+    printk("ge2d_store_frame_YUV444 cur_index:s:0x%x \n", cur_index);
+    //printk("ge2d_store_frame cur_index:d:0x%x \n", canvas_tab[0]);
+    y_index = cur_index & 0xff;
+    canvas_read(y_index,&cs);
+    
+    yaddr = keep_phy_addr(keep_y_addr);
+    canvas_config(ydupindex,
+        (ulong)yaddr,
+        cs.width, cs.height,
+        CANVAS_ADDR_NOWRAP, cs.blkmode);
+
+
+    canvas_read(ydupindex,&cd);
+    src_index = y_index;
+    des_index = ydupindex;
+
+    printk("ge2d_canvas_dup ADDR srcy[0x%lx] des[0x%lx]\n",cs.addr, cd.addr);
+   
 
     ge2d_config.alu_const_color= 0;
     ge2d_config.bitmask_en  = 0;
     ge2d_config.src1_gb_alpha = 0;
 
-    ge2d_config.src_planes[0].addr = srcy->addr;
-    ge2d_config.src_planes[0].w = srcy->width;
-    ge2d_config.src_planes[0].h = srcy->height;
+    ge2d_config.src_planes[0].addr = cs.addr;
+    ge2d_config.src_planes[0].w = cs.width;
+    ge2d_config.src_planes[0].h = cs.height;
 
-    ge2d_config.src_planes[1].addr = srcu->addr;
-    ge2d_config.src_planes[1].w = srcu->width;
-    ge2d_config.src_planes[1].h = srcu->height;
 
-    ge2d_config.dst_planes[0].addr = des->addr;
-    ge2d_config.dst_planes[0].w = des->width;
-    ge2d_config.dst_planes[0].h = des->height;
+    ge2d_config.dst_planes[0].addr = cd.addr;
+    ge2d_config.dst_planes[0].w = cd.width;
+    ge2d_config.dst_planes[0].h = cd.height;
 
-    ge2d_config.src_para.canvas_index=srcindex;
+    ge2d_config.src_para.canvas_index = src_index;
     ge2d_config.src_para.mem_type = CANVAS_TYPE_INVALID;
-    ge2d_config.src_para.format = format;
+    ge2d_config.src_para.format = GE2D_FORMAT_M24_YUV444;
     ge2d_config.src_para.fill_color_en = 0;
     ge2d_config.src_para.fill_mode = 0;
     ge2d_config.src_para.color = 0;
     ge2d_config.src_para.top = 0;
     ge2d_config.src_para.left = 0;
-    ge2d_config.src_para.width = srcy->width;
-    ge2d_config.src_para.height = srcy->height;
+    ge2d_config.src_para.width = cs.width;
+    ge2d_config.src_para.height = cs.height;
 
-    ge2d_config.dst_para.canvas_index=desindex;
+    ge2d_config.dst_para.canvas_index = des_index;
     ge2d_config.dst_para.mem_type = CANVAS_TYPE_INVALID;
-    ge2d_config.dst_para.format = format;
+    ge2d_config.dst_para.format = GE2D_FORMAT_M24_YUV444;
     ge2d_config.dst_para.fill_color_en = 0;
     ge2d_config.dst_para.fill_mode = 0;
     ge2d_config.dst_para.color = 0;
     ge2d_config.dst_para.top = 0;
     ge2d_config.dst_para.left = 0;
-    ge2d_config.dst_para.width = srcy->width;
-    ge2d_config.dst_para.height = srcy->height;
+    ge2d_config.dst_para.width = cs.width;
+    ge2d_config.dst_para.height = cs.height;
 
     if(ge2d_context_config_ex(ge2d_video_context,&ge2d_config)<0) {
         printk("ge2d_context_config_ex failed \n");
         return -1;
     }
 
-    stretchblt_noalpha(ge2d_video_context ,0, 0,srcy->width, srcy->height,
-    0, 0,srcy->width,srcy->height);
+    stretchblt_noalpha(ge2d_video_context ,0, 0,cs.width, cs.height,
+    0, 0, cs.width, cs.height);
 
     return 0;
 }
 
-int ge2d_show_frame(ulong yaddr,ulong uaddr)
+//static u32 canvas_tab[1];
+static int ge2d_store_frame_NV21(u32 cur_index)
 {
-    u32 cur_index;
-    u32 y_index, u_index,des_index,src_index;
-    cur_index = READ_MPEG_REG(VD1_IF0_CANVAS0);
-    y_index = cur_index & 0xff;
-    u_index = (cur_index >> 8) & 0xff;
-    canvas_update_addr(y_index, (u32)yaddr);
-    canvas_update_addr(u_index, (u32)uaddr);
-}
-int ge2d_store_frame(ulong yaddr,ulong uaddr,u32 ydupindex,u32 udupindex)
-{
-    u32 cur_index;
-    u32 y_index, u_index,des_index,src_index;
-    canvas_t cs0,cs1,cyd;
-    cur_index = READ_MPEG_REG(VD1_IF0_CANVAS0);
+    u32 y_index, u_index, des_index, src_index;
+    canvas_t cs0, cs1, cd;
+    ulong yaddr, uaddr;
+    u32  ydupindex, udupindex;
+    config_para_ex_t ge2d_config;
+    memset(&ge2d_config,0,sizeof(config_para_ex_t));
+    
+    ydupindex = DISPLAY_CANVAS_YDUP_INDEX;
+    udupindex = DISPLAY_CANVAS_UDUP_INDEX;
+    
+    printk("ge2d_store_frame_NV21 cur_index:s:0x%x \n", cur_index);
+
+    //printk("ge2d_store_frame cur_index:d:0x%x \n", canvas_tab[0]);
+    yaddr = keep_phy_addr(keep_y_addr);
+    uaddr = keep_phy_addr(keep_u_addr);
+
     y_index = cur_index & 0xff;
     u_index = (cur_index >> 8) & 0xff;
 
@@ -782,32 +822,358 @@ int ge2d_store_frame(ulong yaddr,ulong uaddr,u32 ydupindex,u32 udupindex)
     canvas_config(ydupindex,
         (ulong)yaddr,
         cs0.width, cs0.height,
-        CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32); 
+        CANVAS_ADDR_NOWRAP, cs0.blkmode);
     canvas_config(udupindex,
         (ulong)uaddr,
         cs1.width, cs1.height,
-        CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32); 
+        CANVAS_ADDR_NOWRAP, cs1.blkmode);
 
-    canvas_read(ydupindex,&cyd);
-
+    canvas_read(ydupindex,&cd);
     src_index = ((y_index&0xff) | (( u_index << 8)& 0x0000ff00 ));
     des_index = ((ydupindex&0xff) | (( udupindex << 8)& 0x0000ff00 ));
-    //printk("src_index=[0x%x] y_index=[0x%x]  u_index=[0x%x] \n",src_index,y_index,u_index);
-    //printk("des_index=[0x%x]  y_index= [0x%x]\n",des_index,udupindex);
+    
 
-    ge2d_canvas_dup(&cs0,&cs1,&cyd,GE2D_FORMAT_M24_NV21,src_index,des_index);
+    printk("ge2d_store_frame d:0x%x \n", des_index);
+
+    ge2d_config.alu_const_color= 0;
+    ge2d_config.bitmask_en  = 0;
+    ge2d_config.src1_gb_alpha = 0;
+
+    ge2d_config.src_planes[0].addr = cs0.addr;
+    ge2d_config.src_planes[0].w = cs0.width;
+    ge2d_config.src_planes[0].h = cs0.height;
+    ge2d_config.src_planes[1].addr = cs1.addr;
+    ge2d_config.src_planes[1].w = cs1.width;
+    ge2d_config.src_planes[1].h = cs1.height;
+
+    ge2d_config.dst_planes[0].addr = cd.addr;
+    ge2d_config.dst_planes[0].w = cd.width;
+    ge2d_config.dst_planes[0].h = cd.height;
+
+    ge2d_config.src_para.canvas_index = src_index;
+    ge2d_config.src_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.src_para.format = GE2D_FORMAT_M24_NV21;
+    ge2d_config.src_para.fill_color_en = 0;
+    ge2d_config.src_para.fill_mode = 0;
+    ge2d_config.src_para.color = 0;
+    ge2d_config.src_para.top = 0;
+    ge2d_config.src_para.left = 0;
+    ge2d_config.src_para.width = cs0.width;
+    ge2d_config.src_para.height = cs0.height;
+
+    ge2d_config.dst_para.canvas_index = des_index;
+    ge2d_config.dst_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.dst_para.format = GE2D_FORMAT_M24_NV21;
+    ge2d_config.dst_para.fill_color_en = 0;
+    ge2d_config.dst_para.fill_mode = 0;
+    ge2d_config.dst_para.color = 0;
+    ge2d_config.dst_para.top = 0;
+    ge2d_config.dst_para.left = 0;
+    ge2d_config.dst_para.width = cs0.width;
+    ge2d_config.dst_para.height = cs0.height;
+
+    if(ge2d_context_config_ex(ge2d_video_context,&ge2d_config)<0) {
+        printk("ge2d_context_config_ex failed \n");
+        return -1;
+    }
+
+    stretchblt_noalpha(ge2d_video_context ,0, 0,cs0.width, cs0.height,
+    0, 0, cs0.width, cs0.height);
+
     return 0;
 }
-static void ge2d_keeplastframe_block()
+
+//static u32 canvas_tab[1];
+static int ge2d_store_frame_YUV420(u32 cur_index)
 {
+    u32 y_index, u_index, v_index;
+    canvas_t cs,cd;
+    ulong yaddr, uaddr, vaddr;
+    u32  ydupindex, udupindex, vdupindex;
+    config_para_ex_t ge2d_config;
+    memset(&ge2d_config,0,sizeof(config_para_ex_t));
+
+    ydupindex = DISPLAY_CANVAS_YDUP_INDEX;
+    udupindex = DISPLAY_CANVAS_UDUP_INDEX;
+    vdupindex = DISPLAY_CANVAS_VDUP_INDEX;
+    
+    printk("ge2d_store_frame_YUV420 cur_index:s:0x%x \n", cur_index);
+    /* operation top line*/
+    /* Y data*/
+    ge2d_config.alu_const_color= 0;
+    ge2d_config.bitmask_en  = 0;
+    ge2d_config.src1_gb_alpha = 0;
+    
+    y_index = cur_index & 0xff;
+    canvas_read(y_index,&cs);
+    ge2d_config.src_planes[0].addr = cs.addr;
+    ge2d_config.src_planes[0].w = cs.width;
+    ge2d_config.src_planes[0].h = cs.height;
+    ge2d_config.src_planes[1].addr = 0;
+    ge2d_config.src_planes[1].w = 0;
+    ge2d_config.src_planes[1].h = 0;
+    ge2d_config.src_planes[2].addr = 0;
+    ge2d_config.src_planes[2].w = 0;
+    ge2d_config.src_planes[2].h = 0;
+
+    yaddr = keep_phy_addr(keep_y_addr);
+    canvas_config(ydupindex,
+        (ulong)yaddr,
+        cs.width, cs.height,
+        CANVAS_ADDR_NOWRAP, cs.blkmode);
+    canvas_read(ydupindex,&cd);
+    ge2d_config.dst_planes[0].addr = cd.addr;
+    ge2d_config.dst_planes[0].w = cd.width;
+    ge2d_config.dst_planes[0].h = cd.height;
+    ge2d_config.dst_planes[1].addr = 0;
+    ge2d_config.dst_planes[1].w = 0;
+    ge2d_config.dst_planes[1].h = 0;
+    ge2d_config.dst_planes[2].addr = 0;
+    ge2d_config.dst_planes[2].w = 0;
+    ge2d_config.dst_planes[2].h = 0;
+
+    ge2d_config.src_key.key_enable = 0;
+    ge2d_config.src_key.key_mask = 0;
+    ge2d_config.src_key.key_mode = 0;
+    ge2d_config.src_key.key_color = 0;
+
+    ge2d_config.src_para.canvas_index = y_index;
+    ge2d_config.src_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.src_para.format = GE2D_FMT_S8_Y;
+    ge2d_config.src_para.fill_color_en = 0;
+    ge2d_config.src_para.fill_mode = 0;
+    ge2d_config.src_para.x_rev = 0;
+    ge2d_config.src_para.y_rev = 0;
+    ge2d_config.src_para.color = 0;
+    ge2d_config.src_para.top = 0;
+    ge2d_config.src_para.left = 0;
+    ge2d_config.src_para.width = cs.width;
+    ge2d_config.src_para.height = cs.height;
+
+    ge2d_config.dst_para.canvas_index = ydupindex;
+    ge2d_config.dst_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.dst_para.format = GE2D_FMT_S8_Y;
+    ge2d_config.dst_para.fill_color_en = 0;
+    ge2d_config.dst_para.fill_mode = 0;
+    ge2d_config.dst_para.x_rev = 0;
+    ge2d_config.dst_para.y_rev = 0;
+    ge2d_config.dst_xy_swap=0;
+    ge2d_config.dst_para.color = 0;
+    ge2d_config.dst_para.top = 0;
+    ge2d_config.dst_para.left = 0;
+    ge2d_config.dst_para.width = cs.width;
+    ge2d_config.dst_para.height = cs.height;
+
+    if(ge2d_context_config_ex(ge2d_video_context, &ge2d_config)<0) {
+        printk("++ge2d configing error.\n");
+        return -1;
+    }
+    stretchblt_noalpha(ge2d_video_context, 0, 0, cs.width, cs.height,0,0,cs.width,cs.height);
+
+    /* U data*/
+    ge2d_config.alu_const_color= 0;
+    ge2d_config.bitmask_en  = 0;
+    ge2d_config.src1_gb_alpha = 0;
+    
+    u_index = (cur_index >> 8) & 0xff;
+    canvas_read(u_index,&cs);
+    ge2d_config.src_planes[0].addr = cs.addr;
+    ge2d_config.src_planes[0].w = cs.width;
+    ge2d_config.src_planes[0].h = cs.height;
+    ge2d_config.src_planes[1].addr = 0;
+    ge2d_config.src_planes[1].w = 0;
+    ge2d_config.src_planes[1].h = 0;
+    ge2d_config.src_planes[2].addr = 0;
+    ge2d_config.src_planes[2].w = 0;
+    ge2d_config.src_planes[2].h = 0;
+
+    uaddr = keep_phy_addr(keep_u_addr);
+    canvas_config(udupindex,
+        (ulong)uaddr,
+        cs.width, cs.height,
+        CANVAS_ADDR_NOWRAP, cs.blkmode);
+    canvas_read(udupindex,&cd);
+    ge2d_config.dst_planes[0].addr = cd.addr;
+    ge2d_config.dst_planes[0].w = cd.width;
+    ge2d_config.dst_planes[0].h = cd.height;
+    ge2d_config.dst_planes[1].addr = 0;
+    ge2d_config.dst_planes[1].w = 0;
+    ge2d_config.dst_planes[1].h = 0;
+    ge2d_config.dst_planes[2].addr = 0;
+    ge2d_config.dst_planes[2].w = 0;
+    ge2d_config.dst_planes[2].h = 0;
+
+    ge2d_config.src_key.key_enable = 0;
+    ge2d_config.src_key.key_mask = 0;
+    ge2d_config.src_key.key_mode = 0;
+    ge2d_config.src_key.key_color = 0;
+
+    ge2d_config.src_para.canvas_index = u_index;
+    ge2d_config.src_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.src_para.format = GE2D_FMT_S8_CB;
+    ge2d_config.src_para.fill_color_en = 0;
+    ge2d_config.src_para.fill_mode = 0;
+    ge2d_config.src_para.x_rev = 0;
+    ge2d_config.src_para.y_rev = 0;
+    ge2d_config.src_para.color = 0;
+    ge2d_config.src_para.top = 0;
+    ge2d_config.src_para.left = 0;
+    ge2d_config.src_para.width = cs.width;
+    ge2d_config.src_para.height = cs.height;
+
+    ge2d_config.dst_para.canvas_index = udupindex;
+    ge2d_config.dst_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.dst_para.format = GE2D_FMT_S8_CB;
+    ge2d_config.dst_para.fill_color_en = 0;
+    ge2d_config.dst_para.fill_mode = 0;
+    ge2d_config.dst_para.x_rev = 0;
+    ge2d_config.dst_para.y_rev = 0;
+    ge2d_config.dst_xy_swap=0;
+    ge2d_config.dst_para.color = 0;
+    ge2d_config.dst_para.top = 0;
+    ge2d_config.dst_para.left = 0;
+    ge2d_config.dst_para.width = cs.width;
+    ge2d_config.dst_para.height = cs.height;
+
+    if(ge2d_context_config_ex(ge2d_video_context, &ge2d_config)<0) {
+        printk("++ge2d configing error.\n");
+        return -1;
+    }
+    stretchblt_noalpha(ge2d_video_context, 0, 0, cs.width, cs.height,0,0,cs.width,cs.height);
+
+     /* operation top line*/
+    /* V data*/
+    ge2d_config.alu_const_color= 0;
+    ge2d_config.bitmask_en  = 0;
+    ge2d_config.src1_gb_alpha = 0;
+    
+    v_index = (cur_index >> 16) & 0xff;
+    canvas_read(v_index,&cs);
+    ge2d_config.src_planes[0].addr = cs.addr;
+    ge2d_config.src_planes[0].w = cs.width;
+    ge2d_config.src_planes[0].h = cs.height;
+    ge2d_config.src_planes[1].addr = 0;
+    ge2d_config.src_planes[1].w = 0;
+    ge2d_config.src_planes[1].h = 0;
+    ge2d_config.src_planes[2].addr = 0;
+    ge2d_config.src_planes[2].w = 0;
+    ge2d_config.src_planes[2].h = 0;
+
+    vaddr = keep_phy_addr(keep_v_addr);
+    canvas_config(vdupindex,
+        (ulong)vaddr,
+        cs.width, cs.height,
+        CANVAS_ADDR_NOWRAP, cs.blkmode);
+    ge2d_config.dst_planes[0].addr = cd.addr;
+    ge2d_config.dst_planes[0].w = cd.width;
+    ge2d_config.dst_planes[0].h = cd.height;
+    ge2d_config.dst_planes[1].addr = 0;
+    ge2d_config.dst_planes[1].w = 0;
+    ge2d_config.dst_planes[1].h = 0;
+    ge2d_config.dst_planes[2].addr = 0;
+    ge2d_config.dst_planes[2].w = 0;
+    ge2d_config.dst_planes[2].h = 0;
+
+    ge2d_config.src_key.key_enable = 0;
+    ge2d_config.src_key.key_mask = 0;
+    ge2d_config.src_key.key_mode = 0;
+    ge2d_config.src_key.key_color = 0;
+
+    ge2d_config.src_para.canvas_index = v_index;
+    ge2d_config.src_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.src_para.format = GE2D_FMT_S8_CR;
+    ge2d_config.src_para.fill_color_en = 0;
+    ge2d_config.src_para.fill_mode = 0;
+    ge2d_config.src_para.x_rev = 0;
+    ge2d_config.src_para.y_rev = 0;
+    ge2d_config.src_para.color = 0;
+    ge2d_config.src_para.top = 0;
+    ge2d_config.src_para.left = 0;
+    ge2d_config.src_para.width = cs.width;
+    ge2d_config.src_para.height = cs.height;
+
+    ge2d_config.dst_para.canvas_index = vdupindex;
+    ge2d_config.dst_para.mem_type = CANVAS_TYPE_INVALID;
+    ge2d_config.dst_para.format = GE2D_FMT_S8_CR;
+    ge2d_config.dst_para.fill_color_en = 0;
+    ge2d_config.dst_para.fill_mode = 0;
+    ge2d_config.dst_para.x_rev = 0;
+    ge2d_config.dst_para.y_rev = 0;
+    ge2d_config.dst_xy_swap=0;
+    ge2d_config.dst_para.color = 0;
+    ge2d_config.dst_para.top = 0;
+    ge2d_config.dst_para.left = 0;
+    ge2d_config.dst_para.width = cs.width;
+    ge2d_config.dst_para.height = cs.height;
+
+    if(ge2d_context_config_ex(ge2d_video_context, &ge2d_config)<0) {
+        printk("++ge2d configing error.\n");
+        return -1;
+    }
+    stretchblt_noalpha(ge2d_video_context, 0, 0, cs.width, cs.height,0,0,cs.width,cs.height);
+    return 0;
+}
+
+static void ge2d_keeplastframe_block(int cur_index, int format)
+{
+    //u32 cur_index;
+    u32 y_index, u_index, v_index;
+#ifdef CONFIG_VSYNC_RDMA
+    u32 y_index2, u_index2, v_index2;
+#endif
+
     mutex_lock(&video_module_mutex);
-    ge2d_store_frame(keep_y_addr,keep_u_addr,DISPLAY_CANVAS_YDUP_INDEX,DISPLAY_CANVAS_UDUP_INDEX);
-    ge2d_show_frame(keep_y_addr,keep_u_addr);
+
+#ifdef CONFIG_VSYNC_RDMA
+    y_index = disp_canvas_index[0][0];
+    y_index2 = disp_canvas_index[1][0];
+    u_index = disp_canvas_index[0][1];
+    u_index2 = disp_canvas_index[1][1];
+    v_index = disp_canvas_index[2][0];
+    v_index2 = disp_canvas_index[2][1];
+#else
+    //cur_index = READ_VCBUS_REG(VD1_IF0_CANVAS0 + cur_dev->viu_off);
+    y_index = cur_index & 0xff;
+    u_index = (cur_index >> 8) & 0xff;
+    v_index = (cur_index >> 16) & 0xff;
+#endif
+
+    switch (format) {
+        case GE2D_FORMAT_M24_YUV444:
+            ge2d_store_frame_YUV444(cur_index);
+            canvas_update_addr(y_index, keep_phy_addr(keep_y_addr));
+#ifdef CONFIG_VSYNC_RDMA
+            canvas_update_addr(y_index2, keep_phy_addr(keep_y_addr));
+#endif
+            break;
+        case GE2D_FORMAT_M24_NV21:
+            ge2d_store_frame_NV21(cur_index);
+            canvas_update_addr(y_index, keep_phy_addr(keep_y_addr));
+            canvas_update_addr(u_index, keep_phy_addr(keep_u_addr));
+#ifdef CONFIG_VSYNC_RDMA
+            canvas_update_addr(y_index2, keep_phy_addr(keep_y_addr));
+            canvas_update_addr(u_index2, keep_phy_addr(keep_u_addr));
+#endif
+            break;
+        case GE2D_FORMAT_M24_YUV420:
+            ge2d_store_frame_YUV420(cur_index);
+            canvas_update_addr(y_index, keep_phy_addr(keep_y_addr));
+            canvas_update_addr(u_index, keep_phy_addr(keep_u_addr));
+            canvas_update_addr(v_index, keep_phy_addr(keep_v_addr));
+#ifdef CONFIG_VSYNC_RDMA
+            canvas_update_addr(y_index2, keep_phy_addr(keep_y_addr));
+            canvas_update_addr(u_index2, keep_phy_addr(keep_u_addr));
+            canvas_update_addr(v_index2, keep_phy_addr(keep_v_addr));
+#endif
+            break;
+        default:
+            break;
+    }
     mutex_unlock(&video_module_mutex);
 
 }
 
-#endif 
+#endif
 
 /*********************************************************/
 static inline vframe_t *video_vf_peek(void)
@@ -1214,8 +1580,9 @@ u32 property_changed_true=0;
 static void vsync_toggle_frame(vframe_t *vf)
 {
     u32 first_picture = 0;
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     unsigned long flags;
-
+#endif
     frame_count++;
     if(debug_flag& DEBUG_FLAG_PRINT_TOGGLE_FRAME){
         printk("%s()\n", __func__);
@@ -1346,7 +1713,7 @@ static void vsync_toggle_frame(vframe_t *vf)
             video_prot.prot3_canvas = (disp_canvas[rdma_canvas_id][0] >> 8) & 0xff;
              VSYNC_WR_MPEG_REG_BITS(VPU_PROT2_DDR, video_prot.prot2_canvas, 0, 8);
              VSYNC_WR_MPEG_REG_BITS(VPU_PROT3_DDR, video_prot.prot3_canvas, 0, 8);
-        }	 
+        }
 #endif
 #else
         canvas_copy(vf->canvas0Addr & 0xff, disp_canvas_index[0]);
@@ -1513,8 +1880,8 @@ amlog_mask(LOG_MASK_FRAMEINFO,
 #endif
     }
 
-    cur_dispbuf = vf;
-    if ((vf->type & VIDTYPE_NO_VIDEO_ENABLE) == 0&&!property_changed_true) {
+    if (((vf->type & VIDTYPE_NO_VIDEO_ENABLE) == 0) && 
+        ((!property_changed_true) || (vf != cur_dispbuf))) {
         if (disable_video == VIDEO_DISABLE_FORNEXT) {
             EnableVideoLayer();
             disable_video = VIDEO_DISABLE_NONE;
@@ -1522,10 +1889,12 @@ amlog_mask(LOG_MASK_FRAMEINFO,
         if (first_picture && (disable_video != VIDEO_DISABLE_NORMAL)) {
             EnableVideoLayer();
 
-            if (cur_dispbuf->type & VIDTYPE_MVC)
+            if (vf->type & VIDTYPE_MVC)
                 VSYNC_EnableVideoLayer2();
         }
     }
+
+    cur_dispbuf = vf;
 
     if (first_picture) {
         frame_par_ready_to_set = 1;
@@ -1728,9 +2097,10 @@ static void viu_set_dcu(vpp_frame_par_t *frame_par, vframe_t *vf)
     }
 #else
     /* picture 0/1 control */
-    if (((vf->type & VIDTYPE_INTERLACE) == 0) &&
+    if ((((vf->type & VIDTYPE_INTERLACE) == 0) &&
         ((vf->type & VIDTYPE_VIU_FIELD) == 0) &&
-        ((vf->type & VIDTYPE_MVC) == 0)||(frame_par->vpp_2pic_mode&0x3)) {
+        ((vf->type & VIDTYPE_MVC) == 0))||
+        (frame_par->vpp_2pic_mode&0x3)) {
         /* progressive frame in two pictures */
 	if(frame_par->vpp_2pic_mode&VPP_PIC1_FIRST) {
 	    VSYNC_WR_MPEG_REG(VD1_IF0_LUMA_PSEL+ cur_dev->viu_off,
@@ -1797,12 +2167,12 @@ static int detect_vout_type(void)
             default:
                 break;
         }
-#ifdef CONFIG_VSYNC_RDMA    
-        if (is_vsync_rdma_enable()){        
-            if(vout_type == VOUT_TYPE_TOP_FIELD)            
-                vout_type = VOUT_TYPE_BOT_FIELD;        
-            else if(vout_type == VOUT_TYPE_BOT_FIELD)           
-                vout_type = VOUT_TYPE_TOP_FIELD;    
+#ifdef CONFIG_VSYNC_RDMA
+        if (is_vsync_rdma_enable()){
+            if(vout_type == VOUT_TYPE_TOP_FIELD)
+                vout_type = VOUT_TYPE_BOT_FIELD;
+            else if(vout_type == VOUT_TYPE_BOT_FIELD)
+                vout_type = VOUT_TYPE_TOP_FIELD;
         }
 #endif
     }
@@ -1951,7 +2321,8 @@ static inline bool vpts_expire(vframe_t *cur_vf, vframe_t *next_vf)
     }
     /* check video PTS discontinuity */
     else if ((enable_video_discontinue_report) &&
-             (abs(systime - pts) > tsync_vpts_discontinuity_margin())) {
+             (abs(systime - pts) > tsync_vpts_discontinuity_margin()) &&
+             ((next_vf->flag & VFRAME_FLAG_NO_DISCONTINUE) == 0)) {
         pts = timestamp_vpts_get() + (cur_vf ? DUR2PTS(cur_vf->duration) : 0);
 			//printk("system=0x%x vpts=0x%x\n", systime, timestamp_vpts_get());
         if ((int)(systime - pts) >= 0){
@@ -1959,13 +2330,13 @@ static inline bool vpts_expire(vframe_t *cur_vf, vframe_t *next_vf)
       			tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, next_vf->pts);
 		else
 			tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY, pts);
-		
+
     		printk(" discontinue, system=0x%x vpts=0x%x\n", systime, pts);
 
 		if(systime>next_vf->pts || next_vf->pts==0){// pts==0 is a keep frame maybe.
             		return true;
 	 	}
-		
+
             	return false;
         }
     }
@@ -2002,7 +2373,7 @@ static inline bool vpts_expire(vframe_t *cur_vf, vframe_t *next_vf)
             } else{
                 vsync_pts_inc_adj = 0;
                 vsync_pts_100++;
-            }	
+            }
         }
     }
 #endif
@@ -2196,8 +2567,11 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
     s32 i, vout_type;
     vframe_t *vf;
     unsigned long flags;
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     vdin_v4l2_ops_t *vdin_ops = NULL;
     vdin_arg_t arg;
+#endif
+	bool show_nosync=false;
 
 #ifdef CONFIG_AM_VIDEO_LOG
     int toggle_cnt;
@@ -2210,7 +2584,9 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
         if(cur_dev_idx == 0){
             cur_dev = &video_dev[0];
             vinfo = get_current_vinfo();
-    	      vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+    	    vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+            vsync_pts_inc_scale = vinfo->sync_duration_den;
+            vsync_pts_inc_scale_base = vinfo->sync_duration_num;
             video_property_changed = true;
             printk("Change to video 0\n");
         }
@@ -2219,12 +2595,13 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
         if(cur_dev_idx != 0){
             cur_dev = &video_dev[1];
             vinfo = get_current_vinfo2();
-    	      vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+    	    vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+            vsync_pts_inc_scale = vinfo->sync_duration_den;
+            vsync_pts_inc_scale_base = vinfo->sync_duration_num;
             video_property_changed = true;
             printk("Change to video 1\n");
         }
     }
-
 
     if((dev_id_s[dev_id_len-1] == '2' && cur_dev_idx == 0) ||
         (dev_id_s[dev_id_len-1] != '2' && cur_dev_idx != 0)){
@@ -2232,6 +2609,7 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
     }
     //printk("%s: %s\n", __func__, dev_id_s);
 #endif
+
     vf = video_vf_peek();
     if((vf)&&((vf->type & VIDTYPE_NO_VIDEO_ENABLE) == 0)){
 	    if( (old_vmode != new_vmode)||(debug_flag == 8)){
@@ -2315,7 +2693,12 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
             printk("invalid vsync_slow_factor, set to 1\n");
             vsync_slow_factor = 1;
         }
-        timestamp_pcrscr_inc(vsync_pts_inc / vsync_slow_factor);
+
+        if (vsync_slow_factor == 1) {
+            timestamp_pcrscr_inc_scale(vsync_pts_inc_scale, vsync_pts_inc_scale_base);
+        } else {
+            timestamp_pcrscr_inc(vsync_pts_inc / vsync_slow_factor);
+        }
         timestamp_apts_inc(vsync_pts_inc / vsync_slow_factor);
     }
     if (omx_secret_mode == true) {
@@ -2408,10 +2791,14 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
             tsync_avevent_locked(VIDEO_START,
                           (vf->pts) ? vf->pts : timestamp_vpts_get());
 
+
 #ifdef SLOW_SYNC_REPEAT
             frame_repeat_count = 0;
 #endif
 
+	     if(show_first_frame_nosync)
+	   	  show_nosync=true;
+	   	
         } else if ((cur_dispbuf == &vf_local) && (video_property_changed)) {
             if (!(blackout|force_blackout)) {
         			if((READ_VCBUS_REG(DI_IF1_GEN_REG)&0x1)==0)
@@ -2442,7 +2829,7 @@ static irqreturn_t vsync_isr(int irq, void *dev_id)
     }
 
     while (vf) {
-        if (vpts_expire(cur_dispbuf, vf)) {
+        if (vpts_expire(cur_dispbuf, vf)||show_nosync) {
             amlog_mask(LOG_MASK_TIMESTAMP,
                        "VIDEO_PTS = 0x%x, cur_dur=0x%x, next_pts=0x%x, scr = 0x%x\n",
                        timestamp_vpts_get(),
@@ -2754,7 +3141,6 @@ SET_FILTER:
     }
 
 exit:
-
     if (likely(video_onoff_state != VIDEO_ENABLE_STATE_IDLE)) {
         /* state change for video layer enable/disable */
 
@@ -2855,19 +3241,20 @@ exit:
 static int alloc_keep_buffer(void)
 {
     amlog_mask(LOG_MASK_KEEPBUF, "alloc_keep_buffer\n");
-
     if(!keep_y_addr){
         keep_y_addr = __get_free_pages(GFP_KERNEL, get_order(Y_BUFFER_SIZE));
         if (!keep_y_addr) {
             amlog_mask(LOG_MASK_KEEPBUF, "%s: failed to alloc y addr\n", __FUNCTION__);
             goto err1;
         }
-
+        printk("alloc_keep_buffer keep_y_addr %x\n",(unsigned int)keep_y_addr);
+#ifndef CONFIG_GE2D_KEEP_FRAME
         keep_y_addr_remap = ioremap_nocache(virt_to_phys((u8 *)keep_y_addr), Y_BUFFER_SIZE);
         if (!keep_y_addr_remap) {
                 amlog_mask(LOG_MASK_KEEPBUF, "%s: failed to remap y addr\n", __FUNCTION__);
                 goto err2;
         }
+#endif		
     }
 
     if(!keep_u_addr){
@@ -2876,12 +3263,14 @@ static int alloc_keep_buffer(void)
             amlog_mask(LOG_MASK_KEEPBUF, "%s: failed to alloc u addr\n", __FUNCTION__);
             goto err3;
         }
-
+        printk("alloc_keep_buffer keep_u_addr %x\n",(unsigned int)keep_u_addr);
+#ifndef CONFIG_GE2D_KEEP_FRAME
         keep_u_addr_remap = ioremap_nocache(virt_to_phys((u8 *)keep_u_addr), U_BUFFER_SIZE);
         if (!keep_u_addr_remap) {
             amlog_mask(LOG_MASK_KEEPBUF, "%s: failed to remap u addr\n", __FUNCTION__);
             goto err4;
         }
+#endif		
     }
 
     if(!keep_v_addr){
@@ -2890,47 +3279,46 @@ static int alloc_keep_buffer(void)
             amlog_mask(LOG_MASK_KEEPBUF, "%s: failed to alloc v addr\n", __FUNCTION__);
             goto err5;
         }
-
+        printk("alloc_keep_buffer keep_v_addr %x\n",(unsigned int)keep_v_addr);
+#ifndef CONFIG_GE2D_KEEP_FRAME
         keep_v_addr_remap = ioremap_nocache(virt_to_phys((u8 *)keep_v_addr), U_BUFFER_SIZE);
         if (!keep_v_addr_remap) {
             amlog_mask(LOG_MASK_KEEPBUF, "%s: failed to remap v addr\n", __FUNCTION__);
             goto err6;
         }
+#endif		
     }
-    printk("yaddr=%x,u_addr=%x,v_addr=%x\n",keep_y_addr,keep_u_addr,keep_v_addr);	
+    printk("yaddr=%lx,u_addr=%lx,v_addr=%lx\n",keep_y_addr,keep_u_addr,keep_v_addr);
     return 0;
-
+	
+#ifndef CONFIG_GE2D_KEEP_FRAME	
 err6:
+#endif
     free_pages(keep_v_addr, get_order(U_BUFFER_SIZE));
     keep_v_addr = 0;
 err5:
+    if(keep_u_addr_remap)
     iounmap(keep_u_addr_remap);
     keep_u_addr_remap = NULL;
+#ifndef CONFIG_GE2D_KEEP_FRAME	
 err4:
+#endif
     free_pages(keep_u_addr, get_order(U_BUFFER_SIZE));
     keep_u_addr = 0;
 err3:
+    if(keep_y_addr_remap)
     iounmap(keep_y_addr_remap);
     keep_y_addr_remap = NULL;
+#ifndef CONFIG_GE2D_KEEP_FRAME		
 err2:
+#endif
     free_pages(keep_y_addr, get_order(Y_BUFFER_SIZE));
     keep_y_addr = 0;
 err1:
     return -ENOMEM;
 }
 
-static inline ulong keep_phy_addr(ulong addr)
-{
-    if (addr == 0) {
-        return 0;
-    }
 
-#ifdef CONFIG_KEEP_FRAME_RESERVED
-    return addr;
-#else
-    return (ulong)virt_to_phys((u8 *)addr);
-#endif
-}
 
 void get_video_keep_buffer(ulong *addr, ulong *phys_addr)
 {
@@ -3084,14 +3472,14 @@ static void video_vf_unreg_provider(void)
         switch_mod_gate_by_name("ge2d", 0);
     }
     tsync_avevent(VIDEO_STOP, 0);
-#else    
+#else
     //if (!trickmode_fffb)
     if (cur_dispbuf)
     {
         vf_keep_current();
     }
     tsync_avevent(VIDEO_STOP, 0);
- #endif   
+ #endif
     atomic_set(&video_unreg_flag, 0);
     enable_video_discontinue_report = 1;
 }
@@ -3137,6 +3525,9 @@ static int video_receiver_event_fun(int type, void* data, void* private_data)
         set_clone_frame_rate(android_clone_rate, 200);
 #endif
     }
+    else if(type == VFRAME_EVENT_PROVIDER_RESET) {
+        video_vf_light_unreg_provider();
+    }
     else if(type == VFRAME_EVENT_PROVIDER_LIGHT_UNREG){
         video_vf_light_unreg_provider();
     }
@@ -3166,6 +3557,12 @@ static int video_receiver_event_fun(int type, void* data, void* private_data)
         if(debug_flag& DEBUG_FLAG_BLACKOUT){
             printk("%s VFRAME_EVENT_PROVIDER_FORCE_BLACKOUT\n", __func__);
         }
+    }
+    else if(type == VFRAME_EVENT_PROVIDER_FR_HINT){
+        set_vframe_rate_hint((int)data);
+    }
+    else if(type == VFRAME_EVENT_PROVIDER_FR_END_HINT){
+        set_vframe_rate_end_hint();
     }
     return 0;
 }
@@ -3233,12 +3630,18 @@ unsigned int vf_keep_current(void)
     if (0 == (READ_VCBUS_REG(VPP_MISC + cur_dev->vpp_off) & VPP_VD1_POSTBLEND)) {
         return 0;
     }
-
+#ifdef CONFIG_GE2D_KEEP_FRAME
+   //if (!keep_y_addr || (cur_dispbuf->type & VIDTYPE_VIU_NV21) != VIDTYPE_VIU_NV21) {
+   if (!keep_y_addr || (cur_dispbuf->type & VIDTYPE_VIU_422) == VIDTYPE_VIU_422) {
+    	//no support VIDTYPE_VIU_422...
+    	return -1;
+   }
+#else
     if (!keep_y_addr_remap) {
         //if (alloc_keep_buffer())
         return -1;
     }
-
+#endif
     cur_index = READ_VCBUS_REG(VD1_IF0_CANVAS0 + cur_dev->viu_off);
     y_index = cur_index & 0xff;
     u_index = (cur_index >> 8) & 0xff;
@@ -3248,7 +3651,8 @@ unsigned int vf_keep_current(void)
     	printk("%s %lx %x\n", __func__, keep_y_addr, canvas_get_addr(y_index));
     }
 
-    if ((cur_dispbuf->type & VIDTYPE_VIU_422) == VIDTYPE_VIU_422) {
+    if ((cur_dispbuf->type & VIDTYPE_VIU_422) == VIDTYPE_VIU_422) { 
+        return -1;  //no VIDTYPE_VIU_422 type frame need keep,avoid memcpy crash
         canvas_read(y_index,&cd);
         if ((Y_BUFFER_SIZE < (cd.width *cd.height))) {
             printk("## [%s::%d] error: yuv data size larger than buf size: %x,%x,%x, %x,%x\n", __FUNCTION__,__LINE__,
@@ -3274,6 +3678,9 @@ unsigned int vf_keep_current(void)
             Y_BUFFER_SIZE,U_BUFFER_SIZE, V_BUFFER_SIZE, cd.width,cd.height);
             return -1;
         }
+#ifdef CONFIG_GE2D_KEEP_FRAME
+        ge2d_keeplastframe_block(cur_index, GE2D_FORMAT_M24_YUV444);
+#else
         if (keep_phy_addr(keep_y_addr) != canvas_get_addr(y_index) &&
             canvas_dup(keep_y_addr_remap, canvas_get_addr(y_index), (cd.width)*(cd.height))){
 #ifdef CONFIG_VSYNC_RDMA
@@ -3282,9 +3689,10 @@ unsigned int vf_keep_current(void)
 #else
             canvas_update_addr(y_index, keep_phy_addr(keep_y_addr));
 #endif
-            if(debug_flag& DEBUG_FLAG_BLACKOUT){
-                printk("%s: VIDTYPE_VIU_444\n", __func__);
-            }
+       }
+#endif
+        if(debug_flag& DEBUG_FLAG_BLACKOUT){
+            printk("%s: VIDTYPE_VIU_444\n", __func__);
         }
     } else if((cur_dispbuf->type & VIDTYPE_VIU_NV21) == VIDTYPE_VIU_NV21){
         canvas_read(y_index,&cs0);
@@ -3294,9 +3702,9 @@ unsigned int vf_keep_current(void)
             Y_BUFFER_SIZE,U_BUFFER_SIZE, V_BUFFER_SIZE, cs0.width,cs0.height,cs1.width,cs1.height);
             return -1;
         }
- #ifdef CONFIG_GE2D_KEEP_FRAME
-        ge2d_keeplastframe_block();
-#else       
+#ifdef CONFIG_GE2D_KEEP_FRAME
+        ge2d_keeplastframe_block(cur_index, GE2D_FORMAT_M24_NV21);
+#else
         if (keep_phy_addr(keep_y_addr) != canvas_get_addr(y_index) &&
             canvas_dup(keep_y_addr_remap, canvas_get_addr(y_index), (cs0.width *cs0.height)) &&
             canvas_dup(keep_u_addr_remap, canvas_get_addr(u_index), (cs1.width *cs1.height))){
@@ -3325,7 +3733,9 @@ unsigned int vf_keep_current(void)
                 Y_BUFFER_SIZE,U_BUFFER_SIZE, V_BUFFER_SIZE, cs0.width,cs0.height, cs1.width,cs1.height, cs2.width,cs2.height);
             return -1;
         }
-
+#ifdef CONFIG_GE2D_KEEP_FRAME
+        ge2d_keeplastframe_block(cur_index, GE2D_FORMAT_M24_YUV420);
+#else
         if (keep_phy_addr(keep_y_addr) != canvas_get_addr(y_index) && /*must not the same address*/
             canvas_dup(keep_y_addr_remap, canvas_get_addr(y_index), (cs0.width *cs0.height)) &&
             canvas_dup(keep_u_addr_remap, canvas_get_addr(u_index), (cs1.width *cs1.height)) &&
@@ -3342,10 +3752,12 @@ unsigned int vf_keep_current(void)
             canvas_update_addr(u_index, keep_phy_addr(keep_u_addr));
             canvas_update_addr(v_index, keep_phy_addr(keep_v_addr));
 #endif
-            if(debug_flag& DEBUG_FLAG_BLACKOUT){
-                printk("%s: VIDTYPE_VIU_420\n", __func__);
-            }
         }
+        
+        if(debug_flag& DEBUG_FLAG_BLACKOUT){
+            printk("%s: VIDTYPE_VIU_420\n", __func__);
+        }
+#endif
     }
 
     return 0;
@@ -3490,7 +3902,7 @@ static long amvideo_ioctl(struct file *file,
     case AMSTREAM_IOC_SET_OMX_VPTS:
         {
             u32 pts;
-            memcpy(&pts,arg,sizeof(u32));
+            get_user(pts,(unsigned long __user *)arg);
             omx_pts = pts;
         }
         break;
@@ -3764,7 +4176,7 @@ static long amvideo_ioctl(struct file *file,
     case AMSTREAM_IOC_SET_VSYNC_SLOW_FACTOR:
         vsync_slow_factor = arg;
         break;
-        
+
 #if MESON_CPU_TYPE < MESON_CPU_TYPE_MESON6
     /**********************************************************************
     video enhancement ioctl
@@ -4141,7 +4553,9 @@ static ssize_t video_zoom_store(struct class *cla, struct class_attribute *attr,
 
 static ssize_t video_screen_mode_show(struct class *cla, struct class_attribute *attr, char *buf)
 {
-    const char *wide_str[] = {"normal", "full stretch", "4-3", "16-9", "non-linear", "normal-noscaleup"};
+    const char *wide_str[] = {"normal", "full stretch", "4-3", "16-9", "non-linear", "normal-noscaleup",
+			"4-3 ignore", "4-3 letter box", "4-3 pan scan", "4-3 combined",
+			"16-9 ignore", "16-9 letter box", "16-9 pan scan", "16-9 combined"};
 
     if (wide_setting < ARRAY_SIZE(wide_str)) {
         return sprintf(buf, "%d:%s\n", wide_setting, wide_str[wide_setting]);
@@ -4649,13 +5063,13 @@ static ssize_t vframe_states_show(struct class *cla, struct class_attribute* att
     int ret = 0;
     vframe_states_t states;
     unsigned long flags;
-	
+
     if (vf_get_states(&states) == 0) {
         ret += sprintf(buf + ret, "vframe_pool_size=%d\n", states.vf_pool_size);
         ret += sprintf(buf + ret, "vframe buf_free_num=%d\n", states.buf_free_num);
         ret += sprintf(buf + ret, "vframe buf_recycle_num=%d\n", states.buf_recycle_num);
         ret += sprintf(buf + ret, "vframe buf_avail_num=%d\n", states.buf_avail_num);
- 			
+
         spin_lock_irqsave(&lock, flags);
         {
             vframe_t *vf;
@@ -4860,6 +5274,30 @@ static ssize_t video_angle_store(struct class *cla, struct class_attribute *attr
     return strnlen(buf, count);
 }
 
+static ssize_t show_first_frame_nosync_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", show_first_frame_nosync?1:0);
+}
+
+static ssize_t show_first_frame_nosync_store(struct class *cla, struct class_attribute *attr, const char *buf,
+                                   size_t count)
+{
+    size_t r;
+    int value;    
+
+    r = sscanf(buf, "%d", &value);
+
+    if (r != 1) {
+        return -EINVAL;
+    }
+
+    if(value==0)
+	show_first_frame_nosync=false;
+    else
+	show_first_frame_nosync=true;
+
+    return count;
+}
 static struct class_attribute amvideo_class_attrs[] = {
     __ATTR(axis,
     S_IRUGO | S_IWUSR | S_IWGRP,
@@ -4960,6 +5398,10 @@ static struct class_attribute amvideo_class_attrs[] = {
     __ATTR(stereo_scaler,
     S_IRUGO|S_IWUSR,NULL,
     video_3d_scale_store),
+   __ATTR(show_first_frame_nosync,
+    S_IRUGO | S_IWUSR,
+    show_first_frame_nosync_show,
+    show_first_frame_nosync_store),
     __ATTR_RO(device_resolution),
     __ATTR_RO(frame_addr),
     __ATTR_RO(frame_canvas_width),
@@ -5027,7 +5469,7 @@ static int amvideo_class_resume(struct device *dev)
   ((VPP_VD2_ALPHA_MASK << VPP_VD2_ALPHA_BIT) | VPP_VD2_PREBLEND | VPP_VD1_PREBLEND | VPP_VD2_POSTBLEND | VPP_VD1_POSTBLEND | VPP_POSTBLEND_EN)
 
     if (pm_state.event == PM_EVENT_SUSPEND) {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8		
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
         switch_vpu_mem_pd_vmod(VPU_VIU_VD1, pm_state.mem_pd_vd1);
         switch_vpu_mem_pd_vmod(VPU_VIU_VD2, pm_state.mem_pd_vd2);
         switch_vpu_mem_pd_vmod(VPU_DI_POST, pm_state.mem_pd_di_post);
@@ -5088,6 +5530,8 @@ int vout_notify_callback(struct notifier_block *block, unsigned long cmd , void 
   	vinfo = info;
 	/* pre-calculate vsync_pts_inc in 90k unit */
     	vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+        vsync_pts_inc_scale = vinfo->sync_duration_den;
+        vsync_pts_inc_scale_base = vinfo->sync_duration_num;
 	spin_unlock_irqrestore(&lock, flags);
 	new_vmode = vinfo->mode;
 	break;
@@ -5119,6 +5563,8 @@ int vout2_notify_callback(struct notifier_block *block, unsigned long cmd , void
   	vinfo = info;
 	/* pre-calculate vsync_pts_inc in 90k unit */
     	vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+        vsync_pts_inc_scale = vinfo->sync_duration_den;
+        vsync_pts_inc_scale_base = vinfo->sync_duration_num;
 	spin_unlock_irqrestore(&lock, flags);
 	break;
 	case VOUT_EVENT_OSD_PREBLEND_ENABLE:
@@ -5166,6 +5612,8 @@ static void vout_hook(void)
 
     if (vinfo) {
         vsync_pts_inc = 90000 * vinfo->sync_duration_den / vinfo->sync_duration_num;
+        vsync_pts_inc_scale = vinfo->sync_duration_den;
+        vsync_pts_inc_scale_base = vinfo->sync_duration_num;
         old_vmode = new_vmode = vinfo->mode;
     }
 

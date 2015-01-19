@@ -25,6 +25,7 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 #include <mach/am_regs.h>
 
 #include <linux/amlogic/vout/vinfo.h>
@@ -383,6 +384,8 @@ static void cvbs_performance_enhancement(tvmode_t mode)
 
 #endif// end of CVBS_PERFORMANCE_COMPATIBLITY_SUPPORT
 
+static DEFINE_MUTEX(setmode_mutex);
+
 int tvoutc_setmode(tvmode_t mode)
 {
     const  reg_t *s;
@@ -395,7 +398,7 @@ int tvoutc_setmode(tvmode_t mode)
         printk(KERN_ERR "Invalid video output modes.\n");
         return -ENODEV;
     }
-
+    mutex_lock(&setmode_mutex);
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 //TODO
 //    switch_mod_gate_by_name("venc", 1);
@@ -423,6 +426,7 @@ int tvoutc_setmode(tvmode_t mode)
         uboot_display_flag = 0;
         if(uboot_display_already(mode)) {
             printk("already display in uboot\n");
+            mutex_unlock(&setmode_mutex);
             return 0;
         }
     }
@@ -484,19 +488,40 @@ int tvoutc_setmode(tvmode_t mode)
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 1, 8, 4); //reg0x271a,Enable VIU of ENC_I domain to VDIN;
 			  break;
 		case TVMODE_480P:
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_480P_59HZ:
+#endif
 		case TVMODE_480P_RPT:
 		case TVMODE_576P:
 		case TVMODE_576P_RPT:
 		case TVMODE_720P:
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_720P_59HZ:
+#endif
 		case TVMODE_720P_50HZ:
 		case TVMODE_1080I: //??
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_1080I_59HZ:
+#endif
 		case TVMODE_1080I_50HZ: //??
 		case TVMODE_1080P:
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_1080P_59HZ:
+#endif
 		case TVMODE_1080P_50HZ:
 		case TVMODE_1080P_24HZ:
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_1080P_23HZ:
+#endif
         case TVMODE_4K2K_30HZ:
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_4K2K_29HZ:
+#endif
         case TVMODE_4K2K_25HZ:
         case TVMODE_4K2K_24HZ:
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+		case TVMODE_4K2K_23HZ:
+#endif
         case TVMODE_4K2K_SMPTE:
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 2, 0, 2); //reg0x271a, select ENCP to VIU1
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 2, 4, 4); //reg0x271a, Select encP clock to VDIN
@@ -542,19 +567,18 @@ printk(" clk_util_clk_msr 29 = %d\n", clk_util_clk_msr(29));
     if( (mode==TVMODE_480CVBS) || (mode==TVMODE_576CVBS) )
     {
         msleep(1000);
-#ifdef CONFIG_ARCH_MESON8B
+
 		CLK_GATE_ON(VCLK2_ENCI);
 		CLK_GATE_ON(VCLK2_VENCI1);
         CLK_GATE_ON(CTS_ENCI);
         CLK_GATE_ON(CTS_VDAC);
 		CLK_GATE_ON(DAC_CLK);
-#endif
+
         cvbs_cntl_output(1);
     }
 #endif
 //while(1);
-
-
+    mutex_unlock(&setmode_mutex);
     return 0;
 }
 

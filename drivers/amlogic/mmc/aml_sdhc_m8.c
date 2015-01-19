@@ -1358,6 +1358,9 @@ void aml_sdhc_request(struct mmc_host *mmc, struct mmc_request *mrq)
     else
         timeout = 500;//mod_timer(&host->timeout_tlist,
                 //jiffies + 500/*10*nsecs_to_jiffies(mrq->data->timeout_ns)*/); // 5s
+    
+    if(mrq->cmd->opcode == MMC_ERASE) //about 30S for erase cmd.
+        timeout = 3000;
              
     schedule_delayed_work(&host->timeout, timeout);
 
@@ -1687,11 +1690,11 @@ irqreturn_t aml_sdhc_data_thread(int irq, void *data)
 	                    for(i=0; i< STAT_POLL_TIMEOUT; i++){
 #if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
 				    if(IS_MESON_M8_CPU){
-		                        dmc_sts = readl((unsigned int *)P_MMC_CHAN_STS);
+		                        dmc_sts = aml_read_reg32(P_MMC_CHAN_STS);
 		                        dmc_sts = (dmc_sts >> 11)&1;
 				    } 
 				    else{
-		                        dmc_sts = readl(P_DMC_CHAN_STS);
+		                        dmc_sts = aml_read_reg32(P_DMC_CHAN_STS);
 		                        dmc_sts = (dmc_sts >> 15)&1;  
 				    }
 #endif  

@@ -31,13 +31,15 @@
 
 typedef struct 
 {
-	const vinfo_t* (*get_vinfo)(void);
-	int		 (*set_vmode)(vmode_t);
-	vmode_t  (*validate_vmode)(char *);
-	int		(*vmode_is_supported)(vmode_t);
-	int		(*disable)(vmode_t );
-	int		(*vout_suspend)(void);
-	int		(*vout_resume)(void);
+    const vinfo_t* (*get_vinfo)(void);
+    int	           (*set_vmode)(vmode_t);
+    vmode_t        (*validate_vmode)(char *);
+    int            (*vmode_is_supported)(vmode_t);
+    int            (*disable)(vmode_t );
+    int            (*set_vframe_rate_hint)(int);
+    int            (*set_vframe_rate_end_hint)(void);
+    int            (*vout_suspend)(void);
+    int            (*vout_resume)(void);
 }vout_op_t ;
 
 
@@ -66,11 +68,13 @@ extern const vinfo_t *get_current_vinfo(void);
 extern vmode_t get_current_vmode(void);
 extern int set_current_vmode(vmode_t);
 extern vmode_t validate_vmode(char *);
+extern int set_vframe_rate_hint(int);
+extern int set_vframe_rate_end_hint(void);
 
 extern int vout_suspend(void); 
 extern int vout_resume(void);
 
-extern int get_power_level();
+extern int get_power_level(void);
 
 
 #define VOUT_EVENT_MODE_CHANGE		0x00010000	

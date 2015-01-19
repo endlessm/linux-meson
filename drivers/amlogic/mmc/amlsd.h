@@ -7,7 +7,7 @@
 #define AML_MMC_MAJOR_VERSION   1
 #define AML_MMC_MINOR_VERSION   07
 #define AML_MMC_VERSION         ((AML_MMC_MAJOR_VERSION << 8) | AML_MMC_MINOR_VERSION)
-#define AML_MMC_VER_MESSAGE     "2014-06-30: eMMC add hw reset function"
+#define AML_MMC_VER_MESSAGE     "2014-09-23: eMMC fix the SDIO data1 interrupt caused timeout error problem"
 
 extern unsigned sdhc_debug;
 extern unsigned sdio_debug;
@@ -73,10 +73,10 @@ void aml_sd_uart_detect_clr (struct amlsd_platform* pdata);
 		prop = 0;													\
 	    if (DEBUG_SD_OF) {                                          \
 	        printk("get property:%25s, value:0x%08x\n",    			\
-	            prop_name, value);                           		\
+	            prop_name, (unsigned int)value);                           		\
 	    }															\
     }
-	
+
 #define SD_PARSE_GPIO_NUM_PROP(node, prop_name, str, gpio_pin)		\
 	if(!of_property_read_string(node, prop_name, &str)) { 			\
 		gpio_pin = amlogic_gpio_name_map_num(str);					\
@@ -85,7 +85,7 @@ void aml_sd_uart_detect_clr (struct amlsd_platform* pdata);
 	            prop_name, str);    								\
 		}															\
 	}
-	
+
 #define SD_PARSE_STRING_PROP(node, prop_name, str, prop)      		\
 	if (!of_property_read_string(node, prop_name, &str)){ 			\
 		strcpy(prop, str);											\
