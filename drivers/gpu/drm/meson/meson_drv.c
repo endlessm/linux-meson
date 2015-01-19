@@ -26,6 +26,7 @@
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_flip_work.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_gem_cma_helper.h>
@@ -623,6 +624,7 @@ struct meson_drm_private {
 
 	struct drm_atomic_state *cleanup_state;
 	struct workqueue_struct *unref_wq;
+	struct drm_flip_work unref_work;
 };
 
 static void meson_fb_output_poll_changed(struct drm_device *dev)
@@ -643,6 +645,7 @@ static int meson_atomic_commit(struct drm_device *dev,
 			       struct drm_atomic_state *state,
 			       bool async)
 {
+	struct meson_drm_private *priv = dev->dev_private;
 	int ret;
 
 	ret = drm_atomic_helper_prepare_planes(dev, state);
@@ -660,7 +663,9 @@ static int meson_atomic_commit(struct drm_device *dev,
 	drm_atomic_helper_commit_planes(dev, state);
 	drm_atomic_helper_commit_post_planes(dev, state);
 
-	if (!async) {
+	if (async) {
+		priv->cleanup_state = state;
+	} else {
 		drm_atomic_helper_wait_for_vblanks(dev, state);
 		cleanup_atomic_state(dev, state);
 	}
@@ -674,6 +679,14 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_check        = drm_atomic_helper_check,
 	.atomic_commit       = meson_atomic_commit,
 };
+
+static void meson_unref_worker(struct drm_flip_work *work, void *val)
+{
+	struct drm_atomic_state *state = val;
+	struct drm_device *dev = state->dev;
+
+	cleanup_atomic_state(dev, state);
+}
 
 static void write_scaling_filter_coefs(const unsigned int *coefs,
 				       bool is_horizontal)
@@ -835,6 +848,9 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	 * amlogic's drivers from crashing... */
 	set_vmode(VMODE_1080P);
 
+	ret = drm_flip_work_init(&priv->unref_work, 16,
+			"unref", meson_unref_worker);
+
 	priv->unref_wq = alloc_ordered_workqueue("meson", 0);
 
 	drm_irq_install(dev, INT_VIU_VSYNC);
@@ -857,8 +873,11 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 static int meson_unload(struct drm_device *dev)
 {
+	struct meson_drm_private *priv = dev->dev_private;
+
 	drm_kms_helper_poll_fini(dev);
 	drm_mode_config_cleanup(dev);
+	drm_flip_work_cleanup(&priv->unref_work);
 
 	kfree(dev->dev_private);
 	dev->dev_private = NULL;
@@ -881,34 +900,6 @@ static int meson_enable_vblank(struct drm_device *dev, int crtc)
 
 static void meson_disable_vblank(struct drm_device *dev, int crtc)
 {
-}
-
-struct meson_unref_work {
-	struct work_struct work;
-	struct drm_atomic_state *state;
-};
-#define to_meson_unref_work(x) container_of(x, struct meson_unref_work, work)
-
-static void meson_unref_worker(struct work_struct *work)
-{
-	struct meson_unref_work *unref_work = to_meson_unref_work(work);
-	struct drm_atomic_state *state = unref_work->state;
-	struct drm_device *dev = state->dev;
-
-	cleanup_atomic_state(dev, state);
-	kfree(unref_work);
-}
-
-static struct meson_unref_work *create_meson_unref_work(struct drm_atomic_state *state)
-{
-	struct meson_unref_work *unref_work = kzalloc(sizeof(*unref_work), GFP_KERNEL);
-
-	if (!unref_work)
-		return NULL;
-
-	unref_work->state = state;
-	INIT_WORK(&unref_work->work, meson_unref_worker);
-	return unref_work;
 }
 
 static void meson_crtc_send_vblank_event(struct drm_crtc *crtc)
@@ -1041,15 +1032,10 @@ static irqreturn_t meson_irq(int irq, void *arg)
 	update_scaler_for_underscan(priv->crtc);
 
 	if (priv->cleanup_state) {
-		struct meson_unref_work *unref_work;
-
-		/* XXX: What to do if we can't alloc a work? */
-		unref_work = create_meson_unref_work(priv->cleanup_state);
+		drm_flip_work_queue(&priv->unref_work, priv->cleanup_state);
 		priv->cleanup_state = NULL;
 
-		WARN_ON(!unref_work);
-		if (unref_work)
-			queue_work(priv->unref_wq, &unref_work->work);
+		drm_flip_work_commit(&priv->unref_work, priv->unref_wq);
 	}
 
 	return IRQ_HANDLED;
