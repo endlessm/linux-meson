@@ -319,6 +319,7 @@ static irqreturn_t vreal_isr(int irq, void *dev_id)
         vf->width = info >> 16;
         vf->height = (info >> 4) & 0xfff;
         vf->bufWidth = 1920;
+        vf->flag = 0;
         vf->ratio_control = 0;
         set_aspect_ratio(vf, info & 0x0f);
         vf->duration_pulldown = 0;
@@ -777,6 +778,8 @@ s32 vreal_init(void)
     vf_reg_provider(&vreal_vf_prov);
 #endif 
 
+    vf_notify_receiver(PROVIDER_NAME, VFRAME_EVENT_PROVIDER_FR_HINT, (void *)vreal_amstream_dec_info.rate);
+
     stat |= STAT_VF_HOOK;
 
     recycle_timer.data = (ulong) & recycle_timer;
@@ -828,9 +831,9 @@ static int amvdec_real_probe(struct platform_device *pdev)
 #if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8)&&(HAS_HDEC)
     if(IS_MESON_M8_CPU){
         // disable vdec2 dblk when miracast.
+        int count = 0;
         if(get_vdec2_usage() != USAGE_NONE)
             AbortEncodeWithVdec2(1);
-        int count = 0;
         while((get_vdec2_usage() != USAGE_NONE)&&(count < 10)){
             msleep(50);
             count++;
@@ -873,6 +876,8 @@ static int amvdec_real_remove(struct platform_device *pdev)
     }
 
     if (stat & STAT_VF_HOOK) {
+        vf_notify_receiver(PROVIDER_NAME, VFRAME_EVENT_PROVIDER_FR_END_HINT, NULL);
+
         vf_unreg_provider(&vreal_vf_prov);
         stat &= ~STAT_VF_HOOK;
     }

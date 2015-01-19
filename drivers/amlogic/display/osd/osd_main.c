@@ -48,9 +48,12 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include "osd_log.h"
+#include "osd_sync.h"
 #include <linux/amlogic/amlog.h>
 #include <linux/amlogic/logo/logo_dev.h>
 #include <linux/amlogic/logo/logo_dev_osd.h>
+
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 static struct early_suspend early_suspend;
@@ -283,6 +286,8 @@ osd_ioctl(struct fb_info *info, unsigned int cmd,
 	 u32  block_mode;
         unsigned long  ret;
 	 u32  flush_rate;
+	fb_sync_request_t  sync_request;
+
 
     	switch (cmd)
   	{
@@ -298,6 +303,11 @@ osd_ioctl(struct fb_info *info, unsigned int cmd,
 		case FBIOPUT_OSD_SCALE_AXIS:
 			ret=copy_from_user(&osd_axis, argp, 4 * sizeof(s32));
 			break;
+		case FBIOPUT_OSD_SYNC_ADD:
+			ret=copy_from_user(&sync_request,argp,sizeof(fb_sync_request_t));
+			//printk("osd_mai request offset:%d\n", sync_request.offset);
+			break;
+		case FBIO_WAITFORVSYNC:
 		case FBIOGET_OSD_SCALE_AXIS:
 		case FBIOPUT_OSD_ORDER:
 		case FBIOGET_OSD_ORDER:
@@ -458,13 +468,24 @@ osd_ioctl(struct fb_info *info, unsigned int cmd,
 		case FBIOPUT_OSD_WINDOW_AXIS:
 			osddev_set_window_axis(info->node, osd_dst_axis[0], osd_dst_axis[1], osd_dst_axis[2], osd_dst_axis[3]);
 			break;
+		 case FBIOPUT_OSD_SYNC_ADD:
+		 	sync_request.out_fen_fd=osddev_sync_request(info, sync_request.xoffset,sync_request.yoffset,sync_request.in_fen_fd);
+			ret=copy_to_user(argp, &sync_request, sizeof(fb_sync_request_t));
+			if(sync_request.out_fen_fd  <0 ) // fence create fail.
+			ret=-1;
+			break;
+		case FBIO_WAITFORVSYNC:
+			osddev_wait_for_vsync();
+			ret=1;
+			ret=copy_to_user(argp,&ret,sizeof(u32));
+
 		default:
 			break;
     	}
 
    	mutex_unlock(&fbdev->lock);
 	
-	return  0;
+	return  ret;
 }
 static int osd_open(struct fb_info *info, int arg)
 {
@@ -662,10 +683,8 @@ static ssize_t store_enable_3d(struct device *device, struct device_attribute *a
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	struct myfb_dev *fbdev = (struct myfb_dev *)fb_info->par;
-	int err;
 	fbdev->enable_3d= simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_ENABLE_3D_MODE,fbdev->enable_3d)))
-		return err;
+	osddev_enable_3d_mode(fb_info->node, fbdev->enable_3d);
 	return count;
 }
 
@@ -905,10 +924,10 @@ static ssize_t store_scale_width(struct device *device, struct device_attribute 
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int free_scale_width=0;
-	int err;
-	 free_scale_width= simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_FREE_SCALE_WIDTH,free_scale_width)))
-		return err;
+    
+	free_scale_width= simple_strtoul(buf, NULL, 0);
+	osddev_free_scale_width(fb_info->node, free_scale_width);
+
 	return count;
 }
 
@@ -928,10 +947,10 @@ static ssize_t store_scale_height(struct device *device, struct device_attribute
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int free_scale_height=0;
-	int err;
-	 free_scale_height= simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_FREE_SCALE_HEIGHT,free_scale_height)))
-		return err;
+
+	free_scale_height= simple_strtoul(buf, NULL, 0);
+	osddev_free_scale_height(fb_info->node, free_scale_height);
+
 	return count;
 }
 
@@ -950,10 +969,10 @@ static ssize_t store_free_scale(struct device *device, struct device_attribute *
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int free_scale_enable=0;
-	int err;
+
 	free_scale_enable= simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_FREE_SCALE_ENABLE,free_scale_enable)))
-		return err;
+	osddev_free_scale_enable(fb_info->node, free_scale_enable);
+
 	return count;
 }
 
@@ -972,10 +991,10 @@ static ssize_t store_freescale_mode(struct device *device, struct device_attribu
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int free_scale_mode=0;
-	int err;
+    
 	free_scale_mode= simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_FREE_SCALE_MODE,free_scale_mode)))
-		return err;
+	osddev_free_scale_mode(fb_info->node, free_scale_mode);
+
 	return count;
 }
 
@@ -995,10 +1014,10 @@ static ssize_t store_scale(struct device *device, struct device_attribute *attr,
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	struct myfb_dev *fbdev = (struct myfb_dev *)fb_info->par;
-	int err;
+
 	fbdev->scale = simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_2X_SCALE,fbdev->scale)))
-		return err;
+	osddev_set_2x_scale(fb_info->node,fbdev->scale&0xffff0000?1:0,fbdev->scale&0xffff?1:0);
+
 	return count;
 }
 
@@ -1103,11 +1122,10 @@ static ssize_t store_order(struct device *device, struct device_attribute *attr,
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	struct myfb_dev *fbdev = (struct myfb_dev *)fb_info->par;
-	int err;
 
 	fbdev->order = simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_ORDER,fbdev->order)))
-		return err;
+	osddev_change_osd_order(fb_info->node, fbdev->order);
+
 	return count;
 }
 
@@ -1116,10 +1134,9 @@ static ssize_t show_order(struct device *device, struct device_attribute *attr,
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	struct myfb_dev *fbdev = (struct myfb_dev *)fb_info->par;
-	int err;
-	
-	if ((err = osd_ioctl(fb_info,FBIOGET_OSD_ORDER,(unsigned long)&fbdev->order)))
-		return err;
+
+	fbdev->order = osddev_get_osd_order(fb_info->node);
+
 	return snprintf(buf, PAGE_SIZE, "order:[0x%x]\n",fbdev->order);
 }
 
@@ -1196,10 +1213,10 @@ static ssize_t store_osd_reverse(struct device *device, struct device_attribute 
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int osd_reverse = 0;
-	int err;
+
 	osd_reverse = simple_strtoul(buf, NULL, 0);
-	if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_REVERSE,osd_reverse)))
-		return err;
+	osddev_set_osd_reverse(fb_info->node, osd_reverse);
+
 	return count;
 }
 static ssize_t show_rotate_on(struct device *device, struct device_attribute *attr,
@@ -1217,10 +1234,10 @@ static ssize_t store_rotate_on(struct device *device, struct device_attribute *a
 {
         struct fb_info *fb_info = dev_get_drvdata(device);
         unsigned int osd_rotate = 0;
-        int err;
+
         osd_rotate = simple_strtoul(buf, NULL, 0);
-        if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_ROTATE_ON,osd_rotate)))
-                return err;
+        osddev_set_osd_rotate_on(fb_info->node, osd_rotate);
+
         return count;
 }
 
@@ -1251,10 +1268,10 @@ static ssize_t store_rotate_angle(struct device *device, struct device_attribute
 {
         struct fb_info *fb_info = dev_get_drvdata(device);
         unsigned int osd_rotate_angle = 0;
-        int err;
+
         osd_rotate_angle = simple_strtoul(buf, NULL, 0);
-        if ((err = osd_ioctl(fb_info,FBIOPUT_OSD_ROTATE_ANGLE,osd_rotate_angle)))
-                return err;
+        osddev_set_osd_rotate_angle(fb_info->node, osd_rotate_angle);
+
         return count;
 }
 
@@ -1589,8 +1606,10 @@ osd_probe(struct platform_device *pdev)
 	int  logo_osd_index=0,i;
 	myfb_dev_t 	*fbdev = NULL;
 	vmode_t current_mode = VMODE_MASK;
+#ifdef CONFIG_AM_HDMI_ONLY
 	vmode_t cvbs_mode = VMODE_MASK;
 	int hpd_state = 0;
+#endif
 	const void *prop;
 	int prop_idx=0;
 	int rotation = 0;
@@ -1730,8 +1749,8 @@ osd_probe(struct platform_device *pdev)
 		mydef_var[index].height=vinfo->screen_real_height;
 		if( init_logo_obj && index==logo_osd_index ) //adjust default var info
 		{
-			printk("don't find to display_size_default from mesonfb-dts\n");
 			int  bpp=init_logo_obj->dev->output_dev.osd.color_depth;//bytes per pixel
+			printk("don't find to display_size_default from mesonfb-dts\n");
 			mydef_var[index].xres=init_logo_obj->dev->vinfo->width;
 			mydef_var[index].yres=init_logo_obj->dev->vinfo->height;	
 			mydef_var[index].xres_virtual=init_logo_obj->dev->vinfo->width;
@@ -1764,7 +1783,7 @@ osd_probe(struct platform_device *pdev)
 				}
 			}
 			amlog_level(LOG_LEVEL_HIGH,"---------------clear framebuffer%d memory  \r\n",index);
-			memset((char*)fbdev->fb_mem_vaddr, 0x80, fbdev->fb_len);
+			memset((char*)fbdev->fb_mem_vaddr, 0x00, fbdev->fb_len);
 		}
 
 		if (index == OSD0){
@@ -1804,7 +1823,11 @@ osd_probe(struct platform_device *pdev)
 		set_default_display_axis(&fbdev->fb_info->var,&fbdev->osd_ctl,vinfo);
 		osd_check_var(var, fbi);
     		register_framebuffer(fbi);
-		if(NULL==init_logo_obj )//if we have init a logo object ,then no need to setup hardware . 
+		if(index == OSD0 && init_logo_obj != NULL)
+		{
+			osddev_set(fbdev);
+		}
+		else if(NULL==init_logo_obj)//if we have init a logo object ,then no need to setup hardware .
 		{
 			osddev_set(fbdev);
 		}

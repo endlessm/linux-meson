@@ -280,6 +280,38 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
     return IRQ_HANDLED;
 }
 
+/*
+ * mode: 1 means Progressive;  0 means interlaced
+ */
+static void enc_vpu_bridge_reset(int mode)
+{
+    unsigned int wr_clk = 0;
+
+    printk("%s[%d]\n", __func__, __LINE__);
+    wr_clk = (aml_read_reg32(P_VPU_HDMI_SETTING) & 0xf00) >> 8;
+    if(mode) {
+        aml_write_reg32(P_ENCP_VIDEO_EN, 0);
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, 0, 0, 2);  // [    0] src_sel_enci: Disable ENCP output to HDMI
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, 0, 8, 4);  // [    0] src_sel_enci: Disable ENCP output to HDMI
+        mdelay(1);
+        aml_write_reg32(P_ENCP_VIDEO_EN, 1);
+        mdelay(1);
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, wr_clk, 8, 4);
+        mdelay(1);
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, 2, 0, 2);  // [    0] src_sel_enci: Enable ENCP output to HDMI
+    } else {
+        aml_write_reg32(P_ENCI_VIDEO_EN, 0);
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, 0, 0, 2);  // [    0] src_sel_enci: Disable ENCI output to HDMI
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, 0, 8, 4);  // [    0] src_sel_enci: Disable ENCP output to HDMI
+        mdelay(1);
+        aml_write_reg32(P_ENCI_VIDEO_EN, 1);
+        mdelay(1);
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, wr_clk, 8, 4);
+        mdelay(1);
+        aml_set_reg32_bits(P_VPU_HDMI_SETTING, 1, 0, 2);  // [    0] src_sel_enci: Enable ENCI output to HDMI
+    }
+}
+
 static void hdmi_tvenc1080i_set(Hdmi_tx_video_para_t* param)
 {
     unsigned long VFIFO2VD_TO_HDMI_LATENCY = 2; // Annie 01Sep2011: Change value from 3 to 2, due to video encoder path delay change.
@@ -423,7 +455,6 @@ static void hdmi_tvenc1080i_set(Hdmi_tx_video_para_t* param)
                          (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
     );
     aml_set_reg32_bits(P_VPU_HDMI_SETTING, 1, 1, 1);  // [    1] src_sel_encp: Enable ENCP output to HDMI
-
 }    
 
 static void hdmi_tvenc480i_set(Hdmi_tx_video_para_t* param)
@@ -599,7 +630,6 @@ static void hdmi_tvenc480i_set(Hdmi_tx_video_para_t* param)
                          (1                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
     );
     aml_set_reg32_bits(P_VPU_HDMI_SETTING, 1, 0, 1);  // [    0] src_sel_enci: Enable ENCI output to HDMI
-
 }    
 
 static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
@@ -872,7 +902,7 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
 
     // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
     aml_set_reg32_bits(P_VPU_HDMI_SETTING, 1, 1, 1);  // [    1] src_sel_encp: Enable ENCP output to HDMI
-}    
+}
 
 /*
 hdmi on/off
@@ -1188,21 +1218,29 @@ void hdmi_hw_init(hdmitx_dev_t* hdmitx_device)
     delay_us(10);
 }    
 
-#ifdef CONFIG_ARCH_MESON6
-// TODO, need test in m8
-// When 1080p50hz output, we shall manually configure
+// When have below format output, we shall manually configure
 // bolow register to get stable Video Timing.
-static void hdmi_reconfig_packet_setting(void)
+static void hdmi_reconfig_packet_setting(HDMI_Video_Codes_t vic)
 {
-    hdmi_wr_reg(TX_PACKET_ALLOC_ACTIVE_1, 0x01);
-    hdmi_wr_reg(TX_PACKET_ALLOC_ACTIVE_2, 0x12);
-    hdmi_wr_reg(TX_PACKET_ALLOC_EOF_1, 0x10);
-    hdmi_wr_reg(TX_PACKET_ALLOC_EOF_2, 0x12);
-    hdmi_wr_reg(TX_PACKET_ALLOC_SOF_1, 0xb6);
-    hdmi_wr_reg(TX_PACKET_ALLOC_SOF_2, 0x11);
-    hdmi_wr_reg(TX_PACKET_CONTROL_1, (hdmi_rd_reg(TX_PACKET_CONTROL_1)) | (1 << 7));    // bit[7]: forced_packet_timing
+    switch(vic) {
+    case HDMI_1080p50:
+        hdmi_wr_reg(TX_PACKET_CONTROL_1, 0x3a);         //0x7e
+        hdmi_wr_reg(TX_PACKET_ALLOC_ACTIVE_1, 0x01);    //0x78
+        hdmi_wr_reg(TX_PACKET_ALLOC_ACTIVE_2, 0x12);    //0x79
+        hdmi_wr_reg(TX_PACKET_ALLOC_EOF_1, 0x10);       //0x7a
+        hdmi_wr_reg(TX_PACKET_ALLOC_EOF_2, 0x12);       //0x7b
+        hdmi_wr_reg(TX_CORE_ALLOC_VSYNC_0, 0x01);       //0x81
+        hdmi_wr_reg(TX_CORE_ALLOC_VSYNC_1, 0x00);       //0x82
+        hdmi_wr_reg(TX_CORE_ALLOC_VSYNC_2, 0x0a);       //0x83
+        hdmi_wr_reg(TX_PACKET_ALLOC_SOF_1, 0xb6);       //0x7c
+        hdmi_wr_reg(TX_PACKET_ALLOC_SOF_2, 0x11);       //0x7d
+        hdmi_wr_reg(TX_PACKET_CONTROL_1, 0xba);         //0x7e
+        break;
+    default:
+        break;
+    }
+    printk("reconfig packet setting done\n");
 }
-#endif
 
 static void hdmi_hw_reset(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t *param)
 {
@@ -1556,11 +1594,7 @@ static void hdmi_hw_reset(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t *par
             hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x00);        
         }
     }
-#ifdef CONFIG_ARCH_MESON6       //todo
-    if(param->VIC == HDMI_1080p50) {
-        hdmi_reconfig_packet_setting();  // For 1080p50hz only
-    }
-#endif
+    hdmi_reconfig_packet_setting(param->VIC);
 }
 
 static void hdmi_audio_init(unsigned char spdif_flag)
@@ -1692,12 +1726,76 @@ static void hdmitx_config_tvenc_reg(int vic, unsigned reg, unsigned val)
     }
 }
 
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+//
+// func: hdmitx_set_pll_fr_auto
+// params: none
+// return:
+//		1: current vmode is special and clock setting handled
+//		0: current vmode is not special and clock setting not handled
+//
+// desc:
+//		special vmode has same hdmi vic with normal mode, such as 1080p59hz - 1080p60hz
+//	so pll should not only be set according hdmi vic.
+//
+extern const vinfo_t *get_current_vinfo(void);
+static int hdmitx_set_pll_fr_auto(void)
+{
+	int ret = 0;
+	const vinfo_t *pvinfo = get_current_vinfo();
+
+	if( strncmp(pvinfo->name, "480p59hz", strlen("480p59hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_480P_59HZ);
+		ret = 1;
+	}
+	else if( strncmp(pvinfo->name, "720p59hz", strlen("720p59hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_720P_59HZ);
+		ret = 1;
+	}
+	else if( strncmp(pvinfo->name, "1080i59hz", strlen("1080i59hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_1080I_59HZ);
+		ret = 1;
+	}
+	else if( strncmp(pvinfo->name, "1080p59hz", strlen("1080p59hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_1080P_59HZ);
+		ret = 1;
+	}
+	else if( strncmp(pvinfo->name, "1080p23hz", strlen("1080p23hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_1080P_23HZ);
+		ret = 1;
+	}
+	else if( strncmp(pvinfo->name, "4k2k29hz", strlen("4k2k29hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_4K2K_29HZ);
+		ret = 1;
+	}
+	else if( strncmp(pvinfo->name, "4k2k23hz", strlen("4k2k23hz")) == 0 )
+	{
+		set_vmode_clk(VMODE_4K2K_23HZ);
+		ret = 1;
+	}
+
+	return ret;		
+}
+#endif
+
 static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
 {
     hdmi_print(IMP, SYS "set pll\n");
     hdmi_print(IMP, SYS "param->VIC:%d\n", param->VIC);
     
     cur_vout_index = get_cur_vout_index();
+
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	if( hdmitx_set_pll_fr_auto() )
+		return ;
+#endif
+
     switch(param->VIC)
     {
         case HDMI_480p60:
@@ -1738,7 +1836,7 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
     }
 }
 
-static int hdmitx_set_phy(hdmitx_dev_t* hdmitx_device)
+static void hdmitx_set_phy(hdmitx_dev_t* hdmitx_device)
 {
     switch(hdmitx_device->cur_video_param->VIC) {
         case HDMI_1080p60:
@@ -1753,6 +1851,8 @@ static int hdmitx_set_phy(hdmitx_dev_t* hdmitx_device)
     aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 2);   \
     msleep(1)
 
+    aml_write_reg32(P_HHI_HDMI_PHY_CNTL1, 0);
+    msleep(1);
     RESET_HDMI_PHY();
     RESET_HDMI_PHY();
     RESET_HDMI_PHY();
@@ -1800,8 +1900,6 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
     hdmitx_device->cur_VIC = param->VIC;
     hdmi_tx_gate_pwr_ctrl(VID_EN, hdmitx_device);
     hdmi_hw_reset(hdmitx_device, param);    
-    hdmitx_set_pll(param);
-    hdmitx_set_phy(hdmitx_device);
 
     if((param->VIC==HDMI_720p60)||(param->VIC==HDMI_720p50)||
         (param->VIC==HDMI_1080i60)||(param->VIC==HDMI_1080i50)){
@@ -1829,18 +1927,35 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
 
     // reset TX_SYS5_TX_SOFT_RESET_1/2 twice
     hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_1, 0xff);
-    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x9f);
+    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0xff);
     mdelay(5);
     hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_1, 0x00);
-    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x60);
+    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x00);
     mdelay(5);
 
     hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_1, 0xff);
-    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x9f);
+    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0xff);
     mdelay(5);
     hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_1, 0x00);
-    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x60);
+    hdmi_wr_reg(TX_SYS5_TX_SOFT_RESET_2, 0x00);
     mdelay(5);
+
+    hdmitx_set_pll(param);
+    switch(param->VIC) {
+    case HDMI_480i60:
+    case HDMI_480i60_16x9:
+    case HDMI_576i50:
+    case HDMI_576i50_16x9:
+    case HDMI_480i60_16x9_rpt:
+    case HDMI_576i50_16x9_rpt:
+        enc_vpu_bridge_reset(0);
+        break;
+    default:
+        enc_vpu_bridge_reset(1);
+        break;
+    }
+
+    hdmitx_set_phy(hdmitx_device);
 
     return 0;
 }    
@@ -2006,6 +2121,129 @@ static void set_hdmi_audio_source(unsigned int src)
     }
 } /* set_hdmi_audio_source */
 
+static void hdmitx_set_aud_pkt_type(audio_type_t type)
+{
+    // TX_AUDIO_CONTROL [5:4]
+    //   0: Audio sample packet (HB0 = 0x02)
+    //   1: One bit audio packet (HB0 = 0x07)
+    //   2: HBR Audio packet (HB0 = 0x09)
+    //   3: DST Audio packet (HB0 = 0x08)
+    switch(type) {
+    case CT_MAT:
+        hdmi_set_reg_bits(TX_AUDIO_CONTROL, 0x2, 4, 2);
+        break;
+    case CT_ONE_BIT_AUDIO:
+        hdmi_set_reg_bits(TX_AUDIO_CONTROL, 0x1, 4, 2);
+        break;
+    case CT_DST:
+        hdmi_set_reg_bits(TX_AUDIO_CONTROL, 0x3, 4, 2);
+        break;
+    default:
+        hdmi_set_reg_bits(TX_AUDIO_CONTROL, 0x0, 4, 2);
+        break;
+    }
+}
+
+static Cts_conf_tab cts_table_192k[] = {
+    {24576,  27000,  27000},
+    {24576,  54000,  54000},
+    {24576, 108000, 108000},
+    {24576,  74250,  74250},
+    {24576, 148500, 148500},
+    {24576, 297000, 247500},
+};
+
+static unsigned int get_cts(unsigned int clk)
+{
+    int i;
+
+    for(i = 0; i < ARRAY_SIZE(cts_table_192k); i++) {
+        if(clk == cts_table_192k[i].tmds_clk)
+            return cts_table_192k[i].fixed_cts;
+    }
+
+    return 0;
+}
+
+static Vic_attr_map vic_attr_map_table[] = {
+    {HDMI_640x480p60,       27000 },
+    {HDMI_480p60,           27000 },
+    {HDMI_480p60_16x9,      27000 },
+    {HDMI_720p60,           74250 },
+    {HDMI_1080i60,          74250 },
+    {HDMI_480i60,           27000 },
+    {HDMI_480i60_16x9,      27000 },
+    {HDMI_480i60_16x9_rpt,  54000 },
+    {HDMI_1440x480p60,      27000 },
+    {HDMI_1440x480p60_16x9, 27000 },
+    {HDMI_1080p60,          148500},
+    {HDMI_576p50,           27000 },
+    {HDMI_576p50_16x9,      27000 },
+    {HDMI_720p50,           74250 },
+    {HDMI_1080i50,          74250 },
+    {HDMI_576i50,           27000 },
+    {HDMI_576i50_16x9,      27000 },
+    {HDMI_576i50_16x9_rpt,  54000 },
+    {HDMI_1080p50,          148500},
+    {HDMI_1080p24,          74250 },
+    {HDMI_1080p25,          74250 },
+    {HDMI_1080p30,          74250 },
+    {HDMI_480p60_16x9_rpt,  108000},
+    {HDMI_576p50_16x9_rpt,  108000},
+    {HDMI_4k2k_24,          297000},
+    {HDMI_4k2k_25,          297000},
+    {HDMI_4k2k_30,          297000},
+    {HDMI_4k2k_smpte_24,    297000},
+};
+
+static unsigned int vic_map_clk(HDMI_Video_Codes_t vic)
+{
+    int i;
+
+    for(i = 0; i < ARRAY_SIZE(vic_attr_map_table); i++) {
+        if(vic == vic_attr_map_table[i].VIC)
+            return vic_attr_map_table[i].tmds_clk;
+    }
+
+    return 0;
+}
+
+static void hdmitx_set_aud_cts(audio_type_t type, Hdmi_tx_audio_cts_t cts_mode, HDMI_Video_Codes_t vic)
+{
+    unsigned int cts_val = 0;
+
+    switch(type) {
+    case CT_MAT:
+        if(cts_mode == AUD_CTS_FIXED) {
+            unsigned int clk = vic_map_clk(vic);
+            if(clk) {
+                cts_val = get_cts(clk);
+                if(!cts_val)
+                    hdmi_print(ERR, AUD "not find cts\n");
+            }
+            else {
+                hdmi_print(ERR, AUD "not find tmds clk\n");
+            }
+        }
+        if(cts_mode == AUD_CTS_CALC) {
+            // TODO
+        }
+        break;
+    default:
+        hdmi_wr_reg(TX_SYS0_ACR_CTS_0, 0);      //audio_CTS & 0xff);
+        hdmi_wr_reg(TX_SYS0_ACR_CTS_1, 0);      //(audio_CTS>>8) & 0xff);
+        hdmi_wr_reg(TX_SYS0_ACR_CTS_2, 1 << 5);      // set bit[5] force_arc_stable to 1
+        break;
+    }
+
+    if(cts_mode == AUD_CTS_FIXED) {
+        hdmi_wr_reg(TX_SYS0_ACR_CTS_0, cts_val & 0xff);
+        hdmi_wr_reg(TX_SYS0_ACR_CTS_1, (cts_val >> 8) & 0xff);
+        hdmi_wr_reg(TX_SYS0_ACR_CTS_2, ((cts_val >> 16) & 0xff) | (1 << 4));
+        hdmi_print(IMP, AUD "type: %d  CTS Mode: %d  VIC: %d  CTS: %d\n", type, cts_mode, vic, cts_val);
+    }
+}
+
 static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio_para_t* audio_param)
 {
     unsigned int audio_N_para = 6272;
@@ -2145,11 +2383,20 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
             audio_N_para = 6272 * 2;
             break;
         case FS_48K:
-            audio_N_para = 6144 * 2;
+			audio_N_para = 6144 * 2;
+			if((hdmitx_device->cur_VIC == HDMI_1080p24) ||
+				(hdmitx_device->cur_VIC == HDMI_480p60) ||
+				(hdmitx_device->cur_VIC == HDMI_480p60_16x9) ||
+				(hdmitx_device->cur_VIC == HDMI_480i60) ||
+				(hdmitx_device->cur_VIC == HDMI_480i60_16x9) ){
+				audio_N_para = 6144 * 3;
+			}
             break;
         default:
             break;
     }
+
+    hdmitx_set_aud_pkt_type(audio_param->type);
 
     //TODO. Different audio type, maybe have different settings
     switch(audio_param->type){
@@ -2207,6 +2454,11 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
     if((i2s_to_spdif_flag == 1) && (hdmitx_device->cur_audio_param.type != CT_PCM)) {
         hdmi_wr_reg(TX_AUDIO_FORMAT, (hdmi_rd_reg(TX_AUDIO_FORMAT) & 0xfe));        // clear bit0, use channel status bit from input data
     }
+
+    if(audio_param->type == CT_MAT)
+        hdmitx_set_aud_cts(audio_param->type, AUD_CTS_FIXED, hdmitx_device->cur_VIC);
+    else
+        hdmitx_set_aud_cts(audio_param->type, AUD_CTS_AUTO, hdmitx_device->cur_VIC);
 
 //todo    hdmitx_special_handler_audio(hdmitx_device);
 
@@ -2513,6 +2765,71 @@ static void hdmitx_print_info(hdmitx_dev_t* hdmitx_device, int printk_flag)
     hdmi_print(INF, "------------------\n");
 }
 
+typedef struct {
+    unsigned int val : 20;
+    unsigned int stable: 1;
+}aud_cts_log_t;
+
+static inline unsigned int get_msr_cts(void)
+{
+    unsigned int ret;
+
+    ret  = hdmi_rd_reg(TX_TMDS_ST_CLOCK_METER_1);
+    ret += (hdmi_rd_reg(TX_TMDS_ST_CLOCK_METER_2) << 8);
+    ret += ((hdmi_rd_reg(TX_TMDS_ST_CLOCK_METER_3) & 0xf) << 16);
+
+    return ret;
+}
+
+static inline unsigned int get_msr_cts_st(void)
+{
+    return !!(hdmi_rd_reg(TX_TMDS_ST_CLOCK_METER_3) & 0x80);
+}
+
+#define AUD_CTS_LOG_NUM     1000
+aud_cts_log_t cts_buf[AUD_CTS_LOG_NUM];
+static void cts_test(hdmitx_dev_t* hdmitx_device)
+{
+    int i, j;
+    unsigned int min = 0, max = 0, total = 0;
+
+    printk("\nhdmitx: audio: cts test\n");
+    memset(cts_buf, 0, sizeof(cts_buf));
+    for(i = 0; i < AUD_CTS_LOG_NUM; i++) {
+        cts_buf[i].val = get_msr_cts();
+        cts_buf[i].stable = get_msr_cts_st();
+        mdelay(1);
+    }
+
+    printk("cts unstable:\n");
+    for(i = 0, j = 0; i < AUD_CTS_LOG_NUM; i++) {
+        if(cts_buf[i].stable == 0) {
+            printk("%d  ", i);
+            j ++;
+            if(((j+1) & 0xf) == 0)
+                printk("\n");
+        }
+    }
+
+    printk("\ncts change:\n");
+    for(i = 1; i < AUD_CTS_LOG_NUM; i++) {
+        if(cts_buf[i].val > cts_buf[i-1].val)
+            printk("dis: +%d  [%d] %d  [%d] %d\n", cts_buf[i].val - cts_buf[i-1].val, i, cts_buf[i].val, i - 1, cts_buf[i - 1].val);
+        if(cts_buf[i].val < cts_buf[i-1].val)
+            printk("dis: %d  [%d] %d  [%d] %d\n", cts_buf[i].val - cts_buf[i-1].val, i, cts_buf[i].val, i - 1, cts_buf[i - 1].val);
+    }
+
+    min = max = cts_buf[0].val;
+    for(i = 0; i < AUD_CTS_LOG_NUM; i++) {
+        total += cts_buf[i].val;
+        if(min > cts_buf[i].val)
+            min = cts_buf[i].val;
+        if(max < cts_buf[i].val)
+            max = cts_buf[i].val;
+    }
+    printk("\nCTS Min: %d   Max: %d   Avg: %d/1000\n\n", min, max, total);
+}
+
 static void hdmitx_debug(hdmitx_dev_t* hdmitx_device, const char* buf)
 {
     char tmpbuf[128];
@@ -2526,6 +2843,10 @@ static void hdmitx_debug(hdmitx_dev_t* hdmitx_device, const char* buf)
     tmpbuf[i]=0;
     if((strncmp(tmpbuf, "dumpreg", 7)==0) || (strncmp(tmpbuf, "dumptvencreg", 12)==0)){
         hdmitx_dump_tvenc_reg(hdmitx_device->cur_VIC, 1);
+        return;
+    }
+    else if(strncmp(tmpbuf, "ctstest", 7) == 0) {
+        cts_test(hdmitx_device);
         return;
     }
     else if(strncmp(tmpbuf, "ss", 2) == 0) {

@@ -727,7 +727,7 @@ void root_func(){
 //$$ L2 PROP_U32 16*3 = "dvfs_table"
         vcck_dvfs {
             dvfs_id     = <1>;                                  /** must be value of (1 << n)            */
-            table_count = <12>;                                 /** must be correct count for dvfs_table */
+            table_count = <13>;                                 /** must be correct count for dvfs_table */
             dvfs_table  = <
             /* NOTE: frequent in this table must be ascending order */
             /* frequent(Khz)    min_uV      max_uV                  */
@@ -741,8 +741,9 @@ void root_func(){
                  816000         850000      850000
                 1008000         875000      875000
                 1200000         925000      925000
-                1320000        1000000     1000000
-                1488000        1075000     1075000
+                1320000        1100000     1100000
+                1488000        1100000     1100000
+                1536000        1140000     1140000
             >;
         };
     };
@@ -1284,8 +1285,8 @@ void root_func(){
 		status = "ok";
 		reg = <0xd0048600 0x24>;
 		pinctrl-names = "nand_rb_mod","nand_norb_mod";
-		pinctrl-0 = <&nand_input_state &conf_nand_state &nand_base>;
-		pinctrl-1 = <&nand_input_state &conf_nand_state &nand_base>;
+		pinctrl-0 = <&nand_input_state &conf_nand_state &conf_nand_state1 &nand_base>;
+		pinctrl-1 = <&nand_input_state &conf_nand_state &conf_nand_state1 &nand_base>;
 		device_id = <0>;
 		plat-names = "nandnormal";
 		plat-num = <1>;
@@ -1334,7 +1335,7 @@ void root_func(){
         trip_point=<70 1488001 1488001 511 511 3 2
                     80 1200001 1200001 435 435 2 2
                     90  800001  800001 328 328 1 1
-                    110 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
+                    260 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
         use_virtual_thermal;
@@ -1523,6 +1524,7 @@ void root_func(){
 //$$ L2 PROP_STR = "status"
     cpufreq-meson{
         compatible = "amlogic,cpufreq-meson";
+        syspll_fixed;
         status = "okay";
     };
 
@@ -1604,8 +1606,13 @@ void root_func(){
 			amlogic,pins = "BOOT_0","BOOT_1","BOOT_2","BOOT_3","BOOT_4",
 						"BOOT_5","BOOT_6","BOOT_7","BOOT_15";
 			amlogic,pullup=<0>;
+			amlogic,pullupen=<1>;
 		};
-		
+		conf_nand_state1: conf_nand1{
+			amlogic,pins = "BOOT_8", "BOOT_10";
+			amlogic,pullup=<1>;
+			amlogic,pullupen=<1>;
+		};
 //$$ MATCH "Nand_pin_0_match" = "&nand_base"
 //$$ MATCH "Nand_pin_1_match" = "&nand_base"
 //$$ L2 PROP_U32 2 = "amlogic,setmask"

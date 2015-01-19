@@ -63,6 +63,9 @@ static int set_disp_mode_auto(void);
 const vinfo_t * hdmi_get_current_vinfo(void);
 
 struct hdmi_config_platform_data *hdmi_pdata;
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+static int suspend_flag=0;
+#endif
 
 static hdmitx_dev_t hdmitx_device;
 static struct switch_dev sdev = {      // android ics switch device
@@ -76,6 +79,9 @@ static void hdmitx_early_suspend(struct early_suspend *h)
     hdmitx_dev_t * phdmi = (hdmitx_dev_t *)h->param;
     if (info && (strncmp(info->name, "panel", 5) == 0 || strncmp(info->name, "null", 4) == 0))
         return;
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	suspend_flag=1;
+#endif
     phdmi->hpd_lock = 1;
     phdmi->HWOp.Cntl((hdmitx_dev_t *)h->param, HDMITX_EARLY_SUSPEND_RESUME_CNTL, HDMITX_EARLY_SUSPEND);
     phdmi->cur_VIC = HDMI_Unkown;
@@ -102,6 +108,9 @@ static void hdmitx_late_resume(struct early_suspend *h)
     hdmitx_device.HWOp.CntlDDC(&hdmitx_device, DDC_HDCP_OP, HDCP_OFF);
     hdmitx_device.internal_mode_change = 0;
     set_disp_mode_auto();
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	suspend_flag=0;
+#endif
     pr_info("amhdmitx: late resume module %d\n", __LINE__);
     phdmi->HWOp.Cntl((hdmitx_dev_t *)h->param, HDMITX_EARLY_SUSPEND_RESUME_CNTL, HDMITX_LATE_RESUME);
     hdmi_print(INF, SYS "late resume\n");
@@ -239,6 +248,14 @@ static  int  set_disp_mode(const char *mode)
     else if(strncmp(mode, "4k2ksmpte", strlen("4k2ksmpte")) == 0) {
         vic = HDMI_4k2k_smpte_24;
     }
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	else if(strncmp(mode, "4k2k29hz", strlen("4k2k29hz")) == 0) {
+        vic = HDMI_4k2k_30;
+    }
+	else if(strncmp(mode, "4k2k23hz", strlen("4k2k23hz")) == 0) {
+        vic = HDMI_4k2k_24;
+    }
+#endif
     else {
         //nothing
     }
@@ -299,6 +316,57 @@ static void hdmitx_pre_display_init(void)
     hdmitx_device.internal_mode_change = 0;
 }
 
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+// judge whether the mode exchange is between similar vmode, such as between 1080p60 and 1080p59hz
+// "vic_old==HDMI_720P60" means old vic is HDMI_1080p60, but vmode maybe VMODE_1080P or VMODE_1080P_59HZ 
+static int is_similar_hdmi_vic(HDMI_Video_Codes_t vic_old, vmode_t mode_new)
+{
+	printk("%s[%d] vic_old=%d,mode_new=%d\n", __FUNCTION__, __LINE__,vic_old,mode_new);
+	if( (vic_old==HDMI_480p60_16x9) && (mode_new==VMODE_480P_59HZ) )
+		return 1;	
+	if( (vic_old==HDMI_720p60) && (mode_new==VMODE_720P_59HZ) )
+		return 1;
+	if( (vic_old==HDMI_1080i60) &&(mode_new==VMODE_1080I_59HZ) )
+		return 1;
+	if( (vic_old==HDMI_1080p60) && (mode_new==VMODE_1080P_59HZ) )
+		return 1;
+	if( (vic_old==HDMI_1080p24) && (mode_new==VMODE_1080P_23HZ) )
+		return 1;
+	if( (vic_old==HDMI_4k2k_30) && (mode_new==VMODE_4K2K_29HZ) )
+		return 1;
+	if( (vic_old==HDMI_4k2k_24) && (mode_new==VMODE_4K2K_23HZ) )
+		return 1;
+
+	return 0;
+}
+
+//
+// input para: name of vmode, such as "1080p50hz"
+// return values:
+//		0: not supported in edid
+//		1: supported in edid
+//		2: no edid
+//
+int hdmitx_is_vmode_supported(char *mode_name)
+{
+	HDMI_Video_Codes_t vic;
+
+	if( hdmitx_device.tv_no_edid )
+		return 2;
+
+	vic = hdmitx_edid_get_VIC(&hdmitx_device, mode_name, 0);
+	if( vic != HDMI_Unkown )
+		return 1;
+	else
+		return 0;
+
+	return 0;
+}
+
+EXPORT_SYMBOL(hdmitx_is_vmode_supported);
+
+#endif
+
 static int set_disp_mode_auto(void)
 {
     int ret=-1;
@@ -326,7 +394,6 @@ static int set_disp_mode_auto(void)
     else {
         hdmi_print(IMP, VID "get current mode: %s\n", info->name);
     }
-
 // If info->name equals to cvbs, then set mode to I mode to hdmi
     if((strncmp(info->name, "480cvbs", 7) == 0) || (strncmp(info->name, "576cvbs", 7) == 0) ||
        (strncmp(info->name, "panel", 5) == 0) || (strncmp(info->name, "null", 4) == 0)) {
@@ -358,6 +425,15 @@ static int set_disp_mode_auto(void)
     else {
         //nothing
     }
+
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
+	if(suspend_flag==1)
+ 		vic_ready = HDMI_Unkown;
+	else if( is_similar_hdmi_vic(vic_ready, info->mode) ){
+		vic_ready = HDMI_Unkown;
+		printk("%s[%d] is similiar vic\n", __FUNCTION__, __LINE__);
+	}
+#endif
 
     if((vic_ready != HDMI_Unkown) && (vic_ready == vic)) {
         hdmi_print(IMP, SYS "[%s] ALREADY init VIC = %d\n", __func__, vic);
@@ -469,7 +545,7 @@ static ssize_t store_cec(struct device * dev, struct device_attribute *attr, con
 static ssize_t show_cec_config(struct device * dev, struct device_attribute *attr, char * buf)
 {
     int pos=0;
-    pos+=snprintf(buf+pos, PAGE_SIZE, "P_AO_DEBUG_REG0:0x%x\r\n", aml_read_reg32(P_AO_DEBUG_REG0));
+    pos+=snprintf(buf+pos, PAGE_SIZE, "0x%x\n", aml_read_reg32(P_AO_DEBUG_REG0));
     return pos;
 }
 
@@ -879,11 +955,31 @@ static DEVICE_ATTR(cec_lang_config, S_IWUSR | S_IRUGO | S_IWGRP, show_cec_lang_c
 ******************************/
 static int hdmitx_notify_callback_v(struct notifier_block *block, unsigned long cmd , void *para)
 {
-    if(get_cur_vout_index()!=1)
+	const vinfo_t *info = NULL;
+	HDMI_Video_Codes_t vic_ready = HDMI_Unkown;
+	if(get_cur_vout_index()!=1)
         return 0;
 
     if (cmd != VOUT_EVENT_MODE_CHANGE)
         return 0;
+	
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION	
+	if(suspend_flag==1)
+ 		return 0;
+	// vic_ready got from IP
+    vic_ready = hdmitx_device.HWOp.GetState(&hdmitx_device, STAT_VIDEO_VIC, 0);
+	// get current vinfo
+    info = hdmi_get_current_vinfo();
+    if(info == NULL) {
+        hdmi_print(ERR, VID "cann't get valid mode\n");
+        return -1;
+    }
+    else {
+        hdmi_print(IMP, VID "get current mode: %s\n", info->name);
+    }
+	if( is_similar_hdmi_vic(vic_ready, info->mode) )
+		return 0;
+#endif
     if(hdmitx_device.vic_count == 0){
         if(is_dispmode_valid_for_hdmi()){
             hdmitx_device.mux_hpd_if_pin_high_flag = 1;
@@ -1327,6 +1423,17 @@ static int get_dt_vend_init_data(struct device_node *np, struct vendor_info_data
         hdmi_print(INF, SYS "not find cec osd string\n");
         return 1;
     }
+    
+    ret = of_property_read_u32(np, "cec_config", &(vend->cec_config));
+    if(ret) {
+        hdmi_print(INF, SYS "not find cec config\n");
+        return 1;
+    }
+    ret = of_property_read_u32(np, "ao_cec", &(vend->ao_cec));
+    if(ret) {
+        hdmi_print(INF, SYS "not find ao cec\n");
+        return 1;
+    }
     return 0;
 }
 
@@ -1335,7 +1442,8 @@ static int pwr_type_match(struct device_node *np, const char *str, int idx, stru
     int i = 0;
     int ret = 0;
     int gpio_val;
-    struct pwr_ctl_var (*var)[HDMI_TX_PWR_CTRL_NUM] = (struct pwr_ctl_var (*)[HDMI_TX_PWR_CTRL_NUM])pwr;
+    //struct pwr_ctl_var (*var)[HDMI_TX_PWR_CTRL_NUM] = (struct pwr_ctl_var (*)[HDMI_TX_PWR_CTRL_NUM])pwr;
+    struct pwr_ctl_var *var = (struct pwr_ctl_var*)pwr;
 
     const static char *pwr_types_id[] = {"none", "cpu", "axp202", NULL};     //match with dts file
     while(pwr_types_id[i]) {
@@ -1345,28 +1453,31 @@ static int pwr_type_match(struct device_node *np, const char *str, int idx, stru
         }
         i ++;
     }
+
+	var += idx;
+
     switch(i) {
     case CPU_GPO:
-        var[idx]->type = CPU_GPO;
+        var->type = CPU_GPO;
         ret = of_property_read_string_index(np, pwr_col, 1, &str);
         if(!ret) {
             gpio_val = amlogic_gpio_name_map_num(str);
             ret = amlogic_gpio_request(gpio_val, DEVICE_NAME);
             if (!ret) {
-                var[idx]->var.gpo.pin = gpio_val;
+                var->var.gpo.pin = gpio_val;
                 ret = of_property_read_string_index(np, pwr_col, 2, &str);
                 if(!ret) {
-                    var[idx]->var.gpo.val = (strcmp(str, "H") == 0);
+                    var->var.gpo.val = (strcmp(str, "H") == 0);
                 }
             }
         }
         break;
     case AXP202:
-        var[idx]->type = AXP202;
+        var->type = AXP202;
 // TODO later
         break;
     default:
-        var[idx]->type = NONE;
+        var->type = NONE;
     };
     return ret;
 }

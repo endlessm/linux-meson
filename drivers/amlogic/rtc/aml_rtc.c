@@ -119,12 +119,13 @@ static int  check_osc_clk(void);
 int get_rtc_status(void)
 {
 	static int rtc_fail = -1;
-	if (rtc_fail < 0) {
-		if (check_osc_clk() < 0)
+	//if (rtc_fail < 0) {
+		if (check_osc_clk() < 0) {
+			printk("rtc clock error\n");
 			rtc_fail = 1;
-		else
+		} else
 			rtc_fail = 0;
-	}
+	//}
 	return rtc_fail;
 }
 static DEFINE_SPINLOCK(com_lock);
@@ -335,13 +336,24 @@ static void aml_rtc_reset(void)
 #endif
 }
 
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+extern int run_arc_program(void);
+extern int stop_ao_cpu(void);
+#endif
+
 static unsigned int _ser_access_read_locked(unsigned long addr)
 {
 	unsigned val = 0;
 	int s_nrdy_cnt = 0;
 	int rst_times = 0;
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	int ret = 0;
+#endif
 	if (get_rtc_status())
 		return 0;
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	ret = stop_ao_cpu();
+#endif
 	while(rtc_comm_init()<0){
 		RTC_DBG(RTC_DBG_VAL, "aml_rtc -- rtc_common_init fail\n");
 		if(s_nrdy_cnt>RESET_RETRY_TIMES) {
@@ -362,6 +374,10 @@ static unsigned int _ser_access_read_locked(unsigned long addr)
 	rtc_set_mode(0); //Read
 	rtc_get_data(&val);
 out:
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	if (ret >= 0)
+		run_arc_program();
+#endif
 	return val;
 }
 
@@ -369,8 +385,14 @@ static void _ser_access_write_locked(unsigned long addr, unsigned long data)
 {
 	int s_nrdy_cnt = 0;
 	int rst_times = 0;
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	int ret = 0;
+#endif
 	if (get_rtc_status())
 		return;
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	ret = stop_ao_cpu();
+#endif
 	while(rtc_comm_init()<0){
 		
 		if(s_nrdy_cnt>RESET_RETRY_TIMES) {
@@ -391,6 +413,10 @@ static void _ser_access_write_locked(unsigned long addr, unsigned long data)
 	rtc_send_addr_data(1,addr);
 	rtc_set_mode(1); //Write
 out:
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+	if (ret >= 0)
+		run_arc_program();
+#endif
 	return;
 }
 
@@ -483,9 +509,15 @@ int rtc_set_alarm_aml(struct device *dev, alarm_data_t *alarm_data) {
 
 	data |= alarm_data->alarm_sec - 1;
 	
+	printk("write alarm data: %u\n", data);
 	ser_access_write(RTC_GPO_COUNTER_ADDR, data);
 	rtc_wait_s_ready();
 	rtc_comm_delay();
+
+	data = ser_access_read(RTC_GPO_COUNTER_ADDR);
+
+	printk("read alarm data: %u\n", data);
+	printk("read alarm count: %u\n", ser_access_read(RTC_COUNTER_ADDR));
 
 	return 0;
 }
@@ -700,7 +732,9 @@ extern int extenal_api_key_set_version(char *devvesion);
 static int aml_rtc_probe(struct platform_device *pdev)
 {
 	struct aml_rtc_priv *priv;
+	struct device_node* aml_rtc_node = pdev->dev.of_node;
 	int ret;
+	int sec_adjust = 0;
 
 #ifdef CONFIG_SECURITYKEY
 	static char keyexamples[4096];
@@ -752,6 +786,12 @@ static int aml_rtc_probe(struct platform_device *pdev)
 	ser_access_write(RTC_GPO_COUNTER_ADDR,0x100000);
 #endif	
 	rtc_wait_s_ready();
+	
+	ret = of_property_read_u32(aml_rtc_node, "sec_adjust", &sec_adjust);
+	if (!ret) {
+		ser_access_write(RTC_SEC_ADJUST_ADDR, 1<<23 | 10<<19 | 1735 );
+		rtc_wait_s_ready();
+	} 
 
 	//check_osc_clk();
 	//ser_access_write(RTC_COUNTER_ADDR, 0);

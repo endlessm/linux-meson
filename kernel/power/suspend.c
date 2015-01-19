@@ -135,7 +135,7 @@ static int suspend_test(int level)
  */
  
 int deep_suspend_flag=0;
-
+extern void clr_pwr_key(void);
 static int suspend_prepare(suspend_state_t state)
 {
 	int error;
@@ -151,7 +151,6 @@ static int suspend_prepare(suspend_state_t state)
 
 	deep_suspend_flag=1;
 	#ifdef CONFIG_AML_GPIO_KEY
-	extern void clr_pwr_key(void);
 	clr_pwr_key();
 	#endif
     
