@@ -121,6 +121,7 @@ obj-$(CONFIG_AML_REG_DEBUG) += regd/
 obj-$(CONFIG_AML_WATCHDOG) += watchdog/
 
 obj-$(CONFIG_UMP) += gpu/ump/
+obj-$(CONFIG_UMP) += gpu/umplock/umplock_driver.o
 obj-$(CONFIG_MALI400) += gpu/mali/
 
 obj-$(CONFIG_AMLOGIC_ION) += ion_dev/
