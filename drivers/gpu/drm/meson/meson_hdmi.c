@@ -207,6 +207,13 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 	if (!read_edid(edid_buf))
 		return 0;
 
+	if (drm_detect_hdmi_monitor(edid)) {
+		hdmi_set_reg_bits(TX_TMDS_MODE, 0x3, 6, 2);
+	} else {
+		hdmi_set_reg_bits(TX_VIDEO_DTV_OPTION_L, 0x0, 6, 2);
+		hdmi_set_reg_bits(TX_TMDS_MODE, 0x2, 6, 2);
+	}
+
 	drm_mode_connector_update_edid_property(connector, edid);
 	return drm_add_edid_modes(connector, edid);
 }
