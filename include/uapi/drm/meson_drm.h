@@ -36,6 +36,10 @@ struct drm_meson_gem_create_with_ump {
 #define DRM_MESON_GEM_CREATE_WITH_UMP    0x00
 #define DRM_MESON_NUM_IOCTLS             0x01
 
+/* Use flags */
+#define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT 0x01
+#define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE 0x02
+
 #define DRM_IOCTL_MESON_GEM_CREATE_WITH_UMP  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_CREATE_WITH_UMP, struct drm_meson_gem_create_with_ump)
 
 #endif
