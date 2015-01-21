@@ -1058,15 +1058,28 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	struct drm_gem_cma_object *cma_obj;
 	ump_dd_physical_block ump_mem;
 	unsigned int size;
+	DEFINE_DMA_ATTRS(dma_attrs);
 
 	/* UMP requires a page-aligned size for its buffers. */
 	size = PAGE_ALIGN (args->size);
 
-	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle);
+	/* All allocations currently contiguous, to be improved later. */
+	dma_set_attr(DMA_ATTR_FORCE_CONTIGUOUS, &dma_attrs);
+
+	if (args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT) {
+		/* No caching for scanout buffers */
+		dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
+	} else {
+		/* Other buffers are textures and caches can be enabled. */
+		WARN_ON(!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
+		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
+	}
+
+	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
 
 	ump_mem.addr = cma_obj->paddr;
 	ump_mem.size = size;
-	cma_obj->ump_handle = ump_dd_handle_create_from_phys_blocks(&ump_mem, 1);
+	cma_obj->ump_handle = ump_dd_handle_create_from_phys_blocks2(&ump_mem, 1, !!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
 	args->ump_secure_id = ump_dd_secure_id_get(cma_obj->ump_handle);
 
 	return PTR_ERR_OR_ZERO(cma_obj);

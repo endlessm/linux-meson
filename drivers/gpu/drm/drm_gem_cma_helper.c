@@ -69,14 +69,7 @@ error:
 	return ERR_PTR(ret);
 }
 
-/*
- * drm_gem_cma_create - allocate an object with the given size
- *
- * returns a struct drm_gem_cma_object* on success or ERR_PTR values
- * on failure.
- */
-struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
-		unsigned int size)
+static struct drm_gem_cma_object *drm_gem_cma_create_internal(struct drm_device *drm, unsigned int size, struct dma_attrs *dma_attrs)
 {
 	struct drm_gem_cma_object *cma_obj;
 	int ret;
@@ -87,8 +80,9 @@ struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
 	if (IS_ERR(cma_obj))
 		return cma_obj;
 
-	cma_obj->vaddr = dma_alloc_writecombine(drm->dev, size,
-			&cma_obj->paddr, GFP_KERNEL | __GFP_NOWARN);
+	cma_obj->dma_attrs = *dma_attrs;
+	cma_obj->vaddr = dma_alloc_attrs(drm->dev, size,
+			&cma_obj->paddr, GFP_KERNEL | __GFP_NOWARN, &cma_obj->dma_attrs);
 	if (!cma_obj->vaddr) {
 		dev_err(drm->dev, "failed to allocate buffer with size %d\n",
 			size);
@@ -102,6 +96,20 @@ error:
 	drm_gem_cma_free_object(&cma_obj->base);
 	return ERR_PTR(ret);
 }
+
+/*
+ * drm_gem_cma_create - allocate an object with the given size
+ *
+ * returns a struct drm_gem_cma_object* on success or ERR_PTR values
+ * on failure.
+ */
+struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
+		unsigned int size)
+{
+	DEFINE_DMA_ATTRS(dma_attrs);
+	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
+	return drm_gem_cma_create_internal(drm, size, &dma_attrs);
+}
 EXPORT_SYMBOL_GPL(drm_gem_cma_create);
 
 /*
@@ -114,13 +122,13 @@ EXPORT_SYMBOL_GPL(drm_gem_cma_create);
 struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
 		struct drm_file *file_priv,
 		struct drm_device *drm, unsigned int size,
-		unsigned int *handle)
+		unsigned int *handle, struct dma_attrs *dma_attrs)
 {
 	struct drm_gem_cma_object *cma_obj;
 	struct drm_gem_object *gem_obj;
 	int ret;
 
-	cma_obj = drm_gem_cma_create(drm, size);
+	cma_obj = drm_gem_cma_create_internal(drm, size, dma_attrs);
 	if (IS_ERR(cma_obj))
 		return cma_obj;
 
@@ -159,8 +167,8 @@ void drm_gem_cma_free_object(struct drm_gem_object *gem_obj)
 	cma_obj = to_drm_gem_cma_obj(gem_obj);
 
 	if (cma_obj->vaddr) {
-		dma_free_writecombine(gem_obj->dev->dev, cma_obj->base.size,
-				      cma_obj->vaddr, cma_obj->paddr);
+		dma_free_attrs(gem_obj->dev->dev, cma_obj->base.size,
+			       cma_obj->vaddr, cma_obj->paddr, &cma_obj->dma_attrs);
 	} else if (gem_obj->import_attach) {
 		drm_prime_gem_destroy(gem_obj, cma_obj->sgt);
 	}
@@ -183,6 +191,7 @@ int drm_gem_cma_dumb_create(struct drm_file *file_priv,
 {
 	struct drm_gem_cma_object *cma_obj;
 	int min_pitch = DIV_ROUND_UP(args->width * args->bpp, 8);
+	DEFINE_DMA_ATTRS(dma_attrs);
 
 	if (args->pitch < min_pitch)
 		args->pitch = min_pitch;
@@ -190,8 +199,10 @@ int drm_gem_cma_dumb_create(struct drm_file *file_priv,
 	if (args->size < args->pitch * args->height)
 		args->size = args->pitch * args->height;
 
+	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
+
 	cma_obj = drm_gem_cma_create_with_handle(file_priv, dev,
-			args->size, &args->handle);
+			args->size, &args->handle, &dma_attrs);
 	return PTR_ERR_OR_ZERO(cma_obj);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_dumb_create);
@@ -242,10 +253,12 @@ static int drm_gem_cma_mmap_obj(struct drm_gem_cma_object *cma_obj,
 	 */
 	vma->vm_flags &= ~VM_PFNMAP;
 	vma->vm_pgoff = 0;
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 
-	ret = dma_mmap_writecombine(cma_obj->base.dev->dev, vma,
-				    cma_obj->vaddr, cma_obj->paddr,
-				    vma->vm_end - vma->vm_start);
+	ret = dma_mmap_attrs(cma_obj->base.dev->dev, vma,
+			     cma_obj->vaddr, cma_obj->paddr,
+			     vma->vm_end - vma->vm_start,
+			     &cma_obj->dma_attrs);
 	if (ret)
 		drm_gem_vm_close(vma);
 
