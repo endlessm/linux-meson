@@ -669,6 +669,22 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
          SOF_LINES          = 30;                  
          TOTAL_FRAMES       = 4;                   
     }
+    else if(param->VIC==HDMI_640x480p60){
+         INTERLACE_MODE     = 0;                   
+         PIXEL_REPEAT_VENC  = 0;                   
+         PIXEL_REPEAT_HDMI  = 0;                   
+         ACTIVE_PIXELS      = (640*(1+PIXEL_REPEAT_HDMI)); // Number of active pixels per line.
+         ACTIVE_LINES       = (480/(1+INTERLACE_MODE));    // Number of active lines per field.
+         LINES_F0           = 525;                 
+         LINES_F1           = 525;                 
+         FRONT_PORCH        = 16;                  
+         HSYNC_PIXELS       = 96;                  
+         BACK_PORCH         = 48;                  
+         EOF_LINES          = 10;                   
+         VSYNC_LINES        = 2;                   
+         SOF_LINES          = 33;                  
+         TOTAL_FRAMES       = 4;                   
+    }
     else if((param->VIC==HDMI_576p50)||(param->VIC==HDMI_576p50_16x9)){
          INTERLACE_MODE     = 0;                   
          PIXEL_REPEAT_VENC  = 1;                   
@@ -716,6 +732,39 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
          VSYNC_LINES        = 5;                   
          SOF_LINES          = 20;                  
          TOTAL_FRAMES       = 4;                   
+    }
+    else if(param->VIC==HDMI_1280x1024){
+         INTERLACE_MODE     = 0;                   
+         PIXEL_REPEAT_VENC  = 0;                   
+         PIXEL_REPEAT_HDMI  = 0;                   
+         ACTIVE_PIXELS      = (1280*(1+PIXEL_REPEAT_HDMI)); // Number of active pixels per line.
+         ACTIVE_LINES       = (1024/(1+INTERLACE_MODE));    // Number of active lines per field.
+         LINES_F0           = 1066;                 
+         LINES_F1           = 1066;                 
+         FRONT_PORCH        = 48;                  
+         HSYNC_PIXELS       = 112;                  
+         BACK_PORCH         = 248;                  
+         EOF_LINES          = 1;                   
+         VSYNC_LINES        = 3;                   
+         SOF_LINES          = 38;                  
+         TOTAL_FRAMES       = 4;                   
+    }
+    else if(param->VIC==HDMI_1920x1200)
+    {
+         INTERLACE_MODE      =0;              
+         PIXEL_REPEAT_VENC   =0;              
+         PIXEL_REPEAT_HDMI   =0;              
+         ACTIVE_PIXELS       =(1920 *(1+PIXEL_REPEAT_HDMI)); // Number of active pixels per line.
+         ACTIVE_LINES        =(1200/(1+INTERLACE_MODE));    // Number of active lines per field.
+         LINES_F0            =1235;           
+         LINES_F1            =1235;           
+         FRONT_PORCH         =48;             
+         HSYNC_PIXELS        =32;             
+         BACK_PORCH          =80;            
+         EOF_LINES           =3;              
+         VSYNC_LINES         =6;              
+         SOF_LINES           =26;             
+         TOTAL_FRAMES        =4;    
     }
     else if(param->VIC==HDMI_1080p50){
          INTERLACE_MODE      =0;              
@@ -857,6 +906,9 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
                                  (1                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
                                  (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
             );
+            break;
+        case HDMI_640x480p60:
+            aml_write_reg32(P_VPU_HDMI_SETTING, 2);
             break;
         case HDMI_720p60:
         case HDMI_720p50:
@@ -1037,6 +1089,7 @@ void hdmi_hw_set_powermode(hdmitx_dev_t* hdmitx_device)
     int vic = hdmitx_device->cur_VIC;
 
     switch(vic) {
+    case HDMI_1280x1024:
     case HDMI_480i60:
     case HDMI_480i60_16x9:
     case HDMI_576p50:
@@ -1273,7 +1326,7 @@ static void hdmi_hw_reset(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t *par
     if(new_reset_sequence_flag==0){
         if(serial_reg_val==0){
             if((param->VIC==HDMI_1080p30)||(param->VIC==HDMI_720p60)||(param->VIC==HDMI_1080i60)
-                ||(param->VIC==HDMI_1080p24)){
+                ||(param->VIC==HDMI_1080p24)|| (param->VIC==HDMI_1280x1024) || (param->VIC==HDMI_640x480p60)){
                 hdmi_wr_reg(0x018, 0x22);   
             }
             else{
@@ -1833,6 +1886,15 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
         case HDMI_1080p50:
             set_vmode_clk(VMODE_1080P);
             break;
+        case HDMI_640x480p60:
+            set_vmode_clk(VMODE_VGA);
+            break;
+        case HDMI_1280x1024:
+            set_vmode_clk(VMODE_SXGA);
+            break;
+        case HDMI_1920x1200:
+            set_vmode_clk(VMODE_1920x1200);
+            break;
         default:
             break;
     }
@@ -1876,6 +1938,7 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
         &&(param->VIC!=HDMI_1080p24)
         &&(param->VIC!=HDMI_1080p60)&&(param->VIC!=HDMI_1080p50)
         &&(param->VIC!=HDMI_720p60)&&(param->VIC!=HDMI_720p50)
+        &&(param->VIC!=HDMI_640x480p60) &&(param->VIC!=HDMI_1280x1024) &&(param->VIC!=HDMI_1920x1200)
         &&(param->VIC!=HDMI_4k2k_30)&&(param->VIC!=HDMI_4k2k_25)&&(param->VIC!=HDMI_4k2k_24)&&(param->VIC!=HDMI_4k2k_smpte_24)
         &&(param->VIC!=HDMI_1080i60)&&(param->VIC!=HDMI_1080i50)){
         return -1;
@@ -2182,6 +2245,7 @@ static Vic_attr_map vic_attr_map_table[] = {
     {HDMI_576p50,           27000 },
     {HDMI_576p50_16x9,      27000 },
     {HDMI_720p50,           74250 },
+    {HDMI_1280x1024,        108000},
     {HDMI_1080i50,          74250 },
     {HDMI_576i50,           27000 },
     {HDMI_576i50_16x9,      27000 },
@@ -2278,6 +2342,7 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
         //TMDS Clock:27MHz
         case HDMI_480p60:
         case HDMI_480p60_16x9:
+        case HDMI_640x480p60:
         case HDMI_576p50:
         case HDMI_576p50_16x9:
         case HDMI_480i60:
@@ -2314,6 +2379,7 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
         //TMDS Clock:74.176MHz
         case HDMI_720p60:
         case HDMI_720p50:
+        case HDMI_1280x1024:
         case HDMI_1080i60:
         case HDMI_1080i50:
         case HDMI_1080p30:
@@ -2348,6 +2414,7 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
         //TMDS Clock:148.5MHz
         case HDMI_1080p50:
         case HDMI_1080p60:
+        case HDMI_1920x1200:
             switch(audio_param->sample_rate)
             {
                 case FS_32K:
@@ -2456,6 +2523,11 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
     if((i2s_to_spdif_flag == 1) && (hdmitx_device->cur_audio_param.type != CT_PCM)) {
         hdmi_wr_reg(TX_AUDIO_FORMAT, (hdmi_rd_reg(TX_AUDIO_FORMAT) & 0xfe));        // clear bit0, use channel status bit from input data
     }
+
+    if(audio_param->type == CT_MAT)
+        hdmitx_set_aud_cts(audio_param->type, AUD_CTS_FIXED, hdmitx_device->cur_VIC);
+    else
+        hdmitx_set_aud_cts(audio_param->type, AUD_CTS_AUTO, hdmitx_device->cur_VIC);
 
     if(audio_param->type == CT_MAT)
         hdmitx_set_aud_cts(audio_param->type, AUD_CTS_FIXED, hdmitx_device->cur_VIC);

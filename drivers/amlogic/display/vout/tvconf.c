@@ -115,7 +115,7 @@ static const tvmode_t vmode_tvmode_tab[] =
 		TVMODE_4K2K_23HZ , // for 4k2k 23.97hz
 #endif
 	TVMODE_4K2K_SMPTE, 
-    TVMODE_VGA, TVMODE_SVGA, TVMODE_XGA, TVMODE_SXGA
+    VMODE_1920x1200, TVMODE_VGA, TVMODE_SVGA, TVMODE_XGA, TVMODE_SXGA, TVMODE_WSXGA, TVMODE_FHDVGA,
 };
 
 
@@ -471,12 +471,24 @@ static const vinfo_t tv_info[] =
         .sync_duration_den = 1,
         .video_clk         = 297000000,
     },
+    { /* VMODE_1920x1200 */
+		.name              = "1920x1200",
+		.mode              = VMODE_1920x1200,
+        .width             = 1920,
+        .height            = 1200,
+        .field_height      = 1200,
+        .aspect_ratio_num  = 16,
+        .aspect_ratio_den  = 9,
+        .sync_duration_num = 60,
+        .sync_duration_den = 1,
+		.video_clk         = 154000000,
+    }, 
     { /* VMODE_vga */
 		.name              = "vga",
 		.mode              = VMODE_VGA,
         .width             = 640,
         .height            = 480,
-        .field_height      = 240,
+        .field_height      = 480,
         .aspect_ratio_num  = 4,
         .aspect_ratio_den  = 3,
         .sync_duration_num = 60,
@@ -519,6 +531,30 @@ static const vinfo_t tv_info[] =
         .sync_duration_den = 1,
 		.video_clk         = 108000000,
     }, 
+	{ /* VMODE_wsxga */
+		.name              = "wsxga",
+		.mode              = VMODE_WSXGA,
+        .width             = 1440,
+        .height            = 900,
+        .field_height      = 900,
+        .aspect_ratio_num  = 8,
+        .aspect_ratio_den  = 5,
+        .sync_duration_num = 60,
+        .sync_duration_den = 1,
+		.video_clk         = 88750000,
+    },
+	{ /* VMODE_fhdvga */
+		.name              = "fhdvga",
+		.mode              = VMODE_FHDVGA,
+        .width             = 1920,
+        .height            = 1080,
+        .field_height      = 1080,
+        .aspect_ratio_num  = 16,
+        .aspect_ratio_den  = 9,
+        .sync_duration_num = 60,
+        .sync_duration_den = 1,
+		.video_clk         = 148500000,
+    },
 };
 
 static const struct file_operations am_tv_fops = {
@@ -561,7 +597,7 @@ tvmode_t vmode_to_tvmode(vmode_t mod)
 
 static int tv_set_current_vmode(vmode_t mod)
 {
-	if ((mod&VMODE_MODE_BIT_MASK)> VMODE_SXGA)
+	if ((mod&VMODE_MODE_BIT_MASK)> VMODE_FHDVGA)
 		return -EINVAL;
 	info->vinfo = &tv_info[mod & VMODE_MODE_BIT_MASK];
 	if(mod&VMODE_LOGO_BIT_MASK)  return 0;
@@ -1089,7 +1125,7 @@ static int  create_tv_attr(disp_module_info_t* info)
 	info->base_class=class_create(THIS_MODULE,info->name);
 	if(IS_ERR(info->base_class))
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create tv display class fail\r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create tv display class fail\n");
 		return  -1 ;
 	}
 	//create  class attr
@@ -1097,7 +1133,7 @@ static int  create_tv_attr(disp_module_info_t* info)
 	{
 		if ( class_create_file(info->base_class,tv_attr[i]))
 		{
-			amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create disp attribute %s fail\r\n",tv_attr[i]->attr.name);
+			amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create disp attribute %s fail\n",tv_attr[i]->attr.name);
 		}
 	}
 	sprintf(vdac_setting,"%x",get_current_vdac_setting());
@@ -1117,7 +1153,7 @@ static int __init tv_init_module(void)
 
 	if (!info)
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"can't alloc display info struct\r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"can't alloc display info struct\n");
 		return -ENOMEM;
 	}
 	
@@ -1127,19 +1163,19 @@ static int __init tv_init_module(void)
 	ret=register_chrdev(0,info->name,&am_tv_fops);
 	if(ret <0) 
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"register char dev tv error\r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"register char dev tv error\n");
 		return  ret ;
 	}
 	info->major=ret;
 	_init_vout();
-	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"major number %d for disp\r\n",ret);
+	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"major number %d for disp\n",ret);
 	if(vout_register_server(&tv_server))
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"register tv module server fail \r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"register tv module server fail\n");
 	}
 	else
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"register tv module server ok \r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"register tv module server ok\n");
 	}
 	create_tv_attr(info);
 	return 0;
@@ -1165,10 +1201,10 @@ static __exit void tv_exit_module(void)
 	}
 	vout_unregister_server(&tv_server);
 	
-	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"exit tv module\r\n");
+	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"exit tv module\n");
 }
 
-#if ((defined CONFIG_ARCH_MESON8))
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
 extern void cvbs_config_vdac(unsigned int flag, unsigned int cfg);
 
 static int __init vdac_config_bootargs_setup(char* line)
