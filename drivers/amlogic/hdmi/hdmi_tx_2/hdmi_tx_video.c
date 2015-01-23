@@ -327,18 +327,7 @@ static Hdmi_tx_video_para_t hdmi_tx_video_params[] =
         .sc             = SC_SCALE_HORIZ_VERT,
     },
     {
-        .VIC            = HDMIV_800x600p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_4_3,
-        .cc             = CC_ITU601,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_800x480p60hz,
+        .VIC            = HDMI_3840x2160p50_16x9,
         .color_prefer   = COLOR_SPACE_RGB444,
         .color_depth    = COLOR_24BIT,
         .bar_info       = B_BAR_VERT_HORIZ,
@@ -349,106 +338,7 @@ static Hdmi_tx_video_para_t hdmi_tx_video_params[] =
         .sc             = SC_SCALE_HORIZ_VERT,
     },
     {
-        .VIC            = HDMIV_1024x600p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1024x768p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1280x800p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1280x1024p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_4_3,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1360x768p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1366x768p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1440x900p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1600x900p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1680x1050p60hz,
-        .color_prefer   = COLOR_SPACE_RGB444,
-        .color_depth    = COLOR_24BIT,
-        .bar_info       = B_BAR_VERT_HORIZ,
-        .repeat_time    = NO_REPEAT,
-        .aspect_ratio   = TV_ASPECT_RATIO_16_9,
-        .cc             = CC_ITU709,
-        .ss             = SS_SCAN_UNDER,
-        .sc             = SC_SCALE_HORIZ_VERT,
-    },
-    {
-        .VIC            = HDMIV_1920x1200p60hz,
+        .VIC            = HDMI_3840x2160p60_16x9,
         .color_prefer   = COLOR_SPACE_RGB444,
         .color_depth    = COLOR_24BIT,
         .bar_info       = B_BAR_VERT_HORIZ,
@@ -542,6 +432,15 @@ void hdmitx_init_parameters(HDMI_TX_INFO_t *info)
 //If not, treated as a DVI Device
 static int is_dvi_device(rx_cap_t* pRXCap)
 {
+    hdmitx_dev_t *hdmitx_device = container_of(pRXCap, struct hdmi_tx_dev_s, RXCap);
+
+#ifndef CONFIG_AML_HDMI_TX_CTS_DVI
+    hdmi_print(IMP, SYS "fixed HDMI mode output\n");
+    return 0;
+#endif
+    if(hdmitx_device->tv_no_edid)
+        return 0;
+
     if(pRXCap->IEEEOUI != 0x000c03)
         return 1;
     else
@@ -566,6 +465,7 @@ int hdmitx_set_display(hdmitx_dev_t* hdmitx_device, HDMI_Video_Codes_t VideoCode
     for(i=0;i<32;i++){
         AVI_DB[i]=0;
     }
+//TODO
 
     vic = hdmitx_device->HWOp.GetState(hdmitx_device, STAT_VIDEO_VIC, 0);
     hdmi_print(IMP, SYS "already init VIC = %d  Now VIC = %d\n", vic, VideoCode);

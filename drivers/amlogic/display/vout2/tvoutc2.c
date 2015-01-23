@@ -199,9 +199,12 @@ int tvoutc_setclk2(tvmode_t mode)
 	switch(mode)
 	{
 		case TVMODE_480I:
+		case TVMODE_480I_RPT:
 		case TVMODE_480CVBS:
 		case TVMODE_480P:
+		case TVMODE_480P_RPT:
 		case TVMODE_576I:
+		case TVMODE_576I_RPT:
 		case TVMODE_576CVBS:
 		case TVMODE_576P:
 			  setreg(&sd[xtal]);
@@ -225,19 +228,52 @@ int tvoutc_setclk2(tvmode_t mode)
 	return 0;
 }
 
+static const reg_t * tvregs_setting_mode(tvmode_t mode)
+{
+    int i = 0;
+    for(i = 0; i < ARRAY_SIZE(tvregsTab2); i++) {
+        if(mode == tvregsTab2[i].tvmode)
+            return tvregsTab2[i].reg_setting;
+    }
+    return NULL;
+}
+
+const static tvinfo_t * tvinfo_mode(tvmode_t mode)
+{
+    int i = 0;
+    for(i = 0; i < ARRAY_SIZE(tvinfoTab2); i++) {
+        if(mode == tvinfoTab2[i].tvmode)
+            return &tvinfoTab2[i];
+    }
+    return NULL;
+}
+
 int tvoutc_setmode2(tvmode_t mode)
 {
     const  reg_t *s;
+    const tvinfo_t * tvinfo;
 
     if (mode >= TVMODE_MAX) {
         printk(KERN_ERR "Invalid video output modes.\n");
         return -ENODEV;
     }
 
-    printk(KERN_DEBUG "TV mode %s selected.\n", tvinfoTab[mode].id);
-   
-    s = tvregsTab[mode];
-			
+    printk(KERN_DEBUG "TV mode %s selected.\n", tvinfoTab2[mode].id);
+
+    tvinfo = tvinfo_mode(mode);
+    if(!tvinfo) {
+        printk(KERN_ERR "tvinfo %d not find\n", mode);
+        return 0;
+    }
+    printk("TV mode %s selected.\n", tvinfo->id);
+
+    s = tvregs_setting_mode(mode);
+    if(!s) {
+        printk("display mode %d regs setting failed\n", mode);
+        return 0;
+    }
+    //s = tvregsTab[mode];
+
     while (MREG_END_MARKER != s->reg)
         setreg(s++);
 	//tvoutc_setclk2(mode);
@@ -270,8 +306,7 @@ int tvoutc_setmode2(tvmode_t mode)
         //WRITE_MPEG_REG(HHI_VID_CLK_DIV, (READ_MPEG_REG(HHI_VID_CLK_DIV)&(~(0xff<<24)))|(0x88<<24)); // reg 0x1059, select cts_encp_clk and cts_enci_clk from v2_clk_div1
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 2, 2, 2); //reg0x271a, select ENCP to VIU2
 
-    
-    aml_write_reg32(P_VPP2_POSTBLEND_H_SIZE, tvinfoTab[mode].xres);
+    aml_write_reg32(P_VPP2_POSTBLEND_H_SIZE, tvinfo->xres);
     
 // For debug only
 #if 0

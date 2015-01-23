@@ -227,7 +227,7 @@ void Edid_CompareTimingDescriptors(HDMI_TX_INFO_t * info, unsigned char *Data)
     {
         for(index2=0;index2<12;index2++)
         {
-            if(Data[index2]!=Edid_TimingDescriptors[index1*12+index2])
+            if(Data[index2]!=Edid_TimingDescriptors[index1*14+index2])
                 break;
         }
         if(index2==12)
@@ -1130,45 +1130,6 @@ static int hdmitx_edid_search_IEEEOUI(char *buf)
     return 0;
 }
 
-// check EDID strictly
-static int edid_check_valid(unsigned char *buf)
-{
-    unsigned int chksum = 0;
-    unsigned int i = 0;
-
-    // check block 0 first 8 bytes
-    if((buf[0] != 0) && (buf[7] != 0))
-        return 0;
-    for(i = 1; i < 7; i ++) {
-        if(buf[i] != 0xff)
-            return 0;
-    }
-
-    // check block 0 checksum
-    for(chksum = 0, i = 0; i < 0x80; i++) {
-        chksum += buf[i];
-    }
-    if((chksum & 0xff) != 0)
-        return 0;
-
-    // check Extension flag at block 0
-    if(buf[0x7e] == 0)
-        return 0;
-
-    // check block 1 extension tag
-    if(buf[0x80] != 0x2)
-        return 0;
-
-    // check block 1 checksum
-    for(chksum = 0, i = 0x80; i < 0x100; i++) {
-        chksum += buf[i];
-    }
-    if((chksum & 0xff) != 0)
-        return 0;
-
-    return 1;
-}
-
 int hdmitx_edid_parse(hdmitx_dev_t* hdmitx_device)
 {
     unsigned char CheckSum ;
@@ -1307,16 +1268,6 @@ int hdmitx_edid_parse(hdmitx_dev_t* hdmitx_device)
         hdmitx_edid_set_default_vic(hdmitx_device);
     }    
 
-    // strictly DVI device judgement
-    // valid EDID & no audio tag & no IEEEOUI
-    if( edid_check_valid(&EDID_buf[0]) && (pRXCap->AUD_count == 0)
-        && !hdmitx_edid_search_IEEEOUI(&EDID_buf[128]) ) {
-        pRXCap->IEEEOUI = 0x0;
-        printk("hdmitx: edid: sink is DVI device\n");
-    } else {
-        pRXCap->IEEEOUI = 0x0c03;
-    }
-
 #if 1    
     i=hdmitx_edid_dump(hdmitx_device, (char*)(hdmitx_device->tmp_buf), HDMI_TMP_BUF_SIZE);
     hdmitx_device->tmp_buf[i]=0;
@@ -1333,16 +1284,12 @@ typedef struct{
 
 static dispmode_vic_t dispmode_VIC_tab[]=
 {
-    {"640x480p60hz", HDMI_640x480p60_4x3},
     {"480i_4_3",  HDMI_480i60},
     {"480i_rpt",  HDMI_480i60_16x9_rpt},
     {"480i",      HDMI_480i60_16x9},
     {"480p_4_3",  HDMI_480p60},
     {"480p_rpt",  HDMI_480p60_16x9_rpt},
     {"480p",      HDMI_480p60_16x9},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-	{"480p59hz",  HDMI_480p60_16x9},
-#endif
     {"576i_4_3",  HDMI_576i50},
     {"576i_rpt",  HDMI_576i50_16x9_rpt},
     {"576i",      HDMI_576i50_16x9},
@@ -1351,49 +1298,19 @@ static dispmode_vic_t dispmode_VIC_tab[]=
     {"576p",      HDMI_576p50_16x9},
     {"720p50hz",  HDMI_720p50},
     {"720p",      HDMI_720p60},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-	{"720p59hz",  HDMI_720p60},
-#endif
     {"1080i50hz", HDMI_1080i50},
     {"1080i",     HDMI_1080i60},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-    {"1080i59hz", HDMI_1080i60},
-#endif
     {"1080p50hz", HDMI_1080p50},
     {"1080p30hz", HDMI_1080p30},
     {"1080p24hz", HDMI_1080p24},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-	{"1080p23hz", HDMI_1080p24},
-#endif
     {"1080p",     HDMI_1080p60},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-	{"1080p59hz", HDMI_1080p60},
-#endif
-#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8) && (MESON_CPU_TYPE != MESON_CPU_TYPE_MESON8B)
     {"4k2k30hz",  HDMI_4k2k_30},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-	{"4k2k29hz",  HDMI_4k2k_30},
-#endif
     {"4k2k25hz",  HDMI_4k2k_25},
     {"4k2k24hz",  HDMI_4k2k_24},
-#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
-	{"4k2k23hz",  HDMI_4k2k_24},
-#endif
     {"4k2ksmpte", HDMI_4k2k_smpte_24},
-#endif
-    // VESA modes
-    {"800x480p60hz", HDMIV_800x480p60hz},
-    {"800x600p60hz", HDMIV_800x600p60hz},
-    {"1024x600p60hz", HDMIV_1024x600p60hz},
-    {"1024x768p60hz", HDMIV_1024x768p60hz},
-    {"1280x800p60hz", HDMIV_1280x800p60hz},
-    {"1280x1024p60hz", HDMIV_1280x1024p60hz},
-    {"1360x768p60hz", HDMIV_1360x768p60hz},
-    {"1366x768p60hz", HDMIV_1366x768p60hz},
-    {"1440x900p60hz", HDMIV_1440x900p60hz},
-    {"1600x900p60hz", HDMIV_1600x900p60hz},
-    {"1680x1050p60hz", HDMIV_1680x1050p60hz},
-    {"1920x1200p60hz", HDMIV_1920x1200p60hz},
+    {"4k2k5g",    HDMI_3840x2160p50_16x9},
+    {"4k2k60hz420", HDMI_3840x2160p60_16x9},
+    {"4k2k60hz",  HDMI_3840x2160p60_16x9},
 };
 
 int hdmitx_edid_VIC_support(HDMI_Video_Codes_t vic)
@@ -1474,19 +1391,19 @@ const char* hdmitx_edid_get_native_VIC(hdmitx_dev_t* hdmitx_device)
 }    
 
 //Clear HDMI Hardware Module EDID RAM and EDID Buffer
-void hdmitx_edid_ram_buffer_clear(hdmitx_dev_t* hdmitx_device)
+void hdmitx_edid_ram_buffer_clear(hdmitx_dev_t* hdev)
 {
     unsigned int i = 0;
     
     //Clear HDMI Hardware Module EDID RAM
-    hdmitx_device->HWOp.CntlDDC(hdmitx_device, DDC_EDID_CLEAR_RAM, 0);
+    hdev->HWOp.CntlDDC(hdev, DDC_EDID_CLEAR_RAM, 0);
     
     //Clear EDID Buffer
     for(i = 0; i < EDID_MAX_BLOCK*128; i++) {
-        hdmitx_device->EDID_buf[i] = 0;
+        hdev->EDID_buf[i] = 0;
     }
     for(i = 0; i < EDID_MAX_BLOCK*128; i++) {
-        hdmitx_device->EDID_buf1[i] = 0;
+        hdev->EDID_buf1[i] = 0;
     }
 }
 
@@ -1617,34 +1534,34 @@ int hdmitx_edid_dump(hdmitx_dev_t* hdmitx_device, char* buffer, int buffer_len)
     int i,pos=0;
     rx_cap_t* pRXCap = &(hdmitx_device->RXCap);
 
-    pos+=snprintf(buffer+pos, buffer_len-pos, "Receiver Brand Name: %s\n", pRXCap->ReceiverBrandName);
-    pos+=snprintf(buffer+pos, buffer_len-pos, "Receiver Product Name: %s\n", pRXCap->ReceiverProductName);
+    pos+=snprintf(buffer+pos, buffer_len-pos, "Receiver Brand Name: %s\r\n", pRXCap->ReceiverBrandName);
+    pos+=snprintf(buffer+pos, buffer_len-pos, "Receiver Product Name: %s\r\n", pRXCap->ReceiverProductName);
 
-    pos+=snprintf(buffer+pos, buffer_len-pos, "EDID block number: 0x%x\n",hdmitx_device->EDID_buf[0x7e]);
+    pos+=snprintf(buffer+pos, buffer_len-pos, "EDID block number: 0x%x\r\n",hdmitx_device->EDID_buf[0x7e]);
 
-    pos+=snprintf(buffer+pos, buffer_len-pos, "Source Physical Address[a.b.c.d]: %x.%x.%x.%x\n",
+    pos+=snprintf(buffer+pos, buffer_len-pos, "Source Physical Address[a.b.c.d]: %x.%x.%x.%x\r\n",
         hdmitx_device->hdmi_info.vsdb_phy_addr.a, hdmitx_device->hdmi_info.vsdb_phy_addr.b, hdmitx_device->hdmi_info.vsdb_phy_addr.c, hdmitx_device->hdmi_info.vsdb_phy_addr.d);
 
-    pos+=snprintf(buffer+pos, buffer_len-pos, "native Mode %x, VIC (native %d):\n",
+    pos+=snprintf(buffer+pos, buffer_len-pos, "native Mode %x, VIC (native %d):\r\n",
         pRXCap->native_Mode, pRXCap->native_VIC);
 
-    pos+=snprintf(buffer+pos, buffer_len-pos, "ColorDeepSupport %x, MaxTMDSClock %d\n",
+    pos+=snprintf(buffer+pos, buffer_len-pos, "ColorDeepSupport %x, MaxTMDSClock %d\r\n",
         pRXCap->ColorDeepSupport, pRXCap->Max_TMDS_Clock); 
 
     for( i = 0 ; i < pRXCap->VIC_count ; i++ )
     {
         pos+=snprintf(buffer+pos, buffer_len-pos,"%d ", pRXCap->VIC[i]);
     }
-    pos+=snprintf(buffer+pos, buffer_len-pos,"\n");
-    pos+=snprintf(buffer+pos, buffer_len-pos, "Audio {format, channel, freq, cce}\n");
+    pos+=snprintf(buffer+pos, buffer_len-pos,"\r\n");
+    pos+=snprintf(buffer+pos, buffer_len-pos, "Audio {format, channel, freq, cce}\r\n");
     for(i = 0; i< pRXCap->AUD_count; i++) {
-        pos+=snprintf(buffer+pos, buffer_len-pos, "{%d, %d, %x, %x}\n", pRXCap->RxAudioCap[i].audio_format_code,
+        pos+=snprintf(buffer+pos, buffer_len-pos, "{%d, %d, %x, %x}\r\n", pRXCap->RxAudioCap[i].audio_format_code,
             pRXCap->RxAudioCap[i].channel_num_max, pRXCap->RxAudioCap[i].freq_cc, pRXCap->RxAudioCap[i].cc3);
     }
-    pos+=snprintf(buffer+pos,buffer_len-pos,"Speaker Allocation: %x\n", pRXCap->RxSpeakerAllocation);
-    pos+=snprintf(buffer+pos,buffer_len-pos,"Vendor: %x\n", pRXCap->IEEEOUI);
+    pos+=snprintf(buffer+pos,buffer_len-pos,"Speaker Allocation: %x\r\n", pRXCap->RxSpeakerAllocation);
+    pos+=snprintf(buffer+pos,buffer_len-pos,"Vendor: %x\r\n", pRXCap->IEEEOUI);
 
-    pos+=snprintf(buffer+pos,buffer_len-pos,"Rx 3D Format Support List:\n{VIC FramePacking TopBottom SidebySide}\n");
+    pos+=snprintf(buffer+pos,buffer_len-pos,"Rx 3D Format Support List:\r\n{VIC FramePacking TopBottom SidebySide}\r\n");
     for(i = 0 ; i < pRXCap->VIC_count; i++){
         pos+=snprintf(buffer+pos,buffer_len-pos,"{ %d\t%d\t%d\t%d }\n", pRXCap->VIC[i], 
                                                                    pRXCap->support_3d_format[pRXCap->VIC[i]].frame_packing,
