@@ -13,6 +13,7 @@ struct drm_gem_cma_object {
 	void *vaddr;
 
 	void *ump_handle;
+	struct dma_attrs dma_attrs;
 };
 
 static inline struct drm_gem_cma_object *
@@ -58,6 +59,6 @@ void drm_gem_cma_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
 struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
 		struct drm_file *file_priv,
 		struct drm_device *drm, unsigned int size,
-		unsigned int *handle);
+		unsigned int *handle, struct dma_attrs *dma_attrs);
 
 #endif /* __DRM_GEM_CMA_HELPER_H__ */

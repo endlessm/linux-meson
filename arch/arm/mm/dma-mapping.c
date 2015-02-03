@@ -596,10 +596,12 @@ static void __free_from_contiguous(struct device *dev, struct page *page,
 
 static inline pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
 {
-	prot = dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs) ?
-			    pgprot_writecombine(prot) :
-			    pgprot_dmacoherent(prot);
-	return prot;
+	if (dma_get_attr(DMA_ATTR_NON_CONSISTENT, attrs))
+		return prot;
+	else if (dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
+		return pgprot_writecombine(prot);
+	else
+		return pgprot_dmacoherent(prot);
 }
 
 #define nommu() 0
