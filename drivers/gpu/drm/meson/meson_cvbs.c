@@ -145,12 +145,12 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 	 *
 	 * Hack in an explicit vrefresh for now. */
 	mode->vrefresh = 50;
-	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	mode->type |= DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode);
 
 	mode = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
 	mode->vrefresh = 60;
-	mode->type |= DRM_MODE_TYPE_DRIVER;
+	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode);
 
 	return 2;
