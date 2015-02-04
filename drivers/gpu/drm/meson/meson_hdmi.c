@@ -28,6 +28,7 @@
 #include <drm/drm_atomic_helper.h>
 
 #include "meson_modes.h"
+#include "meson_priv.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -80,8 +81,9 @@ static bool meson_encoder_mode_fixup(struct drm_encoder *encoder,
 				     const struct drm_display_mode *mode,
 				     struct drm_display_mode *adjusted_mode)
 {
-	/* nothing needed */
-	return true;
+	vmode_t vmode;
+	vmode = drm_mode_to_vmode(adjusted_mode, MESON_MODES_HDMI);
+	return (vmode != VMODE_MAX);
 }
 
 static void meson_encoder_prepare(struct drm_encoder *encoder)
@@ -96,6 +98,9 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 				   struct drm_display_mode *mode,
 				   struct drm_display_mode *adjusted_mode)
 {
+	vmode_t vmode;
+	vmode = drm_mode_to_vmode(adjusted_mode, MESON_MODES_HDMI);
+	meson_drm_set_vmode(vmode);
 	meson_set_hdmi_audio();
 }
 
