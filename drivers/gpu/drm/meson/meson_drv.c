@@ -111,35 +111,6 @@ struct meson_crtc {
 };
 #define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
 
-/* Scales from the range 0..a2 to b1..b2 */
-static inline int scale_into(int v, int a2, int b1, int b2)
-{
-	return (v * (b2 - b1) / a2) + b1;
-}
-
-static void compensate_for_underscan(struct drm_rect *dest, struct drm_crtc *crtc)
-{
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
-
-	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
-		if (meson_crtc->underscan_hborder != 0) {
-			int hdisplay = crtc->mode.hdisplay;
-			int hborder = meson_crtc->underscan_hborder;
-			int offs = scale_into(dest->x1, hdisplay, hborder, (hdisplay - hborder)) - dest->x1;
-			dest->x1 += offs;
-			dest->x2 += offs;
-		}
-
-		if (meson_crtc->underscan_vborder != 0) {
-			int vdisplay = crtc->mode.vdisplay;
-			int vborder = meson_crtc->underscan_vborder;
-			int offs = scale_into(dest->y1, vdisplay, vborder, (vdisplay - vborder)) - dest->y1;
-			dest->y1 += offs;
-			dest->y2 += offs;
-		}
-	}
-}
-
 /* Plane */
 
 enum osd_w0_bitflags {
@@ -175,7 +146,7 @@ enum osd_w0_bitflags {
 
 struct osd_plane_def {
 	bool uses_scaler;
-	bool compensate_for_underscan;
+	bool compensate_for_scaler;
 
 	uint32_t canvas_index;
 
@@ -219,6 +190,64 @@ struct meson_plane {
 	enum meson_interlacing_strategy interlacing_strategy;
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
+
+static bool get_scaler_rects(struct drm_crtc *crtc,
+			     struct drm_rect *input,
+			     struct drm_rect *output)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
+	struct drm_plane *plane = crtc->primary;
+	struct drm_plane_state *state = plane->state;
+	struct meson_plane *meson_plane = to_meson_plane(plane);
+	bool interlace = (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_SCALER);
+
+	input->x1 = 0;
+	input->y1 = 0;
+	input->x2 = state->crtc_w;
+	input->y2 = state->crtc_h;
+
+	*output = *input;
+
+	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
+		int hborder = meson_crtc->underscan_hborder;
+		int vborder = meson_crtc->underscan_vborder;
+
+		if (interlace)
+			vborder /= 2;
+
+		if (hborder != 0) {
+			output->x1 += hborder;
+			output->x2 -= hborder;
+		}
+		if (vborder != 0) {
+			output->y1 += vborder;
+			output->y2 -= vborder;
+		}
+	}
+
+	return (!drm_rect_equals(input, output));
+}
+
+/* Scales from the range a1..a2 to b1..b2 */
+static inline int scale_into(int v, int a1, int a2, int b1, int b2)
+{
+	return ((v - a1) * (b2 - b1) / (a2 - a1)) + b1;
+}
+
+static inline void scale_rect_into(struct drm_rect *dest,
+				   struct drm_rect *input,
+				   struct drm_rect *output)
+{
+	int offs;
+
+	offs = scale_into(dest->x1, input->x1, input->x2, output->x1, output->x2) - dest->x1;
+	dest->x1 += offs;
+	dest->x2 += offs;
+
+	offs = scale_into(dest->y1, input->y1, input->y2, output->y1, output->y2) - dest->y1;
+	dest->y1 += offs;
+	dest->y2 += offs;
+}
 
 static int meson_plane_atomic_check(struct drm_plane *plane,
 				    struct drm_plane_state *state)
@@ -274,16 +303,20 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		.y2 = state->crtc_y + state->crtc_h,
 	};
 	struct drm_rect clip = {};
+	bool is_scaling;
 	bool visible;
 
 	if (state->fb) {
-		clip.x2 = state->crtc->mode.hdisplay;
-		clip.y2 = state->crtc->mode.vdisplay;
+		struct drm_rect input, output;
 
-		if (meson_plane->def->compensate_for_underscan)
-			compensate_for_underscan(&dest, state->crtc);
+		is_scaling = get_scaler_rects(state->crtc, &input, &output);
 
+		if (meson_plane->def->compensate_for_scaler && is_scaling)
+			scale_rect_into(&dest, &input, &output);
+
+		clip = output;
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
+			clip.y1 /= 2;
 			clip.y2 /= 2;
 
 			dest.y1 /= 2;
@@ -303,11 +336,9 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		/* If we're interlacing, then figure out what strategy we're
 		 * going to use. */
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
-			struct meson_crtc *meson_crtc = to_meson_crtc(state->crtc);
-
 			/* If this plane is going to use the vertical scaler, then scan it out as
 			 * progressive, as the scaler will take care of interlacing for us. */
-			if (meson_plane->def->uses_scaler && (meson_crtc->underscan_type == UNDERSCAN_ON && meson_crtc->underscan_vborder != 0))
+			if (is_scaling)
 				meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_SCALER;
 			else
 				meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_OSD;
@@ -535,7 +566,7 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 static struct osd_plane_def osd_plane_defs[] = {
 	{
 		.uses_scaler = true,
-		.compensate_for_underscan = false,
+		.compensate_for_scaler = false,
 		.canvas_index = 0x4e,
 		.vpp_misc_postblend = VPP_OSD1_POSTBLEND,
 		{
@@ -546,7 +577,7 @@ static struct osd_plane_def osd_plane_defs[] = {
 	},
 	{
 		.uses_scaler = false,
-		.compensate_for_underscan = true,
+		.compensate_for_scaler = true,
 		.canvas_index = 0x4f,
 		.vpp_misc_postblend = VPP_OSD2_POSTBLEND,
 		{
@@ -905,26 +936,21 @@ static void meson_crtc_send_vblank_event(struct drm_crtc *crtc)
 	}
 }
 
-static void update_scaler_for_underscan(struct drm_crtc *crtc)
+static void update_scaler(struct drm_crtc *crtc)
 {
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	struct meson_plane *meson_plane = to_meson_plane(crtc->primary);
 	struct drm_plane_state *state = crtc->primary->state;
+	struct drm_rect input, output;
 
 	if (!state)
 		return;
 
-	if (meson_crtc->underscan_type == UNDERSCAN_ON &&
-	    (meson_crtc->underscan_hborder != 0 || meson_crtc->underscan_vborder != 0)) {
-		int hborder = meson_crtc->underscan_hborder;
-		int vborder = meson_crtc->underscan_vborder;
+	if (get_scaler_rects(crtc, &input, &output)) {
 		bool interlace = (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_SCALER);
 
-		int field_h = state->crtc_h;
-
 		if (interlace) {
-			field_h /= 2;
-			vborder /= 2;
+			output.y1 /= 2;
+			output.y2 /= 2;
 		}
 
 		/* Basic scaler config */
@@ -932,16 +958,14 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 				(1 << 3) /* Enable scaler */ |
 				(0 << 2) /* Select OSD1 */);
 		aml_write_reg32(P_VPP_OSD_SCI_WH_M1,
-				((state->crtc_w - 1) << 16) | ((state->crtc_h - 1)));
-		aml_write_reg32(P_VPP_OSD_SCO_H_START_END,
-				((hborder) << 16) | ((state->crtc_w - hborder)));
-		aml_write_reg32(P_VPP_OSD_SCO_V_START_END,
-				((vborder) << 16) | ((field_h - vborder)));
+				((drm_rect_width(&input) - 1) << 16) | (drm_rect_height(&input) - 1));
+		aml_write_reg32(P_VPP_OSD_SCO_H_START_END, ((output.x1) << 16) | (output.x2));
+		aml_write_reg32(P_VPP_OSD_SCO_V_START_END, ((output.y1) << 16) | (output.y2));
 
 		/* HSC */
-		if (hborder != 0) {
-			int hf_phase_step = ((state->crtc_w << 18) / (state->crtc_w - hborder * 2)) << 6;
-			aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step);
+		if (input.x1 != output.x1 || input.x2 != output.x2) {
+			int hf_phase_step = ((drm_rect_width(&input) << 18) / drm_rect_width(&output));
+			aml_write_reg32(P_VPP_OSD_HSC_PHASE_STEP, hf_phase_step << 6);
 
 			aml_write_reg32(P_VPP_OSD_HSC_CTRL0,
 					(4 << 0) /* osd_hsc_bank_length */ |
@@ -953,8 +977,8 @@ static void update_scaler_for_underscan(struct drm_crtc *crtc)
 		}
 
 		/* VSC */
-		if (vborder != 0) {
-			int vf_phase_step = ((state->crtc_h << 20) / (field_h - vborder * 2));
+		if (input.y1 != output.y1 || input.y2 != output.y2) {
+			int vf_phase_step = ((drm_rect_height(&input) << 20) / drm_rect_height(&output));
 
 			aml_write_reg32(P_VPP_OSD_VSC_INI_PHASE, interlace ? (vf_phase_step >> 5) : 0);
 			aml_write_reg32(P_VPP_OSD_VSC_PHASE_STEP, vf_phase_step << 4);
@@ -1018,7 +1042,7 @@ static irqreturn_t meson_irq(int irq, void *arg)
 	update_plane_shadow_registers(priv->crtc->primary);
 	update_plane_shadow_registers(priv->crtc->cursor);
 
-	update_scaler_for_underscan(priv->crtc);
+	update_scaler(priv->crtc);
 
 	if (priv->cleanup_state) {
 		drm_flip_work_queue(&priv->unref_work, priv->cleanup_state);
