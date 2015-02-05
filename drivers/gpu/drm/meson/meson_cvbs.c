@@ -27,6 +27,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_atomic_helper.h>
 
+#include "meson_priv.h"
 #include "meson_modes.h"
 
 #include <mach/am_regs.h>
@@ -51,8 +52,9 @@ static bool meson_encoder_mode_fixup(struct drm_encoder *encoder,
 				     const struct drm_display_mode *mode,
 				     struct drm_display_mode *adjusted_mode)
 {
-	/* nothing needed */
-	return true;
+	vmode_t vmode;
+	vmode = drm_mode_to_vmode(adjusted_mode, MESON_MODES_CVBS);
+	return (vmode != VMODE_MAX);
 }
 
 static void meson_encoder_prepare(struct drm_encoder *encoder)
@@ -67,6 +69,9 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 				   struct drm_display_mode *mode,
 				   struct drm_display_mode *adjusted_mode)
 {
+	vmode_t vmode;
+	vmode = drm_mode_to_vmode(adjusted_mode, MESON_MODES_CVBS);
+	meson_drm_set_vmode(vmode);
 }
 
 static const struct drm_encoder_helper_funcs meson_encoder_helper_funcs = {
@@ -134,11 +139,18 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 	struct drm_display_mode *mode;
 
 	mode = drm_cvt_mode(dev, 720, 576, 50, false, true, false);
-	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	/* XXX: For some reason, calling drm_mode_vrefresh on these modes gives us
+	 * incorrect refresh rates. The original algorithm comes from an Excel
+	 * spreadsheet from 2003, which I really don't want to debug.
+	 *
+	 * Hack in an explicit vrefresh for now. */
+	mode->vrefresh = 50;
+	mode->type |= DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode);
 
 	mode = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
-	mode->type |= DRM_MODE_TYPE_DRIVER;
+	mode->vrefresh = 60;
+	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode);
 
 	return 2;

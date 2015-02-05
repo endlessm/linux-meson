@@ -459,18 +459,11 @@ static bool meson_crtc_mode_fixup(struct drm_crtc *crtc,
 				  const struct drm_display_mode *mode,
 				  struct drm_display_mode *adjusted_mode)
 {
-	vmode_t vmode;
-
-	vmode = drm_mode_to_vmode(mode, MESON_MODES_ALL);
-
-	/* Invalid mode. */
-	if (vmode == VMODE_MAX)
-		return false;
-
+	/* nothing needed */
 	return true;
 }
 
-static void set_vmode(vmode_t mode)
+void meson_drm_set_vmode(vmode_t mode)
 {
 	/* Call into aml's vout driver. */
 
@@ -491,11 +484,7 @@ static void set_vmode(vmode_t mode)
 
 static void meson_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-	vmode_t vmode;
-	vmode = drm_mode_to_vmode(&crtc->state->adjusted_mode, MESON_MODES_ALL);
-	set_vmode(vmode);
-
-	/* Make sure to unblank HDMI */
+	/* Make sure to unblank our display */
 	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
 }
 
@@ -846,7 +835,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	/* set vout mode at startup to prevent the rest of
 	 * amlogic's drivers from crashing... */
-	set_vmode(VMODE_1080P);
+	meson_drm_set_vmode(VMODE_1080P);
 
 	ret = drm_flip_work_init(&priv->unref_work, 16,
 			"unref", meson_unref_worker);
