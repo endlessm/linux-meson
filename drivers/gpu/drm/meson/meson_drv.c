@@ -1020,7 +1020,7 @@ static void update_interlaced_field(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 
-	if (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_OSD) {
+	if (meson_plane->interlacing_strategy != MESON_INTERLACING_STRATEGY_NONE) {
 		int field = aml_read_reg32(P_ENCI_INFO_READ) & (1 << 29);
 		meson_plane->reg.BLK0_CFG_W0 = ((meson_plane->reg.BLK0_CFG_W0 & ~0x01) |
 						(field ? OSD_INTERLACE_ODD : OSD_INTERLACE_EVEN));
