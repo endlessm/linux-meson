@@ -370,7 +370,6 @@ static int aml_set_bias_level(struct snd_soc_card *card,
     struct aml_audio_private_data * p_aml_audio;
     int hp_state;
 
-    printk(KERN_DEBUG "enter %s level: %d\n", __func__, level);
     p_aml_audio = snd_soc_card_get_drvdata(card);
 	hp_state = p_aml_audio->detect_flag;
 

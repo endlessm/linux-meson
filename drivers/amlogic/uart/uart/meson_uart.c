@@ -334,25 +334,20 @@ am_uart_set_termios(struct uart_port *port, struct ktermios *termios,
     tmp = readl(&uart->mode);
     switch (termios->c_cflag & CSIZE) {
     case CS8:
-        printk(KERN_DEBUG "config %s: Character length 8bits/char\n", mup->name);
         tmp &= ~(0x3 << 20);
         break;
     case CS7:
-        printk(KERN_DEBUG "config %s: Character length 7bits/char\n", mup->name);
         tmp &= ~(0x1 << 21);
         tmp |= (0x1 << 20);
         break;
     case CS6:
-        printk(KERN_DEBUG "config %s: Character length 6bits/char\n", mup->name);
         tmp |= 0x1 << 21;
         tmp &= ~(0x1 << 20);
         break;
     case CS5:
-        printk(KERN_DEBUG "config %s: Character length 5bits/char\n", mup->name);
         tmp |= 0x3 << 20;
         break;
     default:
-        printk(KERN_DEBUG "default config %s: Character length 8bits/char\n", mup->name);
         tmp &= ~(0x3 << 20);
         break;
     }
