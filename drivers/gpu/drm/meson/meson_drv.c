@@ -1055,6 +1055,9 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	/* All allocations currently contiguous, to be improved later. */
 	dma_set_attr(DMA_ATTR_FORCE_CONTIGUOUS, &dma_attrs);
 
+	/* We do not need kernel virtual addresses */
+	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &dma_attrs);
+
 	if (args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT) {
 		/* No caching for scanout buffers */
 		dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
