@@ -85,8 +85,12 @@ static const struct {
 	{ 1920, 1080, 60, VMODE_1080P,           MESON_MODES_HDMI },
 
 	/* CVBS modes */
-	{ 720,   576, 50, VMODE_576CVBS,         MESON_MODES_CVBS },
-	{ 720,   480, 60, VMODE_480CVBS,         MESON_MODES_CVBS },
+
+	/* XXX: For some reason, calling drm_mode_vrefresh on these modes gives us
+	 * incorrect refresh rates. The original algorithm comes from an Excel
+	 * spreadsheet from 2003, which I really don't want to debug. */
+	{ 720,  576, 100, VMODE_576CVBS,         MESON_MODES_CVBS },
+	{ 720,  480, 120, VMODE_480CVBS,         MESON_MODES_CVBS },
 };
 
 vmode_t drm_mode_to_vmode(const struct drm_display_mode *mode,
