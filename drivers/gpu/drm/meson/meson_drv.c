@@ -718,16 +718,16 @@ static void write_scaling_filter_coefs(const unsigned int *coefs,
 		aml_write_reg32(P_VPP_OSD_SCALE_COEF, coefs[i]);
 }
 
-/* This table was stolen from osd_hw.c in AML's driver. There is no register
- * documentation about the filters, so I have no idea what these magic numbers
- * are. */
-static unsigned int osd_filter_coefs_bicubic[] = {
-    0x00800000, 0x007f0100, 0xff7f0200, 0xfe7f0300, 0xfd7e0500, 0xfc7e0600,
-    0xfb7d0800, 0xfb7c0900, 0xfa7b0b00, 0xfa7a0dff, 0xf9790fff, 0xf97711ff,
-    0xf87613ff, 0xf87416fe, 0xf87218fe, 0xf8701afe, 0xf76f1dfd, 0xf76d1ffd,
-    0xf76b21fd, 0xf76824fd, 0xf76627fc, 0xf76429fc, 0xf7612cfc, 0xf75f2ffb,
-    0xf75d31fb, 0xf75a34fb, 0xf75837fa, 0xf7553afa, 0xf8523cfa, 0xf8503ff9,
-    0xf84d42f9, 0xf84a45f9, 0xf84848f8
+static unsigned int vpp_filter_coefs_4point_bspline[] = {
+    0x15561500, 0x14561600, 0x13561700, 0x12561800,
+    0x11551a00, 0x11541b00, 0x10541c00, 0x0f541d00,
+    0x0f531e00, 0x0e531f00, 0x0d522100, 0x0c522200,
+    0x0b522300, 0x0b512400, 0x0a502600, 0x0a4f2700,
+    0x094e2900, 0x084e2a00, 0x084d2b00, 0x074c2c01,
+    0x074b2d01, 0x064a2f01, 0x06493001, 0x05483201,
+    0x05473301, 0x05463401, 0x04453601, 0x04433702,
+    0x04423802, 0x03413a02, 0x03403b02, 0x033f3c02,
+    0x033d3d03
 };
 
 /* Configure the VPP to act like how we expect it to. Other drivers,
@@ -743,10 +743,10 @@ static void reset_vpp(void)
 	aml_clr_reg32_mask(P_VPP_OSD_VSC_CTRL0, 1 << 24);
 	aml_clr_reg32_mask(P_VPP_OSD_HSC_CTRL0, 1 << 22);
 
-	BUILD_BUG_ON(ARRAY_SIZE(osd_filter_coefs_bicubic) != 33);
+	BUILD_BUG_ON(ARRAY_SIZE(vpp_filter_coefs_4point_bspline) != 33);
 	/* Write in the proper filter coefficients. */
-	write_scaling_filter_coefs(osd_filter_coefs_bicubic, 0);
-	write_scaling_filter_coefs(osd_filter_coefs_bicubic, 1);
+	write_scaling_filter_coefs(vpp_filter_coefs_4point_bspline, 0);
+	write_scaling_filter_coefs(vpp_filter_coefs_4point_bspline, 1);
 
 	/* Force all planes off -- U-Boot might configure them and
 	 * we shouldn't have any stale planes. */
