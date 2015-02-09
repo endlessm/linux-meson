@@ -331,7 +331,11 @@ static void meson_plane_atomic_update(struct drm_plane *plane)
 		if (meson_plane->def->compensate_for_scaler && is_scaling)
 			scale_rect_into(&dest, &input, &output);
 
-		clip = output;
+		if (meson_plane->def->uses_scaler)
+			clip = input;
+		else
+			clip = output;
+
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
 			clip.y1 /= 2;
 			clip.y2 /= 2;
