@@ -191,6 +191,21 @@ struct meson_plane {
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
+static void adjust_cvbs_hack_mode(struct drm_plane_state *state,
+				  struct drm_rect *output)
+{
+	if (state->crtc_w == CVBS_HACK_MODE_SIZE(720) &&
+	    state->crtc_h == CVBS_HACK_MODE_SIZE(480)) {
+		int hborder = 720 / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+		int vborder = 480 / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+
+		output->x1 = hborder;
+		output->x2 = 720 - hborder;
+		output->y1 = vborder;
+		output->y2 = 480 - vborder;
+	}
+}
+
 static bool get_scaler_rects(struct drm_crtc *crtc,
 			     struct drm_rect *input,
 			     struct drm_rect *output)
@@ -207,6 +222,8 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 	input->y2 = state->crtc_h;
 
 	*output = *input;
+
+	adjust_cvbs_hack_mode(state, output);
 
 	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
 		int hborder = meson_crtc->underscan_hborder;
