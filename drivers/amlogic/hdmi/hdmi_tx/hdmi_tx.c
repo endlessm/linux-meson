@@ -435,21 +435,6 @@ static int set_disp_mode_auto(void)
 	}
 #endif
 
-    if((vic_ready != HDMI_Unkown) && (vic_ready == vic)) {
-        hdmi_print(IMP, SYS "[%s] ALREADY init VIC = %d\n", __func__, vic);
-        if(hdmitx_device.RXCap.IEEEOUI == 0) {
-            // DVI case judgement. In uboot, directly output HDMI mode
-            hdmitx_device.HWOp.CntlConfig(&hdmitx_device, CONF_HDMI_DVI_MODE, DVI_MODE);
-            hdmi_print(IMP, SYS "change to DVI mode\n");
-        }
-        hdmitx_device.cur_VIC = vic;
-        hdmitx_device.output_blank_flag = 1;
-        return 1;
-    }
-    else {
-        hdmitx_pre_display_init();
-    }
-
     hdmitx_device.cur_VIC = HDMI_Unkown;
     ret = hdmitx_set_display(&hdmitx_device, vic); //if vic is HDMI_Unkown, hdmitx_set_display will disable HDMI
     if(ret>=0){
