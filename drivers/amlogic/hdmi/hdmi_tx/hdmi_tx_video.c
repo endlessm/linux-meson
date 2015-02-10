@@ -557,7 +557,6 @@ void hdmitx_output_rgb(void)
 int hdmitx_set_display(hdmitx_dev_t* hdmitx_device, HDMI_Video_Codes_t VideoCode)
 {
     Hdmi_tx_video_para_t *param;
-    HDMI_Video_Codes_t vic;
     int i,ret=-1;
     unsigned char AVI_DB[32];
     unsigned char AVI_HB[32];
@@ -566,13 +565,6 @@ int hdmitx_set_display(hdmitx_dev_t* hdmitx_device, HDMI_Video_Codes_t VideoCode
     AVI_HB[2] = AVI_INFOFRAMES_LENGTH ;
     for(i=0;i<32;i++){
         AVI_DB[i]=0;
-    }
-
-    vic = hdmitx_device->HWOp.GetState(hdmitx_device, STAT_VIDEO_VIC, 0);
-    hdmi_print(IMP, SYS "already init VIC = %d  Now VIC = %d\n", vic, VideoCode);
-    if((vic != HDMI_Unkown) && (vic == VideoCode)) {
-        hdmitx_device->cur_VIC = vic;
-        return 1;;
     }
 
     param = hdmi_get_video_param(VideoCode);
