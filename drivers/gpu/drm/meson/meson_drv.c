@@ -303,7 +303,7 @@ static inline int64_t fixed16_to_int(int64_t value)
 	return value >> 16;
 }
 
-static void meson_plane_atomic_update(struct drm_plane *plane)
+static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_state *old_state)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 	struct drm_plane_state *state = plane->state;
