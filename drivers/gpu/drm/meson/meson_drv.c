@@ -352,8 +352,6 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 	}
 
 	if (visible) {
-		struct drm_gem_cma_object *cma_bo;
-
 		/* If we're interlacing, then figure out what strategy we're
 		 * going to use. */
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
@@ -367,15 +365,19 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 			meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_NONE;
 		}
 
-		cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+		if (state->fb != old_state->fb) {
+			struct drm_gem_cma_object *cma_bo;
 
-		/* Swap out the OSD canvas with the new addr. */
-		canvas_setup(meson_plane->def->canvas_index,
-			     cma_bo->paddr,
-			     state->fb->pitches[0],
-			     state->fb->height,
-			     MESON_CANVAS_WRAP_NONE,
-			     MESON_CANVAS_BLKMODE_LINEAR);
+			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+
+			/* Swap out the OSD canvas with the new addr. */
+			canvas_setup(meson_plane->def->canvas_index,
+				     cma_bo->paddr,
+				     state->fb->pitches[0],
+				     state->fb->height,
+				     MESON_CANVAS_WRAP_NONE,
+				     MESON_CANVAS_BLKMODE_LINEAR);
+		}
 
 		/* Enable OSD and BLK0. */
 		meson_plane->reg.CTRL_STAT = ((1 << 21) |    /* Enable OSD */
