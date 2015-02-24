@@ -856,6 +856,9 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 	early_init_dt_add_memory_arch(phys_offset,MEM_BLOCK1_SIZE);
 	early_init_dt_add_memory_arch(aml_reserved_end,aml_reserved_start-aml_reserved_end);
 
+	/* Add the memory region from 0x4200000-0x5000000 to not waste 14MB */
+	early_init_dt_add_memory_arch(phys_offset + MEM_BLOCK1_SIZE, aml_reserved_end-(phys_offset + MEM_BLOCK1_SIZE));
+
 	aml_reserved_end = get_reserve_end();
 	pr_info("reserved_end is %llx \n ",aml_reserved_end);
 	high_reserve_size = get_high_reserve_size();
