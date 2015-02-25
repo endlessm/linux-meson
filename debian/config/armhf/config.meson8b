@@ -7,6 +7,9 @@ CONFIG_CMDLINE_EXTEND=y
 CONFIG_EXT4_FS=y
 CONFIG_USB=y
 CONFIG_UIO=y
+CONFIG_OVERLAYFS_FS=y
+CONFIG_AUTOFS4_FS=y
+CONFIG_DRM_LOAD_EDID_FIRMWARE=y
 
 # Config options for Amlogic M8B kernel
 # Tried to copy relevant settings from the vendor kernel, without actually
@@ -114,4 +117,3 @@ CONFIG_DRM_MESON=y
 CONFIG_DEBUG_LL=n
 
 CONFIG_ANDROID_PARANOID_NETWORK=n
-CONFIG_OVERLAYFS_FS=y
