@@ -528,9 +528,10 @@ void meson_drm_set_vmode(vmode_t mode)
 
 	/* XXX: Replace aml's vout driver with something sensible. */
 
-	if (mode != get_current_vmode())
-		set_current_vmode(mode);
+	if (mode == get_current_vmode())
+		return;
 
+	set_current_vmode(mode);
 	vout_notifier_call_chain(VOUT_EVENT_MODE_CHANGE, &mode);
 }
 
