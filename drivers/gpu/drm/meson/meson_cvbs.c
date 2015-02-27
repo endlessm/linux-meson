@@ -72,6 +72,11 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 	vmode_t vmode;
 	vmode = drm_mode_to_vmode(adjusted_mode, MESON_MODES_CVBS);
 	meson_drm_set_vmode(vmode);
+
+	/* A write to this badly-named register is also needed to unblank
+	 * the CVBS output.
+	 */
+	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
 }
 
 static const struct drm_encoder_helper_funcs meson_encoder_helper_funcs = {
