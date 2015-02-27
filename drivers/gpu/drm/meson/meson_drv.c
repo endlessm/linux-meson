@@ -528,16 +528,15 @@ void meson_drm_set_vmode(vmode_t mode)
 
 	/* XXX: Replace aml's vout driver with something sensible. */
 
-	if (mode != get_current_vmode())
-		set_current_vmode(mode);
+	if (mode == get_current_vmode())
+		return;
 
+	set_current_vmode(mode);
 	vout_notifier_call_chain(VOUT_EVENT_MODE_CHANGE, &mode);
 }
 
 static void meson_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-	/* Make sure to unblank our display */
-	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
 }
 
 static void meson_crtc_load_lut(struct drm_crtc *crtc)
