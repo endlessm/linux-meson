@@ -536,8 +536,6 @@ void meson_drm_set_vmode(vmode_t mode)
 
 static void meson_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
-	/* Make sure to unblank our display */
-	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
 }
 
 static void meson_crtc_load_lut(struct drm_crtc *crtc)
