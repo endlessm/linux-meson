@@ -959,4 +959,9 @@
 		compatible = "amlogic,meson8b";
 		dev_name = "mesondrm";
 	};
+
+	meson-vdec {
+		compatible = "amlogic,meson8b-vdec";
+	};
+
 }; /* end of / */
