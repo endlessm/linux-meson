@@ -73,10 +73,6 @@ static const struct drm_encoder_funcs meson_encoder_funcs = {
 	.destroy        = meson_encoder_destroy,
 };
 
-static void meson_encoder_dpms(struct drm_encoder *encoder, int mode)
-{
-}
-
 static bool meson_encoder_mode_fixup(struct drm_encoder *encoder,
 				     const struct drm_display_mode *mode,
 				     struct drm_display_mode *adjusted_mode)
@@ -108,7 +104,6 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 }
 
 static const struct drm_encoder_helper_funcs meson_encoder_helper_funcs = {
-	.dpms           = meson_encoder_dpms,
 	.mode_fixup     = meson_encoder_mode_fixup,
 	.prepare        = meson_encoder_prepare,
 	.commit         = meson_encoder_commit,
@@ -240,7 +235,7 @@ static struct drm_encoder *meson_connector_best_encoder(struct drm_connector *co
 static const struct drm_connector_funcs meson_connector_funcs = {
 	.destroy		= meson_connector_destroy,
 	.detect			= meson_connector_detect,
-	.dpms			= drm_helper_connector_dpms,
+	.dpms			= drm_atomic_helper_connector_dpms,
 	.fill_modes		= drm_helper_probe_single_connector_modes,
 	.reset			= drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,

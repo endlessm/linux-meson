@@ -496,11 +496,6 @@ static const struct drm_crtc_funcs meson_crtc_funcs = {
 	.set_property           = meson_crtc_set_property,
 };
 
-static void meson_crtc_dpms(struct drm_crtc *crtc, int mode)
-{
-	/* TODO: Implement DPMS */
-}
-
 static void meson_crtc_prepare(struct drm_crtc *crtc)
 {
 }
@@ -570,8 +565,17 @@ static void meson_crtc_atomic_flush(struct drm_crtc *crtc)
 	}
 }
 
+static void meson_crtc_disable(struct drm_crtc *crtc)
+{
+	/* TODO: Implement DPMS off */
+}
+
+static void meson_crtc_enable(struct drm_crtc *crtc)
+{
+	/* TODO: Implement DPMS on */
+}
+
 static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
-	.dpms           = meson_crtc_dpms,
 	.prepare        = meson_crtc_prepare,
 	.commit         = meson_crtc_commit,
 	.mode_fixup     = meson_crtc_mode_fixup,
@@ -581,6 +585,8 @@ static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 	.load_lut       = meson_crtc_load_lut,
 	.atomic_check   = meson_crtc_atomic_check,
 	.atomic_flush   = meson_crtc_atomic_flush,
+	.disable        = meson_crtc_disable,
+	.enable         = meson_crtc_enable,
 };
 
 /* Pick two canvases in the "user canvas" space that aren't
