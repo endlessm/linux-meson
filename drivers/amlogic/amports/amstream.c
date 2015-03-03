@@ -427,7 +427,7 @@ static  void video_port_release(stream_port_t *port, struct stream_buf_s * pbuf,
     }
     return ;
 }
-static  int video_port_init(stream_port_t *port, struct stream_buf_s * pbuf)
+int video_port_init(stream_port_t *port, struct stream_buf_s * pbuf)
 {
     int r;
     if ((port->flag & PORT_FLAG_VFORMAT) == 0) {
