@@ -294,6 +294,19 @@ static stream_port_t ports[] = {
     },
 };
 
+stream_port_t *amstream_find_port(const char *name)
+{
+	stream_port_t *s;
+	int i;
+
+    for (s = &ports[0], i = 0; i < amstream_port_num; i++, s++) {
+		if (strcmp(name, s->name) == 0)
+			return s;
+    }
+
+	return NULL;
+}
+
 static stream_buf_t bufs[BUF_MAX_NUM] = {
     {
         .reg_base = VLD_MEM_VIFIFO_REG_BASE,
