@@ -44,6 +44,8 @@
 #include <mach/irqs.h>
 #include <linux/amlogic/vout/vout_notify.h>
 #include <linux/amlogic/aml_gpio_consumer.h>
+#include <linux/amlogic/hdmi_tx/hdmi_info_global.h>
+#include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
 
 enum meson_connectors {
 	MESON_CONNECTORS_HDMI      = 0x1,
@@ -518,11 +520,22 @@ static const struct drm_crtc_funcs meson_crtc_funcs = {
 
 static void meson_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
-	/* TODO: Implement DPMS */
+	hdmitx_dev_t *hdmitx_device = get_hdmitx_device();
+
+	if (mode == DRM_MODE_DPMS_OFF)
+		hdmitx_device->HWOp.CntlMisc(hdmitx_device, MISC_TMDS_PHY_OP, TMDS_PHY_DISABLE);
+	else
+		hdmitx_device->HWOp.CntlMisc(hdmitx_device, MISC_TMDS_PHY_OP, TMDS_PHY_ENABLE);
 }
 
 static void meson_crtc_prepare(struct drm_crtc *crtc)
 {
+	meson_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+}
+
+static void meson_crtc_disable(struct drm_crtc *crtc)
+{
+	meson_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
 }
 
 static void meson_crtc_commit(struct drm_crtc *crtc)
@@ -593,6 +606,7 @@ static void meson_crtc_atomic_flush(struct drm_crtc *crtc)
 static const struct drm_crtc_helper_funcs meson_crtc_helper_funcs = {
 	.dpms           = meson_crtc_dpms,
 	.prepare        = meson_crtc_prepare,
+	.disable        = meson_crtc_disable,
 	.commit         = meson_crtc_commit,
 	.mode_fixup     = meson_crtc_mode_fixup,
 	.mode_set       = drm_helper_crtc_mode_set,
