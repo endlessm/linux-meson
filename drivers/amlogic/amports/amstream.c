@@ -1093,28 +1093,8 @@ static ssize_t amstream_userdata_read(struct file *file, char __user *buf, size_
 	return retVal;
 }
 
-static int amstream_open(struct inode *inode, struct file *file)
+void amstream_port_open(stream_port_t *this)
 {
-    s32 i;
-    stream_port_t *s;
-    stream_port_t *this = &ports[iminor(inode)];
-
-    if (iminor(inode) >= amstream_port_num) {
-        return (-ENODEV);
-    }
-
-    if (this->flag & PORT_FLAG_IN_USE) {
-        return (-EBUSY);
-    }
-
-    /* check other ports conflict */
-    for (s = &ports[0], i = 0; i < amstream_port_num; i++, s++) {
-        if ((s->flag & PORT_FLAG_IN_USE) &&
-            ((this->type) & (s->type) & (PORT_TYPE_VIDEO | PORT_TYPE_AUDIO))) {
-            return (-EBUSY);
-        }
-    }
-
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
     switch_mod_gate_by_name("demux", 1);
 
@@ -1155,11 +1135,37 @@ static int amstream_open(struct inode *inode, struct file *file)
     this->aid = 0;
     this->sid = 0;
     this->pcrid = 0xffff;
-    file->f_op = this->fops;
-    file->private_data = this;
 
     this->flag = PORT_FLAG_IN_USE;
     this->pcr_inited = 0;
+}
+
+static int amstream_open(struct inode *inode, struct file *file)
+{
+    s32 i;
+    stream_port_t *s;
+    stream_port_t *this = &ports[iminor(inode)];
+
+    if (iminor(inode) >= amstream_port_num) {
+        return (-ENODEV);
+    }
+
+    if (this->flag & PORT_FLAG_IN_USE) {
+        return (-EBUSY);
+    }
+
+    /* check other ports conflict */
+    for (s = &ports[0], i = 0; i < amstream_port_num; i++, s++) {
+        if ((s->flag & PORT_FLAG_IN_USE) &&
+            ((this->type) & (s->type) & (PORT_TYPE_VIDEO | PORT_TYPE_AUDIO))) {
+            return (-EBUSY);
+        }
+    }
+
+	amstream_port_open(this);
+    file->f_op = this->fops;
+    file->private_data = this;
+
 #ifdef DATA_DEBUG
     debug_filp = filp_open(DEBUG_FILE_NAME, O_WRONLY, 0);
     if (IS_ERR(debug_filp)) {
