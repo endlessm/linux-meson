@@ -76,7 +76,7 @@ ENTRY(__get_user_8)
 6: TUSER(ldr)	r3, [r0]
 #endif
 	mov	r0, #0
-	ret	lr
+	mov	pc,lr
 ENDPROC(__get_user_8)
 
 #ifdef __ARMEB__
@@ -89,7 +89,7 @@ ENTRY(__get_user_lo8)
 7:	ldr	r2, [r0, #4]
 #endif
 	mov	r0, #0
-	ret	lr
+	mov	pc,lr
 ENDPROC(__get_user_lo8)
 #endif
 
