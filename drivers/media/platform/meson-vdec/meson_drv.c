@@ -34,8 +34,7 @@
 // FIXME tweak or make dynamic?
 #define VDEC_MAX_BUFFERS		32
 
-/* In bytes, per queue */ // FIXME define
-#define MEM2MEM_VID_MEM_LIMIT	(16 * 1024 * 1024)
+#define VDEC_HW_BUF_SIZE (32*1024*1024) // FIXME i think Aml code uses only a portion of a 32mb allocation for video, need to check
 
 struct vdec_dev {
 	struct v4l2_device	v4l2_dev;
@@ -69,6 +68,8 @@ struct vdec_ctx {
 
 	/* Buffers in the queue for storing decoded image data */
 	struct list_head dst_queue;
+
+	void *buf_vaddr;
 
 	int src_bufs_cnt;
 	int dst_bufs_cnt;
@@ -105,7 +106,18 @@ static struct vdec_q_data *get_q_data(struct vdec_ctx *ctx,
 static void device_run(void *priv)
 {
 	struct vdec_ctx *ctx = priv;
+	struct vb2_buffer *src_buf;
+	dma_addr_t phys_addr;
+	unsigned long size;
+
 	v4l2_info(&ctx->dev->v4l2_dev, "device_run\n");
+	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	phys_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
+	size = vb2_plane_size(src_buf, 0);
+
+	v4l2_info(&ctx->dev->v4l2_dev, "got src buffer %d, phys addr %x size %ld\n",
+		  src_buf->v4l2_buf.index, phys_addr, size);
+	esparser_start_search(PARSER_VIDEO, phys_addr, size);
 }
 
 /**
@@ -647,8 +659,11 @@ static int vdec_open(struct file *file)
 	struct vdec_ctx *ctx = NULL;
 	int ret = 0;
 	stream_port_t *port = amstream_find_port("amstream_vbuf");
+	stream_buf_t *sbuf = get_buf_by_type(BUF_TYPE_VIDEO);
 
 	v4l2_info(&dev->v4l2_dev, "vdec_open\n");
+	if (!port)
+		return -ENOENT;
 
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
@@ -662,11 +677,20 @@ static int vdec_open(struct file *file)
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
 
+	ctx->buf_vaddr = dma_alloc_coherent(NULL, VDEC_HW_BUF_SIZE,
+					    &sbuf->buf_start, GFP_KERNEL);
+	if (!ctx->buf_vaddr) {
+		ret = -ENOMEM;
+		goto err_free_ctx;
+	}
+
+	sbuf->buf_size = sbuf->default_buf_size = VDEC_HW_BUF_SIZE;
+	sbuf->flag = BUF_FLAG_IOMEM;
+
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
 	if (IS_ERR(ctx->m2m_ctx)) {
 		ret = PTR_ERR(ctx->m2m_ctx);
-		kfree(ctx);
-		goto open_unlock;
+		goto err_free_buf;
 	}
 
 	v4l2_fh_add(&ctx->fh);
@@ -674,18 +698,30 @@ static int vdec_open(struct file *file)
 	INIT_LIST_HEAD(&ctx->dst_queue);
 	amstream_port_open(port);
 
+	// FIXME should this be done on device_run instead?
+	ret = video_port_init(port, sbuf);
+	// FIXME handle error
+
 open_unlock:
 	mutex_unlock(&dev->dev_mutex);
 	return ret;
+
+err_free_buf:
+	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, ctx->buf_vaddr, sbuf->buf_start);
+err_free_ctx:
+	kfree(ctx);
+	goto open_unlock;
 }
 
 static int vdec_release(struct file *file)
 {
 	struct vdec_dev *dev = video_drvdata(file);
 	struct vdec_ctx *ctx = file2ctx(file);
+	stream_buf_t *sbuf = get_buf_by_type(BUF_TYPE_VIDEO);
 
 	v4l2_info(&ctx->dev->v4l2_dev, "vdec_release\n");
 
+	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, ctx->buf_vaddr, sbuf->buf_start);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	mutex_lock(&dev->dev_mutex);

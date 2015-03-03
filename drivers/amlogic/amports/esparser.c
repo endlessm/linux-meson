@@ -75,6 +75,7 @@ static DEFINE_MUTEX(esparser_mutex);
 static void parser_tasklet(ulong data)
 {
     u32 int_status = READ_MPEG_REG(PARSER_INT_STATUS);
+pr_err("esparser interrupt!\n");
 
     WRITE_MPEG_REG(PARSER_INT_STATUS, int_status);
 
