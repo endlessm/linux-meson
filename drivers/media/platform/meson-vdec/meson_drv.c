@@ -20,6 +20,8 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
+#include "amlglue.h"
+
 #define DRIVER_NAME "meson-vdec"
 
 // FIXME check these against reality
@@ -314,11 +316,13 @@ static int vidioc_s_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
 
 	v4l2_info(&ctx->dev->v4l2_dev, "ioc_s_fmt type=%d\n", f->type);
 
-	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
-	if (!vq) {
-		pr_err("no vq\n");
+	q_data = get_q_data(ctx, f->type);
+	if (!q_data)
 		return -EINVAL;
-	}
+
+	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
+	if (!vq)
+		return -EINVAL;
 
 	if (vb2_is_busy(vq)) {
 		v4l2_err(&ctx->dev->v4l2_dev, "%s queue busy\n", __func__);
@@ -461,13 +465,10 @@ static int vdec_src_queue_setup(struct vb2_queue *vq,
 				unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
-	struct vdec_q_data *q_data;
-	unsigned int size, count = *nbuffers;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_output\n");
 
 	*nplanes = 1;
-	*nbuffers = count;
 
 	// FIXME is 512kb sensible?
 	sizes[0] = 512 * 1024;
@@ -475,7 +476,7 @@ static int vdec_src_queue_setup(struct vb2_queue *vq,
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_info(&ctx->dev->v4l2_dev,
-		  "get %d buffer(s) of size %d each.\n", count, sizes[0]);
+		  "get %d buffer(s) of size %d each.\n", *nplanes, sizes[0]);
 
 	return 0;
 }
@@ -487,13 +488,10 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 				unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
-	struct vdec_q_data *q_data;
-	unsigned int size, count = *nbuffers;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
 	*nplanes = 2;
-	*nbuffers = count;
 
 	/* Plane sizes based on how vh264_set_params() deals with a 1080p
 	 * video (mb_total = 8160).
@@ -505,7 +503,7 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 	alloc_ctxs[1] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_info(&ctx->dev->v4l2_dev,
-		  "get %d capture buffer(s).\n", count);
+		  "get %d capture buffer(s).\n", *nbuffers);
 
 	return 0;
 }
@@ -648,6 +646,7 @@ static int vdec_open(struct file *file)
 	struct vdec_dev *dev = video_drvdata(file);
 	struct vdec_ctx *ctx = NULL;
 	int ret = 0;
+	stream_port_t *port = amstream_find_port("amstream_vbuf");
 
 	v4l2_info(&dev->v4l2_dev, "vdec_open\n");
 
@@ -673,6 +672,7 @@ static int vdec_open(struct file *file)
 	v4l2_fh_add(&ctx->fh);
 	INIT_LIST_HEAD(&ctx->src_queue);
 	INIT_LIST_HEAD(&ctx->dst_queue);
+	amstream_port_open(port);
 
 open_unlock:
 	mutex_unlock(&dev->dev_mutex);
