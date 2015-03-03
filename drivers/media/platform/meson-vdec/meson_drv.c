@@ -18,7 +18,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-mem2mem.h>
-#include <media/videobuf2-vmalloc.h>
+#include <media/videobuf2-dma-contig.h>
 
 #define DRIVER_NAME "meson-vdec"
 
@@ -39,6 +39,7 @@ struct vdec_dev {
 	struct v4l2_device	v4l2_dev;
 	struct video_device	*vfd;
 	struct v4l2_m2m_dev	*m2m_dev;
+	void			*vb_alloc_ctx;
 	struct mutex		dev_mutex;
 };
 
@@ -86,9 +87,9 @@ static struct vdec_q_data *get_q_data(struct vdec_ctx *ctx,
 					 enum v4l2_buf_type type)
 {
 	switch (type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		return &ctx->src_q_data;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		return &ctx->dst_q_data;
 	default:
 		BUG();
@@ -166,7 +167,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 	strncpy(cap->card, DRIVER_NAME, sizeof(cap->card) - 1);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 			"platform:%s", DRIVER_NAME);
-	cap->device_caps = V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
+	cap->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
@@ -177,9 +178,8 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_info(&ctx->dev->v4l2_dev, "enum_fmt_vid_cap\n");
 
-	/* FIXME should be nv21? */
-	snprintf(f->description, sizeof(f->description), "XRGB8888");
-	f->pixelformat = V4L2_PIX_FMT_RGB32;
+	snprintf(f->description, sizeof(f->description), "NV21M");
+	f->pixelformat = V4L2_PIX_FMT_NV21M;
 	return 0;
 }
 
@@ -208,12 +208,14 @@ static int vidioc_g_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
 	f->fmt.pix.colorspace	= ctx->colorspace;
 
 	switch (f->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		f->fmt.pix.pixelformat = V4L2_PIX_FMT_H264;
 		f->fmt.pix.bytesperline	= (q_data->width * 16) >> 3;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		f->fmt.pix.pixelformat = V4L2_PIX_FMT_RGB32; // FIXME should be nv21
-		f->fmt.pix.bytesperline	= (q_data->width * 32) >> 3;
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		f->fmt.pix.pixelformat = V4L2_PIX_FMT_NV21M;
+		f->fmt.pix.bytesperline	= (q_data->width * 32) >> 3; // FIXME check
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -271,8 +273,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
 
-	// FIXME should be nv21
-	if (f->fmt.pix.pixelformat != V4L2_PIX_FMT_RGB32) {
+	if (f->fmt.pix.pixelformat != V4L2_PIX_FMT_NV21M) {
 		v4l2_err(&ctx->dev->v4l2_dev,
 			 "Capture format (0x%08x) invalid.\n",
 			 f->fmt.pix.pixelformat);
@@ -314,12 +315,10 @@ static int vidioc_s_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
 	v4l2_info(&ctx->dev->v4l2_dev, "ioc_s_fmt type=%d\n", f->type);
 
 	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
-	if (!vq)
+	if (!vq) {
+		pr_err("no vq\n");
 		return -EINVAL;
-
-	q_data = get_q_data(ctx, f->type);
-	if (!q_data)
-		return -EINVAL;
+	}
 
 	if (vb2_is_busy(vq)) {
 		v4l2_err(&ctx->dev->v4l2_dev, "%s queue busy\n", __func__);
@@ -330,10 +329,12 @@ static int vidioc_s_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
 	q_data->height		= f->fmt.pix.height;
 
 	switch (f->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		q_data->sizeimage	= q_data->width * q_data->height * 16 >> 3;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		q_data->sizeimage	= q_data->width * q_data->height * 32 >> 3;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -360,17 +361,11 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 static int vidioc_s_fmt_vid_out(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
-	struct vdec_ctx *ctx = file2ctx(file);
-	int ret;
+	/* FIXME should check format */
+	// FIXME how does this hook up with the buffer sizes used in reqbufs? */
+	f->fmt.pix_mp.plane_fmt[0].sizeimage = 512 * 1024;
 
-	ret = vidioc_try_fmt_vid_out(file, priv, f);
-	if (ret)
-		return ret;
-
-	ret = vidioc_s_fmt(file2ctx(file), f);
-	if (!ret)
-		ctx->colorspace = f->fmt.pix.colorspace;
-	return ret;
+	return 0;
 }
 
 static int vidioc_reqbufs(struct file *file, void *priv,
@@ -434,15 +429,15 @@ static int vidioc_streamoff(struct file *file, void *priv,
 static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 	.vidioc_querycap	= vidioc_querycap,
 
-	.vidioc_enum_fmt_vid_cap = vidioc_enum_fmt_vid_cap,
-	.vidioc_g_fmt_vid_cap	= vidioc_g_fmt_vid_cap,
-	.vidioc_try_fmt_vid_cap	= vidioc_try_fmt_vid_cap,
-	.vidioc_s_fmt_vid_cap	= vidioc_s_fmt_vid_cap,
+	.vidioc_enum_fmt_vid_cap_mplane = vidioc_enum_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap_mplane	= vidioc_g_fmt_vid_cap,
+	.vidioc_try_fmt_vid_cap_mplane	= vidioc_try_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap_mplane	= vidioc_s_fmt_vid_cap,
 
-	.vidioc_enum_fmt_vid_out = vidioc_enum_fmt_vid_out,
-	.vidioc_g_fmt_vid_out	= vidioc_g_fmt_vid_out,
-	.vidioc_try_fmt_vid_out	= vidioc_try_fmt_vid_out,
-	.vidioc_s_fmt_vid_out	= vidioc_s_fmt_vid_out,
+	.vidioc_enum_fmt_vid_out_mplane = vidioc_enum_fmt_vid_out,
+	.vidioc_g_fmt_vid_out_mplane	= vidioc_g_fmt_vid_out,
+	.vidioc_try_fmt_vid_out_mplane	= vidioc_try_fmt_vid_out,
+	.vidioc_s_fmt_vid_out_mplane	= vidioc_s_fmt_vid_out,
 
 	.vidioc_reqbufs		= vidioc_reqbufs,
 	.vidioc_querybuf	= vidioc_querybuf,
@@ -459,39 +454,58 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 /*
  * Queue operations
  */
-
-// in response to reqbufs, influence how th ebuffer queue is set up
-// nbuffers is number of requested buffers, but this can be modified by the
-// driver
-// num_planes is 1 for packed formats
-// sizes is size in bytes of each plane
-static int vdec_queue_setup(struct vb2_queue *vq,
+static int vdec_src_queue_setup(struct vb2_queue *vq,
 				const struct v4l2_format *fmt,
-				unsigned int *nbuffers, unsigned int *nplanes,
+				unsigned int *nbuffers,
+				unsigned int *nplanes,
 				unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
 	struct vdec_q_data *q_data;
 	unsigned int size, count = *nbuffers;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup\n");
-
-	q_data = get_q_data(ctx, vq->type);
-	size = q_data->sizeimage;
-
-	while (size * count > MEM2MEM_VID_MEM_LIMIT)
-		(count)--;
+	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_output\n");
 
 	*nplanes = 1;
 	*nbuffers = count;
-	sizes[0] = size;
 
-	/*
-	 * videobuf2-vmalloc allocator is context-less so no need to set
-	 * alloc_ctxs array.
-	 */
+	// FIXME is 512kb sensible?
+	sizes[0] = 512 * 1024;
+
+	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
+
 	v4l2_info(&ctx->dev->v4l2_dev,
-		  "get %d buffer(s) of size %d each.\n", count, size);
+		  "get %d buffer(s) of size %d each.\n", count, sizes[0]);
+
+	return 0;
+}
+
+static int vdec_dst_queue_setup(struct vb2_queue *vq,
+				const struct v4l2_format *fmt,
+				unsigned int *nbuffers,
+				unsigned int *nplanes,
+				unsigned int sizes[], void *alloc_ctxs[])
+{
+	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
+	struct vdec_q_data *q_data;
+	unsigned int size, count = *nbuffers;
+
+	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
+
+	*nplanes = 2;
+	*nbuffers = count;
+
+	/* Plane sizes based on how vh264_set_params() deals with a 1080p
+	 * video (mb_total = 8160).
+	 * FIXME should be detected from header */
+	sizes[0] = 2088960;
+	sizes[1] = 1044480;
+
+	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
+	alloc_ctxs[1] = ctx->dev->vb_alloc_ctx;
+
+	v4l2_info(&ctx->dev->v4l2_dev,
+		  "get %d capture buffer(s).\n", count);
 
 	return 0;
 }
@@ -579,7 +593,7 @@ static void vdec_wait_finish(struct vb2_queue *q)
 
 
 static struct vb2_ops vdec_src_qops = {
-	.queue_setup	 = vdec_queue_setup,
+	.queue_setup	 = vdec_src_queue_setup,
 	.buf_init	 = vdec_src_buf_init,
 	.buf_prepare	 = vdec_buf_prepare,
 	.buf_queue	 = vdec_src_buf_queue,
@@ -588,7 +602,7 @@ static struct vb2_ops vdec_src_qops = {
 };
 
 static struct vb2_ops vdec_dst_qops = {
-	.queue_setup	 = vdec_queue_setup,
+	.queue_setup	 = vdec_dst_queue_setup,
 	.buf_init	 = vdec_dst_buf_init,
 	.buf_prepare	 = vdec_buf_prepare,
 	.buf_queue	 = vdec_dst_buf_queue,
@@ -603,24 +617,24 @@ static int queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *ds
 
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_init\n");
 
-	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	src_vq->drv_priv = ctx;
 	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	src_vq->ops = &vdec_src_qops;
-	src_vq->mem_ops = &vb2_vmalloc_memops;
+	src_vq->mem_ops = &vb2_dma_contig_memops;
 	src_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	ret = vb2_queue_init(src_vq);
 	if (ret)
 		return ret;
 
-	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	dst_vq->drv_priv = ctx;
 	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	dst_vq->ops = &vdec_dst_qops;
-	dst_vq->mem_ops = &vb2_vmalloc_memops;
+	dst_vq->mem_ops = &vb2_dma_contig_memops;
 	dst_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	return vb2_queue_init(dst_vq);
@@ -635,7 +649,7 @@ static int vdec_open(struct file *file)
 	struct vdec_ctx *ctx = NULL;
 	int ret = 0;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "vdec_open\n");
+	v4l2_info(&dev->v4l2_dev, "vdec_open\n");
 
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
@@ -739,6 +753,8 @@ static int meson_vdec_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	mutex_init(&dev->dev_mutex);
+
 	vfd = video_device_alloc();
 	if (!vfd) {
 		v4l2_err(&dev->v4l2_dev, "Failed to allocate video device\n");
@@ -769,6 +785,7 @@ static int meson_vdec_probe(struct platform_device *pdev)
 		goto err_m2m;
 	}
 
+	dev->vb_alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
 	return 0;
 
 err_m2m:
@@ -787,6 +804,7 @@ static int meson_vdec_remove(struct platform_device *pdev)
 	struct vdec_dev *dev = (struct vdec_dev *)platform_get_drvdata(pdev);
 
 	v4l2_info(&dev->v4l2_dev, "Removing " DRIVER_NAME);
+	vb2_dma_contig_cleanup_ctx(dev->vb_alloc_ctx);
 	v4l2_m2m_release(dev->m2m_dev);
 	video_unregister_device(dev->vfd);
 	v4l2_device_unregister(&dev->v4l2_dev);
