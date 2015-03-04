@@ -75,11 +75,16 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
 }
 
+static void meson_encoder_disable(struct drm_encoder *encoder)
+{
+}
+
 static const struct drm_encoder_helper_funcs meson_encoder_helper_funcs = {
 	.mode_fixup     = meson_encoder_mode_fixup,
 	.prepare        = meson_encoder_prepare,
 	.commit         = meson_encoder_commit,
 	.mode_set       = meson_encoder_mode_set,
+	.disable	= meson_encoder_disable,
 };
 
 static struct drm_encoder *meson_encoder_create(struct drm_device *dev)
