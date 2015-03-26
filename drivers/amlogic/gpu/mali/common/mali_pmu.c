@@ -167,7 +167,7 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 	/* Verify power status of domains after power down */
 	stat = mali_hw_core_register_read(&pmu->hw_core,
 					  PMU_REG_ADDR_MGMT_STATUS);
-	MALI_DEBUG_ASSERT(mask == (stat & mask));
+	//MALI_DEBUG_ASSERT(mask == (stat & mask));
 #endif
 
 	return _MALI_OSK_ERR_OK;
@@ -176,6 +176,11 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask)
 {
 	u32 stat;
+	u32 active_mask;
+	u32 mask_ck;
+	u32 swt_dly;
+	u32 xxd = 1;
+
 	_mali_osk_errcode_t err;
 #if !defined(CONFIG_MALI_PMU_PARALLEL_POWER_UP)
 	u32 current_domain;
@@ -212,10 +217,18 @@ _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask)
 		return err;
 	}
 #else
+	active_mask = mask & stat;
+	mask_ck = active_mask;
+	swt_dly = 0xfff;
 	for (current_domain = 1;
 	     current_domain <= pmu->registered_cores_mask;
 	     current_domain <<= 1) {
-		if (current_domain & mask & stat) {
+		if (current_domain & active_mask) {
+			if (mask_ck == 1) {
+				swt_dly = pmu->switch_delay;
+				xxd = 0;
+			}
+			mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_SW_DELAY, swt_dly);
 			mali_hw_core_register_write(&pmu->hw_core,
 						    PMU_REG_ADDR_MGMT_POWER_UP,
 						    current_domain);
@@ -225,7 +238,15 @@ _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask)
 				return err;
 			}
 		}
+		mask_ck = mask_ck >> 1;
 	}
+	if (xxd != 0) {
+		printk("@@@@ warn\n");
+		printk("mask_ck:%d,active_mask:%d\n", mask_ck, active_mask);
+		//panic(0);
+        }
+        if (swt_dly != pmu->switch_delay)
+		mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_SW_DELAY, pmu->switch_delay);
 #endif
 
 #if defined(DEBUG)
@@ -263,4 +284,20 @@ static _mali_osk_errcode_t mali_pmu_wait_for_command_finish(
 				    PMU_REG_ADDR_MGMT_INT_CLEAR, PMU_REG_VAL_IRQ);
 
 	return _MALI_OSK_ERR_OK;
+}
+
+/* 
+ * 
+ * kasin.li@amlogic.com. 
+ **/
+
+u32 mali_pmu_get_status(void)
+{
+	u32 ret;
+	MALI_DEBUG_ASSERT_POINTER(mali_global_pmu_core);
+	mali_pmu_lock(mali_global_pmu_core);
+	ret = mali_hw_core_register_read(&mali_global_pmu_core->hw_core, PMU_REG_ADDR_MGMT_STATUS);
+	mali_pmu_unlock(mali_global_pmu_core);
+	return ret;
+	
 }
