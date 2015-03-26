@@ -7,6 +7,8 @@
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+#include <linux/types.h>
+#include <mach/cpu.h>
 #include "mali_kernel_common.h"
 #include "mali_group.h"
 #include "mali_osk.h"
@@ -1345,7 +1347,13 @@ u32 mali_group_dump_state(struct mali_group *group, char *buf, u32 size)
 }
 #endif
 
-_mali_osk_errcode_t mali_group_upper_half_mmu(void *data)
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+#include <platform/meson_m400/mali_fix.h>
+#define INT_MALI_PP2_MMU ( 6+32)
+struct _mali_osk_irq_t_struct;
+u32 get_irqnum(struct _mali_osk_irq_t_struct* irq);
+#endif
+_mali_osk_errcode_t mali_group_upper_half_mmu(void * data)
 {
 	struct mali_group *group = (struct mali_group *)data;
 	_mali_osk_errcode_t ret;
@@ -1417,6 +1425,19 @@ static void mali_group_bottom_half_mmu(void *data)
 						      mali_pp_core_get_id(group->pp_core)),
 					      mali_mmu_get_rawstat(group->mmu), 0);
 	}
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+	if (get_irqnum(mmu->irq) == INT_MALI_PP2_MMU)
+	{
+		if (group->pp_core->core_id == 0) {
+			if (malifix_get_mmu_int_process_state(0) == MMU_INT_TOP)
+				malifix_set_mmu_int_process_state(0, MMU_INT_NONE);
+		}
+		else if (group->pp_core->core_id == 1) {
+			if (malifix_get_mmu_int_process_state(1) == MMU_INT_TOP)
+				malifix_set_mmu_int_process_state(1, MMU_INT_NONE);
+		}
+	}
+#endif	
 
 	mali_executor_interrupt_mmu(group, MALI_FALSE);
 
@@ -1595,6 +1616,21 @@ mali_bool mali_group_zap_session(struct mali_group *group,
 		return MALI_TRUE; /* success */
 	}
 }
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+int PP0_int_cnt = 0;
+int mali_PP0_int_cnt(void)
+{
+    return PP0_int_cnt;
+}
+EXPORT_SYMBOL(mali_PP0_int_cnt);
+
+int PP1_int_cnt = 0;
+int mali_PP1_int_cnt(void)
+{
+    return PP1_int_cnt;
+}
+EXPORT_SYMBOL(mali_PP1_int_cnt);
+#endif
 
 #if defined(CONFIG_MALI400_PROFILING)
 static void mali_group_report_l2_cache_counters_per_core(struct mali_group *group, u32 core_num)
@@ -1647,6 +1683,13 @@ static void mali_group_report_l2_cache_counters_per_core(struct mali_group *grou
 			mali_l2_cache_core_get_counter_values(group->l2_cache_core[1], &source0, &value0, &source1, &value1);
 		}
 	}
+	
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+	if (core->core_id == 0)
+		PP0_int_cnt++;
+	else if (core->core_id == 1)
+		PP1_int_cnt++;
+#endif
 
 	_mali_osk_profiling_add_event(profiling_channel, source1 << 8 | source0, value0, value1, 0, 0);
 }
