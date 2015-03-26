@@ -1,7 +1,6 @@
-menu "Mali 400 UMP device driver"
 config UMP
 	tristate "UMP support"
-	default n
+	depends on ARM
 	---help---
 	  This enables support for the UMP memory allocation and sharing API.
 
@@ -11,8 +10,7 @@ config UMP
 config UMP_DEBUG
 	bool "Enable extra debug in UMP"
 	depends on UMP
-	default n
+	default y
 	---help---
 	  This enabled extra debug checks and messages in UMP.
 
-endmenu
