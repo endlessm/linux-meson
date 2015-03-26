@@ -88,8 +88,13 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mali_sw_counters);
 #endif /* Linux >= 4.4.0 */
 #endif
 
+extern int mpgpu_class_init(void);
+extern void mpgpu_class_exit(void);
+
 /* from the __malidrv_build_info.c file that is generated during build */
 extern const char *__malidrv_build_info(void);
+extern void mali_post_init(void);
+extern int mali_pdev_dts_init(struct platform_device* mali_gpu_device);
 
 /* Module parameter to control log level */
 int mali_debug_level = 2;
@@ -238,6 +243,16 @@ static struct of_device_id base_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, base_dt_ids);
 #endif
 
+#ifdef CONFIG_USE_OF
+static const struct of_device_id amlogic_mesonstream_dt_match[]={
+	{	.compatible = "arm,mali",
+	},
+	{},
+};
+#else
+#define amlogic_mesonstream_dt_match NULL
+#endif
+
 /* The Mali device driver struct */
 static struct platform_driver mali_platform_driver = {
 	.probe  = mali_probe,
@@ -255,6 +270,10 @@ static struct platform_driver mali_platform_driver = {
 #endif
 #ifdef CONFIG_MALI_DT
 		.of_match_table = of_match_ptr(base_dt_ids),
+#endif
+
+#ifdef CONFIG_USE_OF
+		.of_match_table = amlogic_mesonstream_dt_match,
 #endif
 	},
 };
@@ -298,7 +317,6 @@ void mali_init_cpu_time_counters(int reset, int enable_divide_by_64)
 
 	/* PMOVSR Overflow Flag Status Register - Clear Clock and Event overflows */
 	asm volatile("MCR p15, 0, %0, c9, c12, 3\t\n" :: "r"(0x8000000f));
-
 
 	/* See B4.1.124 PMUSERENR - setting p15 c9 c14 to 1" */
 	/* User mode access to the Performance Monitors enabled. */
@@ -454,6 +472,8 @@ int mali_module_init(void)
 
 	MALI_PRINT(("Mali device driver loaded\n"));
 
+	mpgpu_class_init();
+
 	return 0; /* Success */
 }
 
@@ -483,6 +503,8 @@ void mali_module_exit(void)
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
 	_mali_internal_profiling_term();
 #endif
+
+	mpgpu_class_exit();
 
 	MALI_PRINT(("Mali device driver unloaded\n"));
 }
@@ -580,6 +602,10 @@ static int mali_probe(struct platform_device *pdev)
 	}
 #endif
 
+#ifndef MALI_FAKE_PLATFORM_DEVICE
+	if (mali_pdev_dts_init(pdev) < 0)
+		return -ENOMEM;
+#endif
 
 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init()) {
 		/* Initialize the Mali GPU HW specified by pdev */
@@ -591,6 +617,7 @@ static int mali_probe(struct platform_device *pdev)
 				err = mali_sysfs_register(mali_dev_name);
 
 				if (0 == err) {
+					mali_post_init();
 					MALI_DEBUG_PRINT(2, ("mali_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
 
 					return 0;

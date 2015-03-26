@@ -46,6 +46,7 @@ _mali_osk_errcode_t mali_mem_validation_add_range(u32 start, u32 size)
 
 _mali_osk_errcode_t mali_mem_validation_check(u32 phys_addr, u32 size)
 {
+#if 0
 	if (phys_addr < (phys_addr + size)) { /* Don't allow overflow (or zero size) */
 		if ((0 == (phys_addr & (~_MALI_OSK_CPU_PAGE_MASK))) &&
 		    (0 == (size & (~_MALI_OSK_CPU_PAGE_MASK)))) {
@@ -62,4 +63,7 @@ _mali_osk_errcode_t mali_mem_validation_check(u32 phys_addr, u32 size)
 	MALI_PRINT_ERROR(("MALI PHYSICAL RANGE VALIDATION ERROR: The range supplied was: phys_base=0x%08X, size=0x%08X\n", phys_addr, size));
 
 	return _MALI_OSK_ERR_FAULT;
+#else
+	return _MALI_OSK_ERR_OK;
+#endif
 }
