@@ -120,4 +120,10 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask);
  */
 _mali_osk_errcode_t mali_pmu_power_up(struct mali_pmu_core *pmu, u32 mask);
 
+/** @brief Retrieves the Mali Power Domain status.
+ *
+ * @return the Mali Power Domain status 1 off, 0 on.
+ */
+extern u32 mali_pmu_get_status(void);
+
 #endif /* __MALI_PMU_H__ */
