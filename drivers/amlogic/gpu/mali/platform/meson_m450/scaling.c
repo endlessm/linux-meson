@@ -20,7 +20,6 @@
 #include "mali_kernel_common.h"
 #include "common/mali_osk_profiling.h"
 #include "common/mali_kernel_utilization.h"
-#include "common/mali_pp_scheduler.h"
 
 #include <meson_main.h>
 
