@@ -467,7 +467,7 @@ void mali_l2_cache_invalidate_all_pages(u32 *pages, u32 num_pages)
 static void mali_l2_cache_reset(struct mali_l2_cache_core *cache)
 {
 	/* Kasin Added, skip off power domain. */
-	if (cache && cache->pm_domain && cache->pm_domain->state == MALI_PM_DOMAIN_OFF) {
+	if (cache && cache->pm_domain && !cache->pm_domain->power_is_on) {
 		return;
 	}
 
