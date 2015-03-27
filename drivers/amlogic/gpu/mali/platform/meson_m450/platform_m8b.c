@@ -192,8 +192,8 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 
 	/* for mali platform data. */
-	pdev->utilization_interval = 200,
-	pdev->utilization_callback = mali_gpu_utilization_callback,
+	//pdev->utilization_interval = 200,
+	pdev->utilization_callback = mali_gpu_utilization_callback;
 
 	/* for resource data. */
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
@@ -231,7 +231,6 @@ static int mali_cri_light_suspend(size_t param)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_suspend(device);
 	}
-	mali_pmu_power_down_all(pmu);
 	return ret;
 }
 
@@ -245,7 +244,6 @@ static int mali_cri_light_resume(size_t param)
 	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
 
-	mali_pmu_power_up_all(pmu);
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->runtime_resume)
