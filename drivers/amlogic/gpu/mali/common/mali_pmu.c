@@ -285,19 +285,3 @@ static _mali_osk_errcode_t mali_pmu_wait_for_command_finish(
 
 	return _MALI_OSK_ERR_OK;
 }
-
-/* 
- * 
- * kasin.li@amlogic.com. 
- **/
-
-u32 mali_pmu_get_status(void)
-{
-	u32 ret;
-	MALI_DEBUG_ASSERT_POINTER(mali_global_pmu_core);
-	mali_pmu_lock(mali_global_pmu_core);
-	ret = mali_hw_core_register_read(&mali_global_pmu_core->hw_core, PMU_REG_ADDR_MGMT_STATUS);
-	mali_pmu_unlock(mali_global_pmu_core);
-	return ret;
-	
-}
