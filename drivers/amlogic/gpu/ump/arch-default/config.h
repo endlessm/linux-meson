@@ -17,8 +17,8 @@
 /* OS memory won't need a base address. */
 #define ARCH_UMP_MEMORY_ADDRESS_DEFAULT   0x00000000
 
-/* 512 MB maximum limit for UMP allocations. */
-#define ARCH_UMP_MEMORY_SIZE_DEFAULT 512UL * 1024UL * 1024UL
+/* Maximum limit for UMP allocations. */
+#define ARCH_UMP_MEMORY_SIZE_DEFAULT 256UL * 1024UL * 1024UL
 
 
 #endif /* __ARCH_CONFIG_H__ */
