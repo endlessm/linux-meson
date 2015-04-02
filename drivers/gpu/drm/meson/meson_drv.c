@@ -188,6 +188,8 @@ struct meson_plane {
 	struct osd_plane_registers reg;
 
 	enum meson_interlacing_strategy interlacing_strategy;
+
+	bool fb_changed;
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
@@ -365,19 +367,8 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 			meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_NONE;
 		}
 
-		if (state->fb != old_state->fb) {
-			struct drm_gem_cma_object *cma_bo;
-
-			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
-
-			/* Swap out the OSD canvas with the new addr. */
-			canvas_setup(meson_plane->def->canvas_index,
-				     cma_bo->paddr,
-				     state->fb->pitches[0],
-				     state->fb->height,
-				     MESON_CANVAS_WRAP_NONE,
-				     MESON_CANVAS_BLKMODE_LINEAR);
-		}
+		if (state->fb != old_state->fb)
+			meson_plane->fb_changed = true;
 
 		/* Enable OSD and BLK0. */
 		meson_plane->reg.CTRL_STAT = ((1 << 21) |    /* Enable OSD */
@@ -1025,6 +1016,23 @@ static void update_plane_shadow_registers(struct drm_plane *plane)
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 
 	if (plane->fb) {
+		if (meson_plane->fb_changed) {
+			struct drm_gem_cma_object *cma_bo;
+			struct drm_plane_state *state = plane->state;
+
+			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+
+			/* Swap out the OSD canvas with the new addr. */
+			canvas_setup(meson_plane->def->canvas_index,
+				     cma_bo->paddr,
+				     state->fb->pitches[0],
+				     state->fb->height,
+				     MESON_CANVAS_WRAP_NONE,
+				     MESON_CANVAS_BLKMODE_LINEAR);
+
+			meson_plane->fb_changed = false;
+		}
+
 		aml_set_reg32_mask(P_VPP_MISC, meson_plane->def->vpp_misc_postblend);
 
 		/* Copy the shadow registers into the real registers. */
