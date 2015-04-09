@@ -1014,11 +1014,11 @@ static void update_scaler(struct drm_crtc *crtc)
 static void update_plane_shadow_registers(struct drm_plane *plane)
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
+	struct drm_plane_state *state = plane->state;
 
-	if (plane->fb) {
+	if (state && state->fb) {
 		if (meson_plane->fb_changed) {
 			struct drm_gem_cma_object *cma_bo;
-			struct drm_plane_state *state = plane->state;
 
 			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
 
