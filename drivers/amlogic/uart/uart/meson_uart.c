@@ -19,6 +19,8 @@
  *
  */
 
+#define SUPPORT_SYSRQ
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/ioport.h>
@@ -496,7 +498,9 @@ static void meson_receive_chars(struct meson_uart_port *mup, struct pt_regs *reg
 	unsigned long flag = TTY_NORMAL;
 	//struct tty_struct *tty = mup->port.state->port.tty;
 	struct tty_port *tport = &mup->port.state->port;
+	struct uart_port * uport = &mup->port;
 	am_uart_t *uart = mup->uart;
+	int is_break = 0;
 
 	if (!tport) {
 		//printk("Uart : missing tty on line %d\n", info->line);
@@ -519,10 +523,20 @@ static void meson_receive_chars(struct meson_uart_port *mup, struct pt_regs *reg
 	
 	do {
 		ch = (rx & 0x00ff);
-                tty_insert_flip_char(tport,ch,flag);
+		if (!ch && mup->rx_error & UART_FRAME_ERR) {
+			if (uart_handle_break(uport)) {
+				mup->rx_error &= ~UART_FRAME_ERR;
+				is_break = 1;
+			}
+		}
 
+		if (!is_break)
+			if (!uart_handle_sysrq_char(uport, ch))
+				tty_insert_flip_char(tport,ch,flag);
+
+		is_break = 0;
 		mup->rx_cnt++;
-        status = (readl(&uart->status) & UART_RXEMPTY);
+		status = (readl(&uart->status) & UART_RXEMPTY);
 		if (!status)
 			rx = readl(&uart->rdata);
 	} while (!status);
