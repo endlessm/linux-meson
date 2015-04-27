@@ -834,6 +834,211 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
     unsigned long vso_begin_evn, vso_begin_odd;
 
     switch(param->VIC) {
+    case HDMIV_800x480p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 800;
+        ACTIVE_LINES        = 480;
+        LINES_F0            = 500;
+        LINES_F1            = 500;
+        FRONT_PORCH         = 24;
+        HSYNC_PIXELS        = 72;
+        BACK_PORCH          = 96;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 7;
+        SOF_LINES           = 10;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_800x600p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 800;
+        ACTIVE_LINES        = 600;
+        LINES_F0            = 628;
+        LINES_F1            = 628;
+        FRONT_PORCH         = 40;
+        HSYNC_PIXELS        = 128;
+        BACK_PORCH          = 88;
+        EOF_LINES           = 1;
+        VSYNC_LINES         = 4;
+        SOF_LINES           = 23;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1024x600p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1024;
+        ACTIVE_LINES        = 600;
+        LINES_F0            = 638;
+        LINES_F1            = 638;
+        FRONT_PORCH         = 24;
+        HSYNC_PIXELS        = 136;
+        BACK_PORCH          = 160;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 29;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1024x768p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1024;
+        ACTIVE_LINES        = 768;
+        LINES_F0            = 806;
+        LINES_F1            = 806;
+        FRONT_PORCH         = 24;
+        HSYNC_PIXELS        = 136;
+        BACK_PORCH          = 160;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 29;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1280x800p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1280;
+        ACTIVE_LINES        = 800;
+        LINES_F0            = 823;
+        LINES_F1            = 823;
+        FRONT_PORCH         = 48;
+        HSYNC_PIXELS        = 32;
+        BACK_PORCH          = 80;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 14;
+        break;
+    case HDMIV_1280x1024p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1280;
+        ACTIVE_LINES        = 1024;
+        LINES_F0            = 1066;
+        LINES_F1            = 1066;
+        FRONT_PORCH         = 48;
+        HSYNC_PIXELS        = 112;
+        BACK_PORCH          = 248;
+        EOF_LINES           = 1;
+        VSYNC_LINES         = 3;
+        SOF_LINES           = 38;
+        break;
+    case HDMIV_1360x768p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1360;
+        ACTIVE_LINES        = 768;
+        LINES_F0            = 795;
+        LINES_F1            = 795;
+        FRONT_PORCH         = 64;
+        HSYNC_PIXELS        = 112;
+        BACK_PORCH          = 256;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 18;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1366x768p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1366;
+        ACTIVE_LINES        = 768;
+        LINES_F0            = 798;
+        LINES_F1            = 798;
+        FRONT_PORCH         = 70;
+        HSYNC_PIXELS        = 143;
+        BACK_PORCH          = 213;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 3;
+        SOF_LINES           = 24;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1440x900p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1440;
+        ACTIVE_LINES        = 900;
+        LINES_F0            = 934;
+        LINES_F1            = 934;
+        FRONT_PORCH         = 80;
+        HSYNC_PIXELS        = 152;
+        BACK_PORCH          = 232;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 25;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1600x900p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1600;
+        ACTIVE_LINES        = 900;
+        LINES_F0            = 1800;
+        LINES_F1            = 1800;
+        FRONT_PORCH         = 24;
+        HSYNC_PIXELS        = 80;
+        BACK_PORCH          = 96;
+        EOF_LINES           = 1;
+        VSYNC_LINES         = 3;
+        SOF_LINES           = 96;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1680x1050p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1680;
+        ACTIVE_LINES        = 1050;
+        LINES_F0            = 1089;
+        LINES_F1            = 1089;
+        FRONT_PORCH         = 104;
+        HSYNC_PIXELS        = 176;
+        BACK_PORCH          = 280;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 30;
+        TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1920x1200p60hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 1920;
+        ACTIVE_LINES        = 1200;
+        LINES_F0            = 1245;
+        LINES_F1            = 1245;
+        FRONT_PORCH         = 136;
+        HSYNC_PIXELS        = 200;
+        BACK_PORCH          = 336;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 36;
+        break;
+    case HDMI_640x480p60_4x3:
+        INTERLACE_MODE     = 0;
+        PIXEL_REPEAT_VENC  = 0;
+        PIXEL_REPEAT_HDMI  = 0;
+        ACTIVE_PIXELS      = (640*(1+PIXEL_REPEAT_HDMI)); // Number of active pixels per line.
+        ACTIVE_LINES       = (480/(1+INTERLACE_MODE));    // Number of active lines per field.
+        LINES_F0           = 525;
+        LINES_F1           = 525;
+        FRONT_PORCH        = 16;
+        HSYNC_PIXELS       = 96;
+        BACK_PORCH         = 48;
+        EOF_LINES          = 20;
+        VSYNC_LINES        = 2;
+        SOF_LINES          = 33;
+        TOTAL_FRAMES       = 4;
+        break;
     case HDMI_480p60:
     case HDMI_480p60_16x9:
     case HDMI_480p60_16x9_rpt:
@@ -1020,76 +1225,92 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
     // Annie 01Sep2011: Remove the following line as register VENC_DVI_SETTING_MORE is no long valid, use VPU_HDMI_SETTING instead.
     //Wr(VENC_DVI_SETTING_MORE, (TX_INPUT_COLOR_FORMAT==0)? 1 : 0); // [0] 0=Map data pins from Venc to Hdmi Tx as CrYCb mode;
 
-    switch(param->VIC)
-    {
-        case HDMI_480p60:
-        case HDMI_480p60_16x9:
-        case HDMI_480p60_16x9_rpt:
-        case HDMI_576p50:
-        case HDMI_576p50_16x9:
-        case HDMI_576p50_16x9_rpt:
+    switch (param->VIC) {
+    case HDMIV_800x480p60hz:
+    case HDMIV_800x600p60hz:
+    case HDMIV_1024x600p60hz:
+    case HDMIV_1024x768p60hz:
+    case HDMIV_1280x800p60hz:
+    case HDMIV_1280x1024p60hz:
+    case HDMIV_1360x768p60hz:
+    case HDMIV_1366x768p60hz:
+    case HDMIV_1440x900p60hz:
+    case HDMIV_1600x900p60hz:
+    case HDMIV_1680x1050p60hz:
+    case HDMIV_1920x1200p60hz:
+        aml_write_reg32(P_VPU_HDMI_SETTING, 0xe);
+        break;
+    case HDMI_640x480p60_4x3:
+        aml_write_reg32(P_VPU_HDMI_SETTING, 0x2);
+        break;
+    case HDMI_480p60:
+    case HDMI_480p60_16x9:
+    case HDMI_480p60_16x9_rpt:
+    case HDMI_576p50:
+    case HDMI_576p50_16x9:
+    case HDMI_576p50_16x9_rpt:
 //Note: Hsync & Vsync polarity should be negative.
 //Refer to HDMI CTS 1.4A Page 169
-            // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
-            aml_write_reg32(P_VPU_HDMI_SETTING, (0                                 << 0) | // [    0] src_sel_enci
-                                 (0                                 << 1) | // [    1] src_sel_encp
-                                 (0                                 << 2) | // [    2] inv_hsync. 1=Invert Hsync polarity.
-                                 (0                                 << 3) | // [    3] inv_vsync. 1=Invert Vsync polarity.
-                                 (0                                 << 4) | // [    4] inv_dvi_clk. 1=Invert clock to external DVI, (clock invertion exists at internal HDMI).
-                                 (((TX_INPUT_COLOR_FORMAT==0)?1:0)  << 5) | // [ 7: 5] data_comp_map. Input data is CrYCb(BRG), map the output data to desired format:
-                                                                            //                          0=output CrYCb(BRG);
-                                                                            //                          1=output YCbCr(RGB);
-                                                                            //                          2=output YCrCb(RBG);
-                                                                            //                          3=output CbCrY(GBR);
-                                                                            //                          4=output CbYCr(GRB);
-                                                                            //                          5=output CrCbY(BGR);
-                                                                            //                          6,7=Rsrv.
-                                 (1                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
-                                 (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
-            );
-            break;
-        case HDMI_720p60:
-        case HDMI_720p50:
-            // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
-            aml_write_reg32(P_VPU_HDMI_SETTING, (0                                 << 0) | // [    0] src_sel_enci
-                                 (0                                 << 1) | // [    1] src_sel_encp
-                                 (HSYNC_POLARITY                    << 2) | // [    2] inv_hsync. 1=Invert Hsync polarity.
-                                 (VSYNC_POLARITY                    << 3) | // [    3] inv_vsync. 1=Invert Vsync polarity.
-                                 (0                                 << 4) | // [    4] inv_dvi_clk. 1=Invert clock to external DVI, (clock invertion exists at internal HDMI).
-                                 (((TX_INPUT_COLOR_FORMAT==0)?1:0)  << 5) | // [ 7: 5] data_comp_map. Input data is CrYCb(BRG), map the output data to desired format:
-                                                                            //                          0=output CrYCb(BRG);
-                                                                            //                          1=output YCbCr(RGB);
-                                                                            //                          2=output YCrCb(RBG);
-                                                                            //                          3=output CbCrY(GBR);
-                                                                            //                          4=output CbYCr(GRB);
-                                                                            //                          5=output CrCbY(BGR);
-                                                                            //                          6,7=Rsrv.
+        // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
+        aml_write_reg32(P_VPU_HDMI_SETTING, (0                                 << 0) | // [    0] src_sel_enci
+                             (0                                 << 1) | // [    1] src_sel_encp
+                             (0                                 << 2) | // [    2] inv_hsync. 1=Invert Hsync polarity.
+                             (0                                 << 3) | // [    3] inv_vsync. 1=Invert Vsync polarity.
+                             (0                                 << 4) | // [    4] inv_dvi_clk. 1=Invert clock to external DVI, (clock invertion exists at internal HDMI).
+                             (((TX_INPUT_COLOR_FORMAT==0)?1:0)  << 5) | // [ 7: 5] data_comp_map. Input data is CrYCb(BRG), map the output data to desired format:
+                                                                        //                          0=output CrYCb(BRG);
+                                                                        //                          1=output YCbCr(RGB);
+                                                                        //                          2=output YCrCb(RBG);
+                                                                        //                          3=output CbCrY(GBR);
+                                                                        //                          4=output CbYCr(GRB);
+                                                                        //                          5=output CrCbY(BGR);
+                                                                        //                          6,7=Rsrv.
+                             (1                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
+                             (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
+        );
+        break;
+    case HDMI_720p60:
+    case HDMI_720p50:
+        // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
+        aml_write_reg32(P_VPU_HDMI_SETTING, (0                                 << 0) | // [    0] src_sel_enci
+                             (0                                 << 1) | // [    1] src_sel_encp
+                             (HSYNC_POLARITY                    << 2) | // [    2] inv_hsync. 1=Invert Hsync polarity.
+                             (VSYNC_POLARITY                    << 3) | // [    3] inv_vsync. 1=Invert Vsync polarity.
+                             (0                                 << 4) | // [    4] inv_dvi_clk. 1=Invert clock to external DVI, (clock invertion exists at internal HDMI).
+                             (((TX_INPUT_COLOR_FORMAT==0)?1:0)  << 5) | // [ 7: 5] data_comp_map. Input data is CrYCb(BRG), map the output data to desired format:
+                                                                        //                          0=output CrYCb(BRG);
+                                                                        //                          1=output YCbCr(RGB);
+                                                                        //                          2=output YCrCb(RBG);
+                                                                        //                          3=output CbCrY(GBR);
+                                                                        //                          4=output CbYCr(GRB);
+                                                                        //                          5=output CrCbY(BGR);
+                                                                        //                          6,7=Rsrv.
 #ifdef DOUBLE_CLK_720P_1080I
-                                 (0                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
+                             (0                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
 #else
-                                 (1                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
+                             (1                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
 #endif                             
-                                 (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
-            );
-            break;
-        default:
-            // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
-            aml_write_reg32(P_VPU_HDMI_SETTING, (0                                 << 0) | // [    0] src_sel_enci
-                                 (0                                 << 1) | // [    1] src_sel_encp
-                                 (HSYNC_POLARITY                    << 2) | // [    2] inv_hsync. 1=Invert Hsync polarity.
-                                 (VSYNC_POLARITY                    << 3) | // [    3] inv_vsync. 1=Invert Vsync polarity.
-                                 (0                                 << 4) | // [    4] inv_dvi_clk. 1=Invert clock to external DVI, (clock invertion exists at internal HDMI).
-                                 (((TX_INPUT_COLOR_FORMAT==0)?1:0)  << 5) | // [ 7: 5] data_comp_map. Input data is CrYCb(BRG), map the output data to desired format:
-                                                                            //                          0=output CrYCb(BRG);
-                                                                            //                          1=output YCbCr(RGB);
-                                                                            //                          2=output YCrCb(RBG);
-                                                                            //                          3=output CbCrY(GBR);
-                                                                            //                          4=output CbYCr(GRB);
-                                                                            //                          5=output CrCbY(BGR);
-                                                                            //                          6,7=Rsrv.
-                                 (0                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
-                                 (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
-            );
+                             (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
+        );
+        break;
+    default:
+        // Annie 01Sep2011: Register VENC_DVI_SETTING and VENC_DVI_SETTING_MORE are no long valid, use VPU_HDMI_SETTING instead.
+        aml_write_reg32(P_VPU_HDMI_SETTING, (0                                 << 0) | // [    0] src_sel_enci
+                             (0                                 << 1) | // [    1] src_sel_encp
+                             (HSYNC_POLARITY                    << 2) | // [    2] inv_hsync. 1=Invert Hsync polarity.
+                             (VSYNC_POLARITY                    << 3) | // [    3] inv_vsync. 1=Invert Vsync polarity.
+                             (0                                 << 4) | // [    4] inv_dvi_clk. 1=Invert clock to external DVI, (clock invertion exists at internal HDMI).
+                             (((TX_INPUT_COLOR_FORMAT==0)?1:0)  << 5) | // [ 7: 5] data_comp_map. Input data is CrYCb(BRG), map the output data to desired format:
+                                                                        //                          0=output CrYCb(BRG);
+                                                                        //                          1=output YCbCr(RGB);
+                                                                        //                          2=output YCrCb(RBG);
+                                                                        //                          3=output CbCrY(GBR);
+                                                                        //                          4=output CbYCr(GRB);
+                                                                        //                          5=output CrCbY(BGR);
+                                                                        //                          6,7=Rsrv.
+                             (0                                 << 8) | // [11: 8] wr_rate. 0=A write every clk1; 1=A write every 2 clk1; ...; 15=A write every 16 clk1.
+                             (0                                 <<12)   // [15:12] rd_rate. 0=A read every clk2; 1=A read every 2 clk2; ...; 15=A read every 16 clk2.
+        );
     }
 
     if((param->VIC == HDMI_480p60_16x9_rpt) || (param->VIC == HDMI_576p50_16x9_rpt)) {
@@ -1931,6 +2152,7 @@ static void enable_audio_i2s(void)
 static void hdmitx_dump_tvenc_reg(int cur_VIC, int printk_flag) 
 {
     int i,j;
+    return;     // No use??
     for(i=0;hdmi_tvenc_configs[i].vic!=HDMI_Unkown;i++){
         if(cur_VIC==hdmi_tvenc_configs[i].vic){
             reg_t* reg_set=hdmi_tvenc_configs[i].reg_set;
@@ -2034,59 +2256,94 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
 		return ;
 #endif
 
-    switch(param->VIC)
-    {
-        case HDMI_480p60:
-        case HDMI_480p60_16x9:
-            set_vmode_clk(VMODE_480P);
-            break;
-        case HDMI_576p50:
-        case HDMI_576p50_16x9:
-            set_vmode_clk(VMODE_576P);
-            break;
-        case HDMI_480i60_16x9_rpt:
-            set_vmode_clk(VMODE_480I_RPT);
-            break;
-        case HDMI_480p60_16x9_rpt:
-            set_vmode_clk(VMODE_480P_RPT);
-            break;
-        case HDMI_576i50_16x9_rpt:
-            set_vmode_clk(VMODE_576I_RPT);
-            break;
-        case HDMI_576p50_16x9_rpt:
-            set_vmode_clk(VMODE_576P_RPT);
-            break;
-        case HDMI_480i60:
-        case HDMI_480i60_16x9:
-            set_vmode_clk(VMODE_480I);
-            break;
-        case HDMI_576i50:
-        case HDMI_576i50_16x9:
-            set_vmode_clk(VMODE_576I);
-            break;
-        case HDMI_1080p24://1080p24 support
-            set_vmode_clk(VMODE_1080P_24HZ);
-            break;
-        case HDMI_1080p30:
-        case HDMI_720p60:
-        case HDMI_720p50:
-            set_vmode_clk(VMODE_720P);
-            break;
-        case HDMI_1080i60:
-        case HDMI_1080i50:
-            set_vmode_clk(VMODE_1080I);
-            break;
-        case HDMI_1080p60:
-        case HDMI_1080p50:
-            set_vmode_clk(VMODE_1080P);
-            break;
-        case HDMI_4k2k_30:
-        case HDMI_4k2k_25:
-        case HDMI_4k2k_24:
-        case HDMI_4k2k_smpte_24:
-            set_vmode_clk(VMODE_4K2K_24HZ);
-        default:
-            break;
+    switch(param->VIC) {
+    case HDMIV_800x600p60hz:
+        set_vmode_clk(VMODE_800X600P_60HZ);
+        break;
+    case HDMIV_1024x600p60hz:
+        set_vmode_clk(VMODE_1024X600P_60HZ);
+        break;
+    case HDMIV_1024x768p60hz:
+        set_vmode_clk(VMODE_1024X768P_60HZ);
+        break;
+    case HDMIV_1280x800p60hz:
+        set_vmode_clk(VMODE_1280X800P_60HZ);
+        break;
+    case HDMIV_1280x1024p60hz:
+        set_vmode_clk(VMODE_1280X1024P_60HZ);
+        break;
+    case HDMIV_1360x768p60hz:
+        set_vmode_clk(VMODE_1360X768P_60HZ);
+        break;
+    case HDMIV_1366x768p60hz:
+        set_vmode_clk(VMODE_1366X768P_60HZ);
+        break;
+    case HDMIV_1440x900p60hz:
+        set_vmode_clk(VMODE_1440X900P_60HZ);
+        break;
+    case HDMIV_1600x900p60hz:
+        set_vmode_clk(VMODE_1600X900P_60HZ);
+        break;
+    case HDMIV_1680x1050p60hz:
+        set_vmode_clk(VMODE_1680X1050P_60HZ);
+        break;
+    case HDMIV_1920x1200p60hz:
+        set_vmode_clk(VMODE_1920X1200P_60HZ);
+        break;
+    case HDMI_640x480p60_4x3:
+        set_vmode_clk(VMODE_640X480P_60HZ);
+        break;
+    case HDMI_480p60:
+    case HDMI_480p60_16x9:
+        set_vmode_clk(VMODE_480P);
+        break;
+    case HDMI_576p50:
+    case HDMI_576p50_16x9:
+        set_vmode_clk(VMODE_576P);
+        break;
+    case HDMI_480i60_16x9_rpt:
+        set_vmode_clk(VMODE_480I_RPT);
+        break;
+    case HDMI_480p60_16x9_rpt:
+        set_vmode_clk(VMODE_480P_RPT);
+        break;
+    case HDMI_576i50_16x9_rpt:
+        set_vmode_clk(VMODE_576I_RPT);
+        break;
+    case HDMI_576p50_16x9_rpt:
+        set_vmode_clk(VMODE_576P_RPT);
+        break;
+    case HDMI_480i60:
+    case HDMI_480i60_16x9:
+        set_vmode_clk(VMODE_480I);
+        break;
+    case HDMI_576i50:
+    case HDMI_576i50_16x9:
+        set_vmode_clk(VMODE_576I);
+        break;
+    case HDMI_1080p24://1080p24 support
+        set_vmode_clk(VMODE_1080P_24HZ);
+        break;
+    case HDMI_1080p30:
+    case HDMI_720p60:
+    case HDMI_720p50:
+        set_vmode_clk(VMODE_720P);
+        break;
+    case HDMI_1080i60:
+    case HDMI_1080i50:
+        set_vmode_clk(VMODE_1080I);
+        break;
+    case HDMI_1080p60:
+    case HDMI_1080p50:
+        set_vmode_clk(VMODE_1080P);
+        break;
+    case HDMI_4k2k_30:
+    case HDMI_4k2k_25:
+    case HDMI_4k2k_24:
+    case HDMI_4k2k_smpte_24:
+        set_vmode_clk(VMODE_4K2K_24HZ);
+    default:
+        break;
     }
 }
 
@@ -2232,6 +2489,14 @@ static void hdmitx_set_packet(int type, unsigned char* DB, unsigned char* HB)
         case HDMI_PACKET_AVI:
             pkt_reg_base=TX_PKT_REG_AVI_INFO_BASE_ADDR; 
             pkt_data_len=13;
+            // For vesa use only
+            if(DB[3] > HDMI_RESERVED) {
+                hdmi_wr_reg(TX_PKT_REG_EXCEPT0_BASE_ADDR, DB[3]);
+                DB[3] = 0;
+            }
+            else {
+                hdmi_wr_reg(TX_PKT_REG_EXCEPT0_BASE_ADDR, 0);
+            }
             break;
         case HDMI_PACKET_VEND:
             pkt_reg_base=TX_PKT_REG_VEND_INFO_BASE_ADDR;
@@ -2462,6 +2727,7 @@ static unsigned int get_n(unsigned int clk)
 }
 
 static Vic_attr_map vic_attr_map_table[] = {
+    {HDMI_640x480p60_4x3,   25200 },
     {HDMI_640x480p60,       27000 },
     {HDMI_480p60,           27000 },
     {HDMI_480p60_16x9,      27000 },
@@ -3545,6 +3811,7 @@ static int hdmitx_cntl_config(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigne
         break;
     case CONF_CLR_AVI_PACKET:
         hdmitx_clr_sub_packet(TX_PKT_REG_AVI_INFO_BASE_ADDR);
+        hdmi_wr_reg(TX_PKT_REG_EXCEPT0_BASE_ADDR, 0x0);
         break;
     case CONF_CLR_VSDB_PACKET:
         hdmitx_clr_sub_packet(TX_PKT_REG_VEND_INFO_BASE_ADDR);
@@ -3648,6 +3915,9 @@ static int hdmitx_get_state(hdmitx_dev_t* hdmitx_device, unsigned cmd, unsigned 
                 } else if(vic == 4) {
                     vic = HDMI_4k2k_smpte_24;
                 } else {
+                }
+                if(vic == 0) {
+                    vic = (HDMI_Video_Codes_t)hdmi_rd_reg(TX_PKT_REG_EXCEPT0_BASE_ADDR);
                 }
             }
             return (int)vic;

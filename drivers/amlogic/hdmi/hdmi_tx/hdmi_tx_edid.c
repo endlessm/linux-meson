@@ -1375,6 +1375,7 @@ typedef struct{
 
 static dispmode_vic_t dispmode_VIC_tab[]=
 {
+    {"640x480p60hz", HDMI_640x480p60_4x3},
     {"480i_4_3",  HDMI_480i60},
     {"480i_rpt",  HDMI_480i60_16x9_rpt},
     {"480i",      HDMI_480i60_16x9},
@@ -1410,6 +1411,7 @@ static dispmode_vic_t dispmode_VIC_tab[]=
 #ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
 	{"1080p59hz", HDMI_1080p60},
 #endif
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8) && (MESON_CPU_TYPE != MESON_CPU_TYPE_MESON8B)
     {"4k2k30hz",  HDMI_4k2k_30},
 #ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
 	{"4k2k29hz",  HDMI_4k2k_30},
@@ -1420,6 +1422,20 @@ static dispmode_vic_t dispmode_VIC_tab[]=
 	{"4k2k23hz",  HDMI_4k2k_24},
 #endif
     {"4k2ksmpte", HDMI_4k2k_smpte_24},
+#endif
+    // VESA modes
+    {"800x480p60hz", HDMIV_800x480p60hz},
+    {"800x600p60hz", HDMIV_800x600p60hz},
+    {"1024x600p60hz", HDMIV_1024x600p60hz},
+    {"1024x768p60hz", HDMIV_1024x768p60hz},
+    {"1280x800p60hz", HDMIV_1280x800p60hz},
+    {"1280x1024p60hz", HDMIV_1280x1024p60hz},
+    {"1360x768p60hz", HDMIV_1360x768p60hz},
+    {"1366x768p60hz", HDMIV_1366x768p60hz},
+    {"1440x900p60hz", HDMIV_1440x900p60hz},
+    {"1600x900p60hz", HDMIV_1600x900p60hz},
+    {"1680x1050p60hz", HDMIV_1680x1050p60hz},
+    {"1920x1200p60hz", HDMIV_1920x1200p60hz},
 };
 
 int hdmitx_edid_VIC_support(HDMI_Video_Codes_t vic)
