@@ -38,6 +38,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 
+#include <linux/dvb/aml_demod.h>
 #include <linux/dvb/frontend.h>
 
 #include "dvbdev.h"
@@ -76,6 +77,9 @@ struct analog_parameters {
 	unsigned int lock_range;
 	unsigned int leap_step;
 	v4l2_std_id std;
+	unsigned int tuner_id;//for amlatvdemod
+	unsigned int if_freq;//for amlatvdemod
+	unsigned int if_inv;//for tuner r840
 	unsigned int reserved;
 };
 
@@ -226,11 +230,15 @@ struct dvb_tuner_ops {
 	void (*get_pll_status)(struct dvb_frontend *fe, void *status);
 	int (*get_rf_strength)(struct dvb_frontend *fe, u16 *strength);
 	int (*get_afc)(struct dvb_frontend *fe, s32 *afc);
+	int  (*get_snr)(struct dvb_frontend *fe);
 
 	/** These are provided separately from set_params in order to facilitate silicon
 	 * tuners which require sophisticated tuning loops, controlling each parameter separately. */
 	int (*set_frequency)(struct dvb_frontend *fe, u32 frequency);
 	int (*set_bandwidth)(struct dvb_frontend *fe, u32 bandwidth);
+
+	int (*set_tuner)(struct dvb_frontend *fe, struct aml_demod_sta *demod_sta, struct aml_demod_i2c *demod_i2c, struct aml_tuner_sys *tuner_sys);
+	int (*get_strength)(struct dvb_frontend *fe);
 
 	/*
 	 * These are provided separately from set_params in order to facilitate silicon

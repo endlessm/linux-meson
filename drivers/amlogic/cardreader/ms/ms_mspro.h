@@ -185,7 +185,7 @@ typedef union _MS_MSPRO_Card_Buffer  {
 	unsigned char* data_phy_buf;
 	
 } MS_MSPRO_Card_Info_t;
-
+
 //Transfer Protocol Command (TPC)
 #define TPC_MS_READ_PAGE_DATA               0x2D
 #define TPC_MS_MSPRO_READ_REG               0x4B

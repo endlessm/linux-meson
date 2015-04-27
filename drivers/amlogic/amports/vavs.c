@@ -34,6 +34,8 @@
 #include <linux/amlogic/amports/vformat.h>
 #include <mach/am_regs.h>
 #include <linux/module.h>
+#include <linux/slab.h>
+#include "amports_priv.h"
 
 #include "vdec_reg.h"
 #include "streambuf_reg.h"
@@ -43,7 +45,7 @@
 #define DRIVER_NAME "amvdec_avs"
 #define MODULE_NAME "amvdec_avs"
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6  
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 #define NV21
 #endif
 
@@ -135,7 +137,7 @@ static inline u32 index2canvas(u32 index)
                 0x010100, 0x040403, 0x070706, 0x0a0a09
 #else
                 0x020100, 0x050403, 0x080706, 0x0b0a09
-#endif                
+#endif
         };
 
         return canvas_tab[index];
@@ -157,7 +159,7 @@ static const u32 frame_rate_tab[16] = {
     96000 / 30, /* forbidden*/
     96000 / 24, /* 24000/1001 (23.967) */
     96000 / 24,
-    96000 / 25, 
+    96000 / 25,
     96000 / 30, /* 30000/1001 (29.97) */
     96000 / 30,
     96000 / 50,
@@ -179,12 +181,12 @@ static void set_frame_info(vframe_t *vf, unsigned* duration)
         vf->height = vavs_amstream_dec_info.height;
     }
     else
-#endif        
+#endif
     {
         vf->width  = READ_VREG(AVS_PIC_WIDTH);
         vf->height = READ_VREG(AVS_PIC_HEIGHT);
         frame_width = vf->width;
-        frame_height = vf->height; 
+        frame_height = vf->height;
         //printk("%s: (%d,%d)\n", __func__,vf->width, vf->height);
     }
 
@@ -193,13 +195,13 @@ static void set_frame_info(vframe_t *vf, unsigned* duration)
         *duration = vavs_amstream_dec_info.rate;
     }
     else
-#endif        
+#endif
     {
         *duration = frame_rate_tab[READ_VREG(AVS_FRAME_RATE)&0xf];
         //printk("%s: duration = %d\n", __func__, *duration);
         frame_dur = *duration;
     }
-    
+
         if (vavs_ratio == 0)
         {
                 vf->ratio_control |=(0x90<<DISP_RATIO_ASPECT_RATIO_BIT); // always stretch to 16:9
@@ -247,8 +249,8 @@ static void vavs_isr(void)
         u32 picture_type;
         u32 buffer_index;
         unsigned int pts, pts_valid=0, offset;
-       if(debug_flag&2){
-           if(READ_VREG(AV_SCRATCH_E)!=0){
+       if (debug_flag&0x6) {
+           if (READ_VREG(AV_SCRATCH_E) != 0) {
                 printk("dbg%x: %x\n",  READ_VREG(AV_SCRATCH_E), READ_VREG(AV_SCRATCH_D));
                 WRITE_VREG(AV_SCRATCH_E, 0);
            }
@@ -258,12 +260,12 @@ static void vavs_isr(void)
 
         if (reg)
         {
-                if(debug_flag&1)
+                if (debug_flag&1)
                     printk("AVS_BUFFEROUT=%x\n", reg);
                 if (pts_by_offset)
                 {
                         offset = READ_VREG(AVS_OFFSET_REG);
-                        if(debug_flag&1)
+                        if (debug_flag&1)
                             printk("AVS OFFSET=%x\n", offset);
                         if (pts_lookup_offset(PTS_TYPE_VIDEO, offset, &pts, 0) == 0)
                         {
@@ -294,17 +296,17 @@ static void vavs_isr(void)
                 }
             #endif
 
-                if(throw_pb_flag && picture_type != I_PICTURE){
-                        
-                        if(debug_flag&1)
+                if (throw_pb_flag && picture_type != I_PICTURE) {
+
+                        if (debug_flag&1)
                             printk("picture type %d throwed\n", picture_type);
                         WRITE_VREG(AVS_BUFFERIN, ~(1<<buffer_index));
                 }
                 else if (reg & INTERLACE_FLAG) // interlace
                 {
                         throw_pb_flag = 0;
-                        
-                        if(debug_flag&1)
+
+                        if (debug_flag&1)
                             printk("interlace, picture type %d\n", picture_type);
 
                         vfpool_idx[fill_ptr] = buffer_index;
@@ -352,7 +354,7 @@ static void vavs_isr(void)
 #endif
                         vf->canvas0Addr = vf->canvas1Addr = index2canvas(buffer_index);
 
-                        if(debug_flag&1)
+                        if (debug_flag&1)
                             printk("buffer_index %d, canvas addr %x\n",buffer_index, vf->canvas0Addr);
 
                         vfbuf_use[buffer_index]++;
@@ -399,10 +401,10 @@ static void vavs_isr(void)
                 else  // progressive
                 {
                         throw_pb_flag = 0;
-                        
-                        if(debug_flag&1)
+
+                        if (debug_flag&1)
                             printk("progressive picture type %d\n", picture_type);
-                            
+
                         vfpool_idx[fill_ptr] = buffer_index;
                         vf = &vfpool[fill_ptr];
                         set_frame_info(vf, &dur);
@@ -448,8 +450,8 @@ static void vavs_isr(void)
                         vf->type |= VIDTYPE_VIU_NV21;
 #endif
                         vf->canvas0Addr = vf->canvas1Addr = index2canvas(buffer_index);
-                        
-                        if(debug_flag&1)
+
+                        if (debug_flag&1)
                             printk("buffer_index %d, canvas addr %x\n",buffer_index, vf->canvas0Addr);
 
                         vfbuf_use[buffer_index]++;
@@ -477,7 +479,7 @@ static int run_flag=1;
 static int step_flag=0;
 static vframe_t *vavs_vf_peek(void* op_arg)
 {
-        if(run_flag==0)
+        if (run_flag == 0)
             return NULL;
         if (get_ptr == fill_ptr)
                 return NULL;
@@ -488,7 +490,7 @@ static vframe_t *vavs_vf_peek(void* op_arg)
 static vframe_t *vavs_vf_get(void* op_arg)
 {
         vframe_t *vf;
-        if(run_flag==0)
+        if (run_flag == 0)
             return NULL;
 
         if (get_ptr == fill_ptr)
@@ -497,8 +499,8 @@ static vframe_t *vavs_vf_get(void* op_arg)
         vf = &vfpool[get_ptr];
 
         INCPTR(get_ptr);
-        if(step_flag)
-            run_flag=0;        
+        if (step_flag)
+            run_flag=0;
         return vf;
 }
 
@@ -511,7 +513,7 @@ int vavs_dec_status(struct vdec_status *vstatus)
 {
     vstatus->width = frame_width ;//vavs_amstream_dec_info.width;
     vstatus->height = frame_height;//vavs_amstream_dec_info.height;
-    if(0!= frame_dur/*vavs_amstream_dec_info.rate*/)
+    if (0!= frame_dur/*vavs_amstream_dec_info.rate*/)
         vstatus->fps = 96000/frame_dur;// vavs_amstream_dec_info.rate;
     else
         vstatus->fps = 96000;
@@ -585,9 +587,9 @@ static void vavs_canvas_init(void)
                         buf_start + 4 * decbuf_size + decbuf_y_size + decbuf_uv_size,
                         canvas_width/2, canvas_height/2,
                         CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-#endif                        
-                if(debug_flag&1)
-                    printk("canvas config %d, addr %x\n", 4, buf_start + 4 * decbuf_size);        
+#endif
+                if (debug_flag&1)
+                    printk("canvas config %d, addr %x\n", 4, buf_start + 4 * decbuf_size);
 
             }
             else
@@ -615,15 +617,15 @@ static void vavs_canvas_init(void)
                               canvas_width / 2, canvas_height / 2,
                               CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
 #endif
-                if(debug_flag&1)
-                    printk("canvas config %d, addr %x\n", i, buf_start + i * decbuf_size);        
+                if (debug_flag&1)
+                    printk("canvas config %d, addr %x\n", i, buf_start + i * decbuf_size);
             }
         }
 }
 
 static void vavs_prot_init(void)
 {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6  
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
     WRITE_VREG(DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
     WRITE_VREG(DOS_SW_RESET0, 0);
 
@@ -703,7 +705,7 @@ static void vavs_local_init(void)
         frame_width = frame_height = frame_dur = frame_prog = 0;
 
         throw_pb_flag = 1;
-        
+
         total_frame = 0;
 
         next_pts = 0;
@@ -761,16 +763,39 @@ static s32 vavs_init(void)
         stat |= STAT_TIMER_INIT;
 
         amvdec_enable();
-        
+
         vavs_local_init();
 
-        if(debug_flag&2){
+        if (debug_flag&2) {
             if (amvdec_loadmc(vavs_mc_debug) < 0)
             {
                     amvdec_disable();
                     printk("failed\n");
                     return -EBUSY;
             }
+        }
+        else if (debug_flag&4) {
+            int size;
+            char *mbuf;
+            printk("load ucode from file of vavs_mc\n");
+            mbuf=kmalloc(4096 * 8, GFP_KERNEL);
+            if (!mbuf) {
+                printk("vavs_init: Cannot malloc mbuf  memory1\n");
+                return -EBUSY;
+            }
+            memset(mbuf,0,4096 * 8);
+            size=request_video_firmware("vavs_mc",mbuf,4096 * 8);
+            if (size <= 0) {
+                printk("vavs_init: not valied ucode for vh265");
+                kfree(mbuf);
+                return -EBUSY;
+            }
+            if (amvdec_loadmc((const u32 *)mbuf) < 0) {
+                amvdec_disable();
+                kfree(mbuf);
+                return -EBUSY;
+            }
+            kfree(mbuf);
         }
         else{
             if (amvdec_loadmc(vavs_mc) < 0)
@@ -780,7 +805,7 @@ static s32 vavs_init(void)
                     return -EBUSY;
             }
         }
-        
+
         stat |= STAT_MC_LOAD;
 
         /* enable AMRISC side protocol */
@@ -802,10 +827,10 @@ static s32 vavs_init(void)
     vf_provider_init(&vavs_vf_prov, PROVIDER_NAME, &vavs_vf_provider, NULL);
     vf_reg_provider(&vavs_vf_prov);
     vf_notify_receiver(PROVIDER_NAME,VFRAME_EVENT_PROVIDER_START,NULL);
- #else 
+ #else
     vf_provider_init(&vavs_vf_prov, PROVIDER_NAME, &vavs_vf_provider, NULL);
     vf_reg_provider(&vavs_vf_prov);
- #endif 
+ #endif
 
         vf_notify_receiver(PROVIDER_NAME, VFRAME_EVENT_PROVIDER_FR_HINT, (void *)vavs_amstream_dec_info.rate);
 
@@ -830,22 +855,24 @@ static s32 vavs_init(void)
 
 static int amvdec_avs_probe(struct platform_device *pdev)
 {
-        struct resource *mem;
+        struct vdec_dev_reg_s *pdata = (struct vdec_dev_reg_s *)pdev->dev.platform_data;
 
-        if (!(mem = platform_get_resource(pdev, IORESOURCE_MEM, 0)))
+        if (pdata == NULL)
         {
                 printk("amvdec_avs memory resource undefined.\n");
                 return -EFAULT;
         }
 
-        buf_start = mem->start;
-        buf_size = mem->end - mem->start + 1;
-        if(buf_start>ORI_BUFFER_START_ADDR)
+        buf_start = pdata->mem_start;
+        buf_size = pdata->mem_end - pdata->mem_start + 1;
+
+        if (buf_start>ORI_BUFFER_START_ADDR)
             buf_offset = buf_start - ORI_BUFFER_START_ADDR;
         else
             buf_offset = buf_start;
 
-        memcpy(&vavs_amstream_dec_info, (void *)mem[1].start, sizeof(vavs_amstream_dec_info));
+	if (pdata->sys_info)
+            vavs_amstream_dec_info = *pdata->sys_info;
 
         printk("%s (%d,%d) %d\n", __func__, vavs_amstream_dec_info.width, vavs_amstream_dec_info.height, vavs_amstream_dec_info.rate);
         if (vavs_init() < 0)
@@ -887,7 +914,7 @@ static int amvdec_avs_remove(struct platform_device *pdev)
         }
 
         amvdec_disable();
-       
+
         pic_type = 0;
 #ifdef DEBUG_PTS
        printk("pts hit %d, pts missed %d, i hit %d, missed %d\n", pts_hit, pts_missed, pts_i_hit, pts_i_missed);

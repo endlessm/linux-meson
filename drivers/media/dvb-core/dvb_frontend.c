@@ -562,13 +562,15 @@ extern u32 dvbc_get_status(void);
 extern unsigned long atsc_read_iqr_reg(void);
 
 #endif
+
+#if 0 
 #if (defined CONFIG_AM_SI2176)
 int si2176_get_strength(void);
 #endif
-#if (defined CONFIG_AM_SI2177)
+#if ((defined CONFIG_AM_SI2177) || (defined CONFIG_AM_SI2157))
 int si2177_get_strength(void);
 #endif
-
+#endif
 
 static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
 {
@@ -577,7 +579,7 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
 	int time;
 	struct dvb_frontend_private *fepriv = fe->frontend_priv;
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache, tmp;
-#if ((defined CONFIG_AM_SI2176) || (defined CONFIG_AM_SI2177))&&(defined CONFIG_AM_M6_DEMOD)
+#if ((defined CONFIG_AM_SI2176) || (defined CONFIG_AM_SI2177) || (defined CONFIG_AM_SI2157))&&(defined CONFIG_AM_M6_DEMOD)
 	int strength;
 #endif
 #if (defined CONFIG_AM_M6_DEMOD)
@@ -692,7 +694,7 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
 	//	fepriv->parameters_out = fepriv->parameters_in;
 		msleep(100);
 		#if (defined CONFIG_AM_SI2176)
-		strength=si2176_get_strength()-256;
+		strength=fe->ops.tuner_ops.get_strength(fe)-256;
 		if(strength<=(-85)){
 			s=32;
 			printk("5-strength is %d\n",strength);
@@ -705,8 +707,8 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
 			return;
 
 		}
-		#elif (defined CONFIG_AM_SI2177)
-		strength=si2177_get_strength()-256;
+		#elif ((defined CONFIG_AM_SI2177) || (defined CONFIG_AM_SI2157))
+		strength=fe->ops.tuner_ops.get_strength(fe)-256;
 		if(strength<=(-85)){
 			s=32;
 			printk("5-strength is %d\n",strength);
@@ -1279,12 +1281,16 @@ static int dvb_frontend_asyncshouldwakeup(struct dvb_frontend *fe)
 
 	dprintk ("%s:%d\n", __func__, fepriv->setfrontendasync_wakeup);
 
-	if (fepriv->setfrontendasync_wakeup) {
-		fepriv->setfrontendasync_wakeup = 0;
-		return 1;
-	}
+	return fepriv->setfrontendasync_wakeup;
+}
 
-	return 0;
+static int dvb_frontend_asyncnotbusy(struct dvb_frontend *fe)
+{
+	struct dvb_frontend_private *fepriv = fe->frontend_priv;
+
+	dprintk ("%s:%d\n", __func__, fepriv->setfrontendasync_needwakeup);
+
+	return !fepriv->setfrontendasync_needwakeup;
 }
 
 static void dvb_frontend_asyncwakeup(struct dvb_frontend *fe)
@@ -1305,6 +1311,12 @@ static void dvb_frontend_asyncwakeup(struct dvb_frontend *fe)
 	if(fepriv->setfrontendasync_needwakeup){
 		fepriv->setfrontendasync_wakeup = 1;
 		wake_up_interruptible(&fepriv->setfrontendasync_wait_queue);
+
+		up(&fepriv->sem);
+		wait_event_interruptible(fepriv->setfrontendasync_wait_queue,
+											dvb_frontend_asyncnotbusy(fe));
+		if (down_interruptible (&fepriv->sem))
+			return ;
 	}
 }
 
@@ -1321,6 +1333,7 @@ static int dvb_frontend_asyncpreproc(struct dvb_frontend *fe)
 	}
 
 	fepriv->setfrontendasync_needwakeup = 1;
+	fepriv->setfrontendasync_wakeup = 0;
 
 	dprintk ("%s:%d\n", __func__, fepriv->setfrontendasync_needwakeup);
 
@@ -1376,6 +1389,8 @@ static int dvb_frontend_asyncpostproc(struct dvb_frontend *fe, int asyncwait_ret
 		return -1;
 
 	fepriv->setfrontendasync_needwakeup = 0;
+
+	wake_up_interruptible(&fepriv->setfrontendasync_wait_queue);
 
 	if(asyncwait_ret > 0){
 		fepriv->setfrontendasync_interruptwakeup = 1;

@@ -648,13 +648,23 @@ next_pageblock:
  * suitable for isolating free pages from and then isolate them.
  */
 static void isolate_freepages(struct zone *zone,
-				struct compact_control *cc)
+				struct compact_control *cc, struct page *migratepage)
 {
 	struct page *page;
 	unsigned long high_pfn, low_pfn, pfn, z_end_pfn, end_pfn;
 	int nr_freepages = cc->nr_freepages;
 	struct list_head *freelist = &cc->freepages;
+#ifdef CONFIG_CMA
+	struct address_space *mapping = NULL;
+	bool use_cma = true;
 
+	mapping = page_mapping(migratepage);
+	if ((unsigned long)mapping & PAGE_MAPPING_ANON)
+		mapping = NULL;
+
+	if (mapping && (mapping_gfp_mask(mapping) & __GFP_BDEV))
+		use_cma = false;
+#endif
 	/*
 	 * Initialise the free scanner. The starting point is where we last
 	 * scanned from (or the end of the zone if starting). The low point
@@ -703,6 +713,12 @@ static void isolate_freepages(struct zone *zone,
 		if (!isolation_suitable(cc, page))
 			continue;
 
+#ifdef CONFIG_CMA
+		if (is_migrate_isolate(get_pageblock_migratetype(page)))
+			continue;
+		if (!use_cma && is_migrate_cma(get_pageblock_migratetype(page)))
+			continue;
+#endif
 		/* Found a block suitable for isolating free pages from */
 		isolated = 0;
 
@@ -749,7 +765,7 @@ static struct page *compaction_alloc(struct page *migratepage,
 
 	/* Isolate free pages if necessary */
 	if (list_empty(&cc->freepages)) {
-		isolate_freepages(cc->zone, cc);
+		isolate_freepages(cc->zone, cc, migratepage);
 
 		if (list_empty(&cc->freepages))
 			return NULL;

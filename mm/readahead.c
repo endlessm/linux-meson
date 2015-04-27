@@ -19,7 +19,12 @@
 #include <linux/pagemap.h>
 #include <linux/syscalls.h>
 #include <linux/file.h>
+#include <linux/page-isolation.h>
 
+extern int iso_status;
+extern int iso_recount;
+extern wait_queue_head_t iso_wq;
+extern struct mutex iso_wait;
 /*
  * Initialise a struct file's readahead state.  Assumes that the caller has
  * memset *ra to zero.
@@ -149,6 +154,8 @@ out:
  *
  * Returns the number of pages requested, or the maximum amount of I/O allowed.
  */
+extern bool has_cma_page(struct page *page);
+extern void wakeup_wq(bool has_cma);
 static int
 __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 			pgoff_t offset, unsigned long nr_to_read,
@@ -161,7 +168,9 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	int page_idx;
 	int ret = 0;
 	loff_t isize = i_size_read(inode);
-
+#ifdef CONFIG_CMA
+	bool has_cma = false;
+#endif
 	if (isize == 0)
 		goto out;
 
@@ -185,6 +194,16 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		page = page_cache_alloc_readahead(mapping);
 		if (!page)
 			break;
+#ifdef CONFIG_CMA
+		if (!has_cma && (is_migrate_cma(get_pageblock_migratetype(page)) ||
+		   is_migrate_isolate(get_pageblock_migratetype(page)))) {
+			if (iso_status != MIGRATE_CMA_ALLOC)
+				iso_status = MIGRATE_CMA_HOLD;
+			iso_recount++;
+			has_cma = true;
+			has_cma_page(page);
+		}
+#endif
 		page->index = page_offset;
 		list_add(&page->lru, &page_pool);
 		if (page_idx == nr_to_read - lookahead_size)
@@ -199,6 +218,23 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 */
 	if (ret)
 		read_pages(mapping, filp, &page_pool, ret);
+#ifdef CONFIG_CMA
+	if (has_cma) {
+		if (iso_recount > 0) {
+
+			mutex_lock(&iso_wait);
+			iso_recount--;
+			if (!iso_recount) {
+				if (iso_status == MIGRATE_CMA_ALLOC) {
+					wake_up_interruptible(&iso_wq);
+					iso_status = MIGRATE_CMA_REL;
+				}
+			}
+			mutex_unlock(&iso_wait);
+		}
+		wakeup_wq(has_cma);
+	}
+#endif
 	BUG_ON(!list_empty(&page_pool));
 out:
 	return ret;
