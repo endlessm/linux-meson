@@ -266,6 +266,16 @@ void osddev_set_osd_antiflicker(u32 index, u32 vmode, u32 yres)
         osd_set_osd_antiflicker_hw(index, vmode, yres);
 }
 
+void osddev_get_update_state(u32 index, u32 *up_free)
+{
+        osd_get_osd_updatestate_hw(index, up_free);
+}
+
+void osddev_set_update_state(u32 index, u32 up_free)
+{
+        osd_set_osd_updatestate_hw(index, up_free);
+}
+
 void osddev_get_osd_angle(u32 index, u32 *angle)
 {
         osd_get_osd_angle_hw(index, angle);

@@ -1089,6 +1089,8 @@ int copy_page_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	return ret;
 }
 
+extern bool has_cma_page(struct page *page);
+extern void wakeup_wq(bool has_cma);
 static unsigned long zap_pte_range(struct mmu_gather *tlb,
 				struct vm_area_struct *vma, pmd_t *pmd,
 				unsigned long addr, unsigned long end,
@@ -1096,6 +1098,7 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 {
 	struct mm_struct *mm = tlb->mm;
 	int force_flush = 0;
+	bool has_cma = false;
 	int rss[NR_MM_COUNTERS];
 	spinlock_t *ptl;
 	pte_t *start_pte;
@@ -1155,6 +1158,9 @@ again:
 				rss[MM_FILEPAGES]--;
 			}
 			page_remove_rmap(page);
+			if (!has_cma) {
+				has_cma = has_cma_page(page);
+			}
 			if (unlikely(page_mapcount(page) < 0))
 				print_bad_pte(vma, addr, ptent, page);
 			force_flush = !__tlb_remove_page(tlb, page);
@@ -1201,7 +1207,7 @@ again:
 	 * the PTE lock to avoid doing the potential expensive TLB invalidate
 	 * and page-free while holding it.
 	 */
-	if (force_flush) {
+	if (force_flush || has_cma) {
 		unsigned long old_end;
 
 		force_flush = 0;
@@ -1215,10 +1221,12 @@ again:
 		tlb->end = addr;
 
 		tlb_flush_mmu(tlb);
+		wakeup_wq(has_cma);
 
 		tlb->start = addr;
 		tlb->end = old_end;
 
+		has_cma = false;
 		if (addr != end)
 			goto again;
 	}
@@ -1713,7 +1721,7 @@ long __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 
 	VM_BUG_ON(!!pages != !!(gup_flags & FOLL_GET));
 
-	/* 
+	/*
 	 * Require read or write permissions.
 	 * If FOLL_FORCE is set, we only require the "MAY" flags.
 	 */
@@ -3009,6 +3017,7 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct mem_cgroup *ptr;
 	int exclusive = 0;
 	int ret = 0;
+	bool has_cma = false;
 
 	if (!pte_unmap_same(mm, pmd, page_table, orig_pte))
 		goto out;
@@ -3056,6 +3065,8 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		swapcache = page;
 		goto out_release;
 	}
+	if (!has_cma)
+		has_cma = has_cma_page(page);
 
 	swapcache = page;
 	locked = lock_page_or_retry(page, mm, flags);
@@ -3160,6 +3171,7 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 unlock:
 	pte_unmap_unlock(page_table, ptl);
 out:
+	wakeup_wq(has_cma);
 	return ret;
 out_nomap:
 	mem_cgroup_cancel_charge_swapin(ptr);
@@ -3172,6 +3184,7 @@ out_release:
 		unlock_page(swapcache);
 		page_cache_release(swapcache);
 	}
+	wakeup_wq(has_cma);
 	return ret;
 }
 
@@ -3309,7 +3322,7 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_fault vmf;
 	int ret;
 	int page_mkwrite = 0;
-
+	bool has_cma = false;
 	/*
 	 * If we do COW later, allocate page befor taking lock_page()
 	 * on the file cache page. This will reduce lock holding time.
@@ -3346,6 +3359,8 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 		ret = VM_FAULT_HWPOISON;
 		goto uncharge_out;
 	}
+	if (!has_cma)
+		has_cma = has_cma_page(vmf.page);
 
 	/*
 	 * For consistency in subsequent calls, make the faulted page always
@@ -3467,10 +3482,12 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 			page_cache_release(vmf.page);
 	}
 
+	wakeup_wq(has_cma);
 	return ret;
 
 unwritable_page:
 	page_cache_release(page);
+	wakeup_wq(has_cma);
 	return ret;
 uncharge_out:
 	/* fs's fault handler get error */

@@ -113,7 +113,7 @@ _find_color_format(struct fb_var_screeninfo * var)
 	if((var->red.length==0)||(var->green.length==0)||(var->blue.length==0)||
 		var->bits_per_pixel != (var->red.length+var->green.length+var->blue.length+var->transp.length))
 	{
-		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"not provide color component length,use default color \n");
+		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"not provide color component length,use default color\n");
 		ret =&default_color_format_array[upper_margin];
 	}
 	else
@@ -159,7 +159,7 @@ osd_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	{
 		return -EFAULT ;
 	}
-	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"select color format :index%d,bpp %d\r\n",color_format_pt->color_index, \
+	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"select color format :index%d,bpp %d\n",color_format_pt->color_index, \
 												color_format_pt->bpp) ;
 	fbdev->color=color_format_pt;
 	var->red.offset = color_format_pt->red_offset;
@@ -183,10 +183,10 @@ osd_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	fix->visual=color_format_pt->color_type ;
 	//adjust memory length.	
  	fix->line_length = var->xres_virtual*var->bits_per_pixel/8;
-	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"xvirtual=%d,bpp:%d,kernel_line_length=%d\r\n",var->xres_virtual,var->bits_per_pixel,fix->line_length);
+	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"xvirtual=%d,bpp:%d,kernel_line_length=%d\n",var->xres_virtual,var->bits_per_pixel,fix->line_length);
 	if(var->xres_virtual*var->yres_virtual*var->bits_per_pixel/8> fbdev->fb_len )
 	{
-		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"no enough memory for %d*%d*%d\r\n",var->xres,var->yres,var->bits_per_pixel);
+		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"no enough memory for %d*%d*%d\n",var->xres,var->yres,var->bits_per_pixel);
 		return  -ENOMEM;
 	}
 	if (var->xres_virtual < var->xres)
@@ -339,7 +339,7 @@ osd_ioctl(struct fb_info *info, unsigned int cmd,
 			ret=copy_from_user(&osd_dst_axis, argp, 4 * sizeof(s32));
 			break;
 		default :
-			amlog_mask_level(LOG_MASK_IOCTL,LOG_LEVEL_HIGH,"command not supported\r\n ");
+			amlog_mask_level(LOG_MASK_IOCTL,LOG_LEVEL_HIGH,"command not supported\n ");
 			return -1;
 	}
 	mutex_lock(&fbdev->lock);
@@ -394,7 +394,7 @@ osd_ioctl(struct fb_info *info, unsigned int cmd,
 			case COLOR_INDEX_24_888_B:
 			case COLOR_INDEX_24_RGB:
 			case COLOR_INDEX_YUV_422:
-	  	   	amlog_mask_level(LOG_MASK_IOCTL,LOG_LEVEL_LOW,"set osd color key 0x%x\r\n",src_colorkey);
+	  	   	amlog_mask_level(LOG_MASK_IOCTL,LOG_LEVEL_LOW,"set osd color key 0x%x\n",src_colorkey);
             fbdev->color_key = src_colorkey;
 	  	 	osddev_set_colorkey(info->node,fbdev->color->color_index,src_colorkey);
 			break;
@@ -410,7 +410,7 @@ osd_ioctl(struct fb_info *info, unsigned int cmd,
 			case COLOR_INDEX_24_888_B:
 			case COLOR_INDEX_24_RGB:
 			case COLOR_INDEX_YUV_422:	
-			amlog_mask_level(LOG_MASK_IOCTL,LOG_LEVEL_LOW,"set osd color key %s\r\n",srckey_enable?"enable":"disable");
+			amlog_mask_level(LOG_MASK_IOCTL,LOG_LEVEL_LOW,"set osd color key %s\n",srckey_enable?"enable":"disable");
 			if (srckey_enable != 0) {
 				fbdev->enable_key_flag |= KEYCOLOR_FLAG_TARGET;
 				if (!(fbdev->enable_key_flag & KEYCOLOR_FLAG_ONHOLD)) {
@@ -506,7 +506,7 @@ static int osd_pan_display(struct fb_var_screeninfo *var,
                         struct fb_info *fbi)
 {
 	osddev_pan_display(var,fbi);
-	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"osd_pan_display:=>osd%d\r\n",fbi->node);
+	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"osd_pan_display:=>osd%d\n",fbi->node);
 	return 0;
 }
 
@@ -587,12 +587,12 @@ int osd_notify_callback(struct notifier_block *block, unsigned long cmd , void *
 	disp_rect_t  *disp_rect;
 	
 	vinfo = get_current_vinfo();
-	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"tv_server:vmode=%s\r\n", vinfo->name);
+	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"tv_server:vmode=%s\n", vinfo->name);
 	
 	switch(cmd)
 	{
 		case  VOUT_EVENT_MODE_CHANGE:
-		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"recevie change mode  message \r\n");
+		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"recevie change mode  message\n");
 		for(i=0;i<OSD_COUNT;i++)
 		{
 			if(NULL==(fb_dev=gp_fbdev_list[i])) continue;
@@ -624,7 +624,7 @@ int osd_notify_callback(struct notifier_block *block, unsigned long cmd , void *
 			if(fb_dev->preblend_enable) break;  //if osd layer preblend ,it's position is controled by vpp.
 			fb_dev->osd_ctl.disp_start_x=disp_rect->x  ;
 			fb_dev->osd_ctl.disp_start_y=disp_rect->y  ;
-			amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"set disp axis: x:%d y:%d w:%d h:%d\r\n"  , \
+			amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"set disp axis: x:%d y:%d w:%d h:%d\n"  , \
 					disp_rect->x, disp_rect->y,\
 					disp_rect->w, disp_rect->h );
 			if(disp_rect->x+disp_rect->w > vinfo->width)
@@ -644,7 +644,7 @@ int osd_notify_callback(struct notifier_block *block, unsigned long cmd , void *
 				fb_dev->osd_ctl.disp_end_y=fb_dev->osd_ctl.disp_start_y + disp_rect->h - 1 ;
 			}
 			disp_rect ++;
-			amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"new disp axis: startx:%d starty:%d endx:%d endy:%d\r\n"  , \
+			amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"new disp axis: startx:%d starty:%d endx:%d endy:%d\n"  , \
 					fb_dev->osd_ctl.disp_start_x, fb_dev->osd_ctl.disp_start_y,\
 					fb_dev->osd_ctl.disp_end_x,fb_dev->osd_ctl.disp_end_y);
 			console_lock();
@@ -1003,10 +1003,14 @@ static ssize_t show_freescale_mode(struct device *device, struct device_attribut
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int free_scale_mode=0;
+	char *help_info = "free scale mode:\n"\
+						"    0: VPU free scaler\n" \
+						"    1: OSD free scaler\n" \
+						"    2: OSD super scaler\n";
 
 	osddev_get_free_scale_mode(fb_info->node, &free_scale_mode);
 
-	return snprintf(buf, PAGE_SIZE, "free_scale_mode:%s\n",free_scale_mode?"new":"default");
+	return snprintf(buf, PAGE_SIZE, "%scurrent free_scale_mode:%d\n", help_info, free_scale_mode);
 }
 
 static ssize_t store_scale(struct device *device, struct device_attribute *attr,
@@ -1330,6 +1334,25 @@ static ssize_t store_antiflicker(struct device *device, struct device_attribute 
 	return count;
 }
 
+ static ssize_t show_update_freescale(struct device *device, struct device_attribute *attr,
+     char *buf)
+{
+  struct fb_info *fb_info = dev_get_drvdata(device);
+  unsigned int update_state = 0;
+  osddev_get_update_state(fb_info->node, &update_state);
+  return snprintf(buf, PAGE_SIZE, "update_state:[%s]\n", update_state?"TRUE":"FALSE");
+}
+
+static ssize_t store_update_freescale(struct device *device, struct device_attribute *attr,
+  const char *buf, size_t count)
+{
+  struct fb_info *fb_info = dev_get_drvdata(device);
+  unsigned int update_state = 0;
+  update_state = simple_strtoul(buf, NULL, 0);
+  osddev_set_update_state(fb_info->node, update_state);
+  return count;
+}
+
 static ssize_t show_ver_angle(struct device *device, struct device_attribute *attr,
                         char *buf)
 {
@@ -1520,6 +1543,7 @@ static struct device_attribute osd_attrs[] = {
 	__ATTR(osd_reverse, S_IRUGO|S_IWUSR, show_osd_reverse, store_osd_reverse),
 	__ATTR(prot_state, S_IRUGO|S_IWUSR, show_prot_state, NULL),
 	__ATTR(osd_antiflicker, S_IRUGO|S_IWUSR, show_antiflicker, store_antiflicker),
+	__ATTR(update_freescale, S_IRUGO|S_IWUSR, show_update_freescale, store_update_freescale),
 	__ATTR(ver_angle, S_IRUGO|S_IWUSR, show_ver_angle, store_ver_angle),
 	__ATTR(ver_clone, S_IRUGO|S_IWUSR, show_ver_clone, store_ver_clone),
 	__ATTR(ver_update_pan, S_IRUGO|S_IWUSR, NULL, store_ver_update_pan),
@@ -1653,7 +1677,7 @@ osd_probe(struct platform_device *pdev)
 
 		if(prop_idx == 3){
 			if(get_current_mode_state() == VMODE_SETTED){
-				amlog_level(LOG_LEVEL_HIGH,"vmode has setted in aml logo module\r\n");
+				amlog_level(LOG_LEVEL_HIGH,"vmode has setted in aml logo module\n");
 			}else{
 				DisableVideoLayer();
 				#ifdef CONFIG_AM_HDMI_ONLY
@@ -1757,7 +1781,7 @@ osd_probe(struct platform_device *pdev)
 			mydef_var[index].yres_virtual=init_logo_obj->dev->vinfo->height<<1;//logo always use double buffer
 			mydef_var[index].bits_per_pixel=bpp;
 			
-			amlog_level(LOG_LEVEL_HIGH,"init fbdev bpp is :%d\r\n",mydef_var[index].bits_per_pixel);
+			amlog_level(LOG_LEVEL_HIGH,"init fbdev bpp is :%d\n",mydef_var[index].bits_per_pixel);
 			if(mydef_var[index].bits_per_pixel>32){
 				mydef_var[index].bits_per_pixel=32;
 			}
@@ -1775,14 +1799,14 @@ osd_probe(struct platform_device *pdev)
 					mydef_var[index].yres_virtual=var_screeninfo[3];//logo always use double buffer
 					mydef_var[index].bits_per_pixel=bpp;
 				
-					amlog_level(LOG_LEVEL_HIGH,"init fbdev bpp is :%d\r\n",mydef_var[index].bits_per_pixel);
+					amlog_level(LOG_LEVEL_HIGH,"init fbdev bpp is :%d\n",mydef_var[index].bits_per_pixel);
 					if(mydef_var[index].bits_per_pixel>32) 
 					{
 						mydef_var[index].bits_per_pixel=32;
 					}
 				}
 			}
-			amlog_level(LOG_LEVEL_HIGH,"---------------clear framebuffer%d memory  \r\n",index);
+			amlog_level(LOG_LEVEL_HIGH,"---------------clear framebuffer%d memory\n",index);
 			memset((char*)fbdev->fb_mem_vaddr, 0x00, fbdev->fb_len);
 		}
 
@@ -1864,7 +1888,7 @@ osd_probe(struct platform_device *pdev)
 	}else{
 		osddev_set_osd_reverse(osd_info.index, osd_info.osd_reverse);
 	}
-	amlog_level(LOG_LEVEL_HIGH,"osd probe ok  \r\n");
+	amlog_level(LOG_LEVEL_HIGH,"osd probe ok\n");
 	return 0;
 
 failed2:

@@ -1349,6 +1349,10 @@ putback_inactive_pages(struct lruvec *lruvec, struct list_head *page_list)
  * shrink_inactive_list() is a helper for shrink_zone().  It returns the number
  * of reclaimed pages
  */
+#ifdef CONFIG_CMA
+extern bool has_cma_page(struct page *page);
+extern void wakeup_wq(bool has_cma);
+#endif
 static noinline_for_stack unsigned long
 shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 		     struct scan_control *sc, enum lru_list lru)
@@ -1363,7 +1367,10 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	int file = is_file_lru(lru);
 	struct zone *zone = lruvec_zone(lruvec);
 	struct zone_reclaim_stat *reclaim_stat = &lruvec->reclaim_stat;
-
+#ifdef CONFIG_CMA
+	struct page *page = NULL;
+	bool has_cma = false;
+#endif
 	while (unlikely(too_many_isolated(zone, file, sc))) {
 		congestion_wait(BLK_RW_ASYNC, HZ/10);
 
@@ -1399,6 +1406,15 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	if (nr_taken == 0)
 		return 0;
 
+#ifdef CONFIG_CMA
+	list_for_each_entry(page, &page_list, lru){
+		if (page) {
+			has_cma = has_cma_page(page);
+			if (has_cma)
+				break;
+		}
+	}
+#endif
 	nr_reclaimed = shrink_page_list(&page_list, zone, sc, TTU_UNMAP,
 					&nr_dirty, &nr_writeback, false);
 
@@ -1422,7 +1438,9 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	spin_unlock_irq(&zone->lru_lock);
 
 	free_hot_cold_page_list(&page_list, 1);
-
+#ifdef CONFIG_CMA
+	wakeup_wq(has_cma);
+#endif
 	/*
 	 * If reclaim is isolating dirty pages under writeback, it implies
 	 * that the long-lived page allocation rate is exceeding the page
@@ -1818,7 +1836,7 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	 * This scanning priority is essentially the inverse of IO cost.
 	 */
 	anon_prio = vmscan_swappiness(sc);
-	if((totalram_pages <= 0x20000) && vm_swap_full()){
+	if(atomic_long_read(&nr_swap_pages) * 3 < total_swap_pages){
 		anon_prio >>= 1;
 	}
 	file_prio = 200 - anon_prio;

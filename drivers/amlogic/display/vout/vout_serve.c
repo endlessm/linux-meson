@@ -185,6 +185,9 @@ static int want_hdmi_mode(vmode_t mode)
 		case VMODE_4K2K_23HZ: // for framerate automation 4k2k 23.97hz
 #endif
 		case VMODE_4K2K_SMPTE:
+		case VMODE_4K2K_FAKE_5G:  // timing same as 4k2k30hz, Vsync from 30hz to 50hz
+		case VMODE_4K2K_60HZ:	  // timing same as 4k2k30hz, Vsync from 30hz to 60hz
+		case VMODE_4K2K_5G:
 			ret=1;
 			break;
 		default:
@@ -220,7 +223,7 @@ static  void  set_vout_mode(char * name)
 {
 	vmode_t    mode;
 
-	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"tvmode set to %s\r\n",name);
+	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"tvmode set to %s\n",name);
 	mode=validate_vmode(name);
 	if(VMODE_MAX==mode)
 	{
@@ -228,11 +231,13 @@ static  void  set_vout_mode(char * name)
 		return ; 
 	}
 
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
 	mode_by_user = mode;
+#endif
 
 	if(mode==get_current_vmode())
 	{
-		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"don't set the same mode as current.\r\n");	
+		amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_HIGH,"don't set the same mode as current.\n");
 		return ;
 	}
 #ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
@@ -301,7 +306,7 @@ static void  set_vout_window(char *para)
 	{
 		disp_rect[1]=disp_rect[0] ;
 	}
-	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"osd0=>x:%d ,y:%d,w:%d,h:%d\r\n osd1=> x:%d,y:%d,w:%d,h:%d \r\n", \
+	amlog_mask_level(LOG_MASK_PARA,LOG_LEVEL_LOW,"osd0=>x:%d ,y:%d,w:%d,h:%d\n osd1=> x:%d,y:%d,w:%d,h:%d\n", \
 			*pt,*(pt+1),*(pt+2),*(pt+3),*(pt+4),*(pt+5),*(pt+6),*(pt+7));
 	vout_notifier_call_chain(VOUT_EVENT_OSD_DISP_AXIS,&disp_rect[0]) ;
 }
@@ -330,7 +335,7 @@ static int  create_vout_attr(void)
 	vout_info.base_class=class_create(THIS_MODULE,VOUT_CLASS_NAME);
 	if(IS_ERR(vout_info.base_class))
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create vout class fail\r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create vout class fail\n");
 		return  -1 ;
 	}
 	//create  class attr
@@ -338,7 +343,7 @@ static int  create_vout_attr(void)
 	{
 		if ( class_create_file(vout_info.base_class,vout_attr[i]))
 		{
-			amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create disp attribute %s fail\r\n",vout_attr[i]->attr.name);
+			amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create disp attribute %s fail\n",vout_attr[i]->attr.name);
 		}
 	}
 
@@ -422,7 +427,7 @@ static int
 	int ret =-1;
 	
 	vout_info.base_class=NULL;
-	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"start init vout module \r\n");
+	amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"start init vout module\n");
 #ifdef CONFIG_HAS_EARLYSUSPEND
     early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
     early_suspend.suspend = meson_vout_early_suspend;
@@ -437,11 +442,11 @@ static int
 	ret =create_vout_attr();
 	if(ret==0)
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create  vout attribute ok \r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create  vout attribute ok\n");
 	}
 	else
 	{
-		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create  vout attribute fail \r\n");
+		amlog_mask_level(LOG_MASK_INIT,LOG_LEVEL_HIGH,"create  vout attribute fail\n");
 	}
 
 	return ret;

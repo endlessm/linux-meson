@@ -1,7 +1,7 @@
 #ifndef _DET3D_H
 #define _DET3D_H
 
-#if (MESON_CPU_TYPE==MESON_CPU_TYPE_MESON6TV)||(MESON_CPU_TYPE==MESON_CPU_TYPE_MESON6TVD)
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TV)
 //***************************************************************************
 //******** DET3D REGISTERS ********
 //***************************************************************************
@@ -11,7 +11,7 @@
     #define DET3D_EN_BIT					5
     #define DET3D_EN_WID					1
 
-//#define DET3D_MOTN_CFG					0x1734  
+//#define DET3D_MOTN_CFG					0x1734
     #define DET3D_INTR_EN_BIT					16
     #define DET3D_INTR_EN_WID					1
     #define DET3D_MOTION_MODE_BIT				8
@@ -246,7 +246,7 @@ typedef struct det3d_info_s {
 	//Frame counter, max number is defined in FRAME_MAX macro
 	int nfrm;
 
-	//3D format 
+	//3D format
 	int tfw_det3d_fmt;
 
 	//signed number, when the score is close to 0, it is means we can not confirm if input is LR format;
@@ -261,7 +261,7 @@ typedef struct det3d_info_s {
 
 	//
 	int tscore_3d_lr_accum;
-	int tscore_3d_tb_accum; 
+	int tscore_3d_tb_accum;
 
 	//
 	int score_3d_chs;
@@ -290,8 +290,18 @@ typedef enum det3d_fmt_e {
 //****************************************************************************
 extern void det3d_enable(bool flag);
 extern enum det3d_fmt_e det3d_fmt_detect(void);
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESONG9TV)
+#define WRITE_DET3D_REG(x,val)				WRITE_VCBUS_REG(x,val)
+#define WRITE_DET3D_REG_BITS(x,val,start,length)		WRITE_VCBUS_REG_BITS(x,val,start,length)
+#define READ_DET3D_REG(x)					READ_VCBUS_REG(x)
+#define READ_DET3D_REG_BITS(x,start,length)		READ_VCBUS_REG_BITS(x,start,length)
+#else
+#define WRITE_DET3D_REG(x,val)				WRITE_CBUS_REG(x,val)
+#define WRITE_DET3D_REG_BITS(x,val,start,length)		WRITE_CBUS_REG_BITS(x,val,start,length)
+#define READ_DET3D_REG(x)					READ_CBUS_REG(x)
+#define READ_DET3D_REG_BITS(x,start,length)		READ_CBUS_REG_BITS(x,start,length)
+#endif
 
-#endif  // _DET3D_H
-
+#endif
 
 #endif  // _DET3D_H

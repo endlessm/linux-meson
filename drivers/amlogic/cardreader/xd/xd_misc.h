@@ -30,7 +30,7 @@
 void xd_sm_start_timer(unsigned long time_value);
 int xd_sm_check_timer(void);
 int xd_sm_check_timeout(void);
-
+
 #define Debug_Printf				printk
     
 //#define inline _Inline
@@ -138,5 +138,5 @@ extern unsigned char ecc_table[];
 unsigned char ecc_correct_data(unsigned char *data, unsigned char *data_ecc,
 				unsigned char ecc1, unsigned char ecc2,
 				unsigned char ecc3);
-
+
 #endif				//_H_sm_MISC

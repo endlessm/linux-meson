@@ -100,6 +100,8 @@ enum sgp_type {
 	SGP_FALLOC,	/* like SGP_WRITE, but make existing page Uptodate */
 };
 
+extern void wakeup_wq(bool has_cma);
+extern bool has_cma_page(struct page *page);
 #ifdef CONFIG_TMPFS
 static unsigned long shmem_default_max_blocks(void)
 {
@@ -1077,6 +1079,7 @@ static int shmem_getpage_gfp(struct inode *inode, pgoff_t index,
 	int error;
 	int once = 0;
 	int alloced = 0;
+	bool has_cma = false;
 
 	if (index > (MAX_LFS_FILESIZE >> PAGE_CACHE_SHIFT))
 		return -EFBIG;
@@ -1087,6 +1090,8 @@ repeat:
 		swap = radix_to_swp_entry(page);
 		page = NULL;
 	}
+	if (page && !has_cma)
+		has_cma = has_cma_page(page);
 
 	if (sgp != SGP_WRITE && sgp != SGP_FALLOC &&
 	    ((loff_t)index << PAGE_CACHE_SHIFT) >= i_size_read(inode)) {
@@ -1104,6 +1109,7 @@ repeat:
 	}
 	if (page || (sgp == SGP_READ && !swap.val)) {
 		*pagep = page;
+		wakeup_wq(has_cma);
 		return 0;
 	}
 
@@ -1127,6 +1133,8 @@ repeat:
 				goto failed;
 			}
 		}
+		if (page && !has_cma)
+			has_cma = has_cma_page(page);
 
 		/* We have to do this with page locked to prevent races */
 		lock_page(page);
@@ -1198,6 +1206,8 @@ repeat:
 			error = -ENOMEM;
 			goto decused;
 		}
+		if (page && !has_cma)
+			has_cma = has_cma_page(page);
 
 		SetPageSwapBacked(page);
 		__set_page_locked(page);
@@ -1254,6 +1264,7 @@ clear:
 			goto failed;
 	}
 	*pagep = page;
+	wakeup_wq(has_cma);
 	return 0;
 
 	/*
@@ -1282,6 +1293,8 @@ unlock:
 		unlock_page(page);
 		page_cache_release(page);
 	}
+	wakeup_wq(has_cma);
+	has_cma = false;
 	if (error == -ENOSPC && !once++) {
 		info = SHMEM_I(inode);
 		spin_lock(&info->lock);
@@ -1471,6 +1484,7 @@ static void do_shmem_file_read(struct file *filp, loff_t *ppos, read_descriptor_
 	pgoff_t index;
 	unsigned long offset;
 	enum sgp_type sgp = SGP_READ;
+	bool has_cma = false;
 
 	/*
 	 * Might this read be for a stacking filesystem?  Then when reading
@@ -1507,6 +1521,8 @@ static void do_shmem_file_read(struct file *filp, loff_t *ppos, read_descriptor_
 		if (page)
 			unlock_page(page);
 
+		if (page && !has_cma)
+			has_cma = has_cma_page(page);
 		/*
 		 * We must evaluate after, since reads (unlike writes)
 		 * are called without i_mutex protection against truncate
@@ -1564,6 +1580,7 @@ static void do_shmem_file_read(struct file *filp, loff_t *ppos, read_descriptor_
 		cond_resched();
 	}
 
+	wakeup_wq(has_cma);
 	*ppos = ((loff_t) index << PAGE_CACHE_SHIFT) + offset;
 	file_accessed(filp);
 }
