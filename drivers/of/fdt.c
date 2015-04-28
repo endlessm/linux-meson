@@ -833,11 +833,6 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 		return 0;
 
 #if defined(CONFIG_PLAT_MESON)
-	/* The code below cuts out certain regions of reserved memory, while
-	 * marking the rest as available via early_init_dt_add_memory_arch.
-	 * After Endless's changes here, all memory is marked as available
-	 * except for a region reserved for the audio DSP at
-	 * 0x06000000 - 0x06100000. */
 	reg = of_get_flat_dt_prop(node, "aml_reserved_start", &l);
 	if (reg == NULL)
 		printk("error: can not get reserved mem start for AML\n");
@@ -860,9 +855,6 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 
 	early_init_dt_add_memory_arch(phys_offset,MEM_BLOCK1_SIZE);
 	early_init_dt_add_memory_arch(aml_reserved_end,aml_reserved_start-aml_reserved_end);
-
-	/* Add the memory region from 0x4200000-0x5000000 to not waste 14MB */
-	early_init_dt_add_memory_arch(phys_offset + MEM_BLOCK1_SIZE, aml_reserved_end-(phys_offset + MEM_BLOCK1_SIZE));
 
 	aml_reserved_end = get_reserve_end();
 	pr_info("reserved_end is %llx \n ",aml_reserved_end);
