@@ -576,7 +576,7 @@ static ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
 
 	down_read(filesem);
 	if (fsg_lun_is_open(curlun)) {	/* Get the complete pathname */
-		p = d_path(&curlun->filp->f_path, buf, PAGE_SIZE - 1);
+		p = file_path(curlun->filp, buf, PAGE_SIZE - 1);
 		if (IS_ERR(p))
 			rc = PTR_ERR(p);
 		else {
