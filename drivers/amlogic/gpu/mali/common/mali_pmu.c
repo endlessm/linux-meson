@@ -145,10 +145,6 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 
 	if (0 == mask || 0 == ((~stat) & mask)) return _MALI_OSK_ERR_OK;
 
-	/* This power domain never reports itself as off, so drop all requests
-	 * that only ask to turn it off, since they would fail. */
-	if (mask == 8) return _MALI_OSK_ERR_OK;
-
 	mali_hw_core_register_write(&pmu->hw_core,
 				    PMU_REG_ADDR_MGMT_POWER_DOWN, mask);
 
@@ -171,7 +167,7 @@ _mali_osk_errcode_t mali_pmu_power_down(struct mali_pmu_core *pmu, u32 mask)
 	/* Verify power status of domains after power down */
 	stat = mali_hw_core_register_read(&pmu->hw_core,
 					  PMU_REG_ADDR_MGMT_STATUS);
-	//MALI_DEBUG_ASSERT(mask == (stat & mask));
+	MALI_DEBUG_ASSERT(mask == (stat & mask));
 #endif
 
 	return _MALI_OSK_ERR_OK;
