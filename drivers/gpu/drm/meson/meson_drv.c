@@ -1177,7 +1177,7 @@ static const struct file_operations fops = {
 };
 
 static struct drm_driver meson_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET | DRIVER_IRQ_SHARED,
 	.load               = meson_load,
 	.unload             = meson_unload,
 	.lastclose          = meson_lastclose,
