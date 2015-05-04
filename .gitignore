@@ -64,6 +64,7 @@ ccImage
 include/config
 include/generated
 arch/*/include/generated
+drivers/amlogic/gpu/ump/arch
 
 # stgit generated dirs
 patches-*
