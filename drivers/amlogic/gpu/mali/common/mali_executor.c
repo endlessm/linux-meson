@@ -1002,7 +1002,7 @@ void mali_executor_abort_session(struct mali_session_data *session)
 			struct mali_pp_job *pp_job = NULL;
 
 			mali_executor_complete_group(virtual_group, MALI_FALSE,
-						     MALI_FALSE, NULL, &pp_job);
+						     MALI_TRUE, NULL, &pp_job);
 
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
@@ -1018,7 +1018,7 @@ void mali_executor_abort_session(struct mali_session_data *session)
 			struct mali_pp_job *pp_job = NULL;
 
 			mali_executor_complete_group(group, MALI_FALSE,
-						     MALI_FALSE, NULL, &pp_job);
+						     MALI_TRUE, NULL, &pp_job);
 
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
