@@ -1376,6 +1376,7 @@ typedef struct{
 static dispmode_vic_t dispmode_VIC_tab[]=
 {
     {"640x480p60hz", HDMI_640x480p60_4x3},
+    {"640x480p75hz", HDMIV_640x480p75hz},
     {"480i_4_3",  HDMI_480i60},
     {"480i_rpt",  HDMI_480i60_16x9_rpt},
     {"480i",      HDMI_480i60_16x9},
@@ -1426,10 +1427,13 @@ static dispmode_vic_t dispmode_VIC_tab[]=
     // VESA modes
     {"800x480p60hz", HDMIV_800x480p60hz},
     {"800x600p60hz", HDMIV_800x600p60hz},
+    {"800x600p75hz", HDMIV_800x600p75hz},
     {"1024x600p60hz", HDMIV_1024x600p60hz},
     {"1024x768p60hz", HDMIV_1024x768p60hz},
+    {"1024x768p75hz", HDMIV_1024x768p75hz},
     {"1280x800p60hz", HDMIV_1280x800p60hz},
     {"1280x1024p60hz", HDMIV_1280x1024p60hz},
+    {"1280x1024p75hz", HDMIV_1280x1024p75hz},
     {"1360x768p60hz", HDMIV_1360x768p60hz},
     {"1366x768p60hz", HDMIV_1366x768p60hz},
     {"1440x900p60hz", HDMIV_1440x900p60hz},

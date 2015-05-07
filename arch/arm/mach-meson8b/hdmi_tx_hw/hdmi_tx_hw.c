@@ -684,6 +684,7 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
         TOTAL_FRAMES        = 4;
         break;
     case HDMIV_800x600p60hz:
+    case HDMIV_800x600p75hz:
         INTERLACE_MODE      = 0;
         PIXEL_REPEAT_VENC   = 0;
         PIXEL_REPEAT_HDMI   = 0;
@@ -730,6 +731,37 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
         VSYNC_LINES         = 6;
         SOF_LINES           = 29;
         TOTAL_FRAMES        = 4;
+        break;
+    case HDMIV_1024x768p75hz:
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = (1024*(1+PIXEL_REPEAT_HDMI)); // Number of active pixels per line.
+        ACTIVE_LINES        = (768/(1+INTERLACE_MODE));    // Number of active lines per field.
+        LINES_F0            = 806;
+        LINES_F1            = 806;
+        FRONT_PORCH         = 24;
+        HSYNC_PIXELS        = 136;
+        BACK_PORCH          = 160;
+        EOF_LINES           = 3;
+        VSYNC_LINES         = 6;
+        SOF_LINES           = 29;
+        break;
+    case HDMIV_1280x1024p75hz:
+        INTERLACE_MODE     = 0;
+        PIXEL_REPEAT_VENC  = 0;
+        PIXEL_REPEAT_HDMI  = 0;
+        ACTIVE_PIXELS      = (1280*(1+PIXEL_REPEAT_HDMI)); // Number of active pixels per line.
+        ACTIVE_LINES       = (1024/(1+INTERLACE_MODE));    // Number of active lines per field.
+        LINES_F0           = 1066;
+        LINES_F1           = 1066;
+        FRONT_PORCH        = 48;
+        HSYNC_PIXELS       = 112;
+        BACK_PORCH         = 248;
+        EOF_LINES          = 1;
+        VSYNC_LINES        = 3;
+        SOF_LINES          = 38;
+        TOTAL_FRAMES       = 4;
         break;
     case HDMIV_1280x800p60hz:
         INTERLACE_MODE      = 0;
@@ -857,6 +889,7 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
         SOF_LINES           = 36;
         break;
     case HDMI_640x480p60_4x3:
+    case HDMIV_640x480p75hz:
         INTERLACE_MODE     = 0;
         PIXEL_REPEAT_VENC  = 0;
         PIXEL_REPEAT_HDMI  = 0;
@@ -1061,10 +1094,13 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
     switch (param->VIC) {
     case HDMIV_800x480p60hz:
     case HDMIV_800x600p60hz:
+    case HDMIV_800x600p75hz:
     case HDMIV_1024x600p60hz:
     case HDMIV_1024x768p60hz:
+    case HDMIV_1024x768p75hz:
     case HDMIV_1280x800p60hz:
     case HDMIV_1280x1024p60hz:
+    case HDMIV_1280x1024p75hz:
     case HDMIV_1360x768p60hz:
     case HDMIV_1366x768p60hz:
     case HDMIV_1440x900p60hz:
@@ -1073,6 +1109,7 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
     case HDMIV_1920x1200p60hz:
         aml_write_reg32(P_VPU_HDMI_SETTING, 0xe);
         break;
+    case HDMIV_640x480p75hz:
     case HDMI_640x480p60_4x3:
         aml_write_reg32(P_VPU_HDMI_SETTING, 0x2);
         break;
@@ -2052,8 +2089,17 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
 #endif
 
     switch(param->VIC) {
+    case HDMIV_640x480p75hz:
+        set_vmode_clk(VMODE_640X480P_75HZ);
+	break;
     case HDMIV_800x600p60hz:
         set_vmode_clk(VMODE_800X600P_60HZ);
+        break;
+    case HDMIV_800x600p75hz:
+        set_vmode_clk(VMODE_800X600P_75HZ);
+        break;
+    case HDMIV_1024x768p75hz:
+        set_vmode_clk(VMODE_1024X768P_75HZ);
         break;
     case HDMIV_1024x600p60hz:
         set_vmode_clk(VMODE_1024X600P_60HZ);
@@ -2066,6 +2112,9 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
         break;
     case HDMIV_1280x1024p60hz:
         set_vmode_clk(VMODE_1280X1024P_60HZ);
+        break;
+    case HDMIV_1280x1024p75hz:
+        set_vmode_clk(VMODE_1280X1024P_75HZ);
         break;
     case HDMIV_1360x768p60hz:
         set_vmode_clk(VMODE_1360X768P_60HZ);
@@ -2120,6 +2169,8 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
         set_vmode_clk(VMODE_1080P_24HZ);
         break;
     case HDMI_1080p30:
+        set_vmode_clk(VMODE_1080P_30HZ);
+        break;
     case HDMI_720p60:
     case HDMI_720p50:
         set_vmode_clk(VMODE_720P);

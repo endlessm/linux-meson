@@ -91,6 +91,7 @@ struct vmode_tvmode_tab_t {
 
 static struct vmode_tvmode_tab_t mode_tab[] = {
     {TVMODE_640X480P_60HZ, VMODE_640X480P_60HZ},
+    {TVMODE_640X480P_75HZ, VMODE_640X480P_75HZ},
     {TVMODE_480I, VMODE_480I},
     {TVMODE_480I_RPT, VMODE_480I_RPT},
     {TVMODE_480CVBS, VMODE_480CVBS},
@@ -127,6 +128,7 @@ static struct vmode_tvmode_tab_t mode_tab[] = {
     {TVMODE_1080I_59HZ, VMODE_1080I_59HZ},
     {TVMODE_1080P_59HZ, VMODE_1080P_59HZ}, // for 1080p 59.94hz
     {TVMODE_1080P_23HZ, VMODE_1080P_23HZ}, // for 1080p 23.97hz
+    {TVMODE_1080P_30HZ, VMODE_1080P_30HZ},
     {TVMODE_4K2K_29HZ, VMODE_4K2K_29HZ}, // for 4k2k 29.97hz
     {TVMODE_4K2K_23HZ, VMODE_4K2K_23HZ}, // for 4k2k 23.97hz
 #endif
@@ -140,10 +142,13 @@ static struct vmode_tvmode_tab_t mode_tab[] = {
     {TVMODE_4K05K_240HZ_Y420, VMODE_4K05K_240HZ_Y420},
     {TVMODE_800X480P_60HZ, VMODE_800X480P_60HZ},
     {TVMODE_800X600P_60HZ, VMODE_800X600P_60HZ},
+    {TVMODE_800X600P_75HZ, VMODE_800X600P_75HZ},
     {TVMODE_1024X600P_60HZ, VMODE_1024X600P_60HZ},
     {TVMODE_1024X768P_60HZ, VMODE_1024X768P_60HZ},
+    {TVMODE_1024X768P_75HZ, VMODE_1024X768P_75HZ},
     {TVMODE_1280X800P_60HZ, VMODE_1280X800P_60HZ},
     {TVMODE_1280X1024P_60HZ, VMODE_1280X1024P_60HZ},
+    {TVMODE_1280X1024P_75HZ, VMODE_1280X1024P_75HZ},
     {TVMODE_1360X768P_60HZ, VMODE_1360X768P_60HZ},
     {TVMODE_1366X768P_60HZ, VMODE_1366X768P_60HZ},
     {TVMODE_1440X900P_60HZ, VMODE_1440X900P_60HZ},
@@ -176,6 +181,18 @@ static const vinfo_t tv_info[] =
         .sync_duration_num = 60,
         .sync_duration_den = 1,
         .video_clk         = 25200000,
+    },
+    { /* VMODE_640X480P_75HZ */
+		.name              = "640x480p75hz",
+		.mode              = VMODE_640X480P_75HZ,
+        .width             = 640,
+        .height            = 480,
+        .field_height      = 480,
+        .aspect_ratio_num  = 4,
+        .aspect_ratio_den  = 3,
+        .sync_duration_num = 75,
+        .sync_duration_den = 1,
+        .video_clk         = 31500000,
     },
     { /* VMODE_480I */
 		.name              = "480i",
@@ -436,6 +453,18 @@ static const vinfo_t tv_info[] =
         .sync_duration_num = 24,
         .sync_duration_den = 1,
         .video_clk         = 74250000,
+    },
+    { /* VMODE_1080P_30HZ */
+		.name              = "1080p30hz",
+		.mode              = VMODE_1080P_30HZ,
+        .width             = 1920,
+        .height            = 1080,
+        .field_height      = 1080,
+        .aspect_ratio_num  = 16,
+        .aspect_ratio_den  = 9,
+        .sync_duration_num = 60,
+        .sync_duration_den = 1,
+        .video_clk         = 725000000,
     },
 #ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
 	{ /* VMODE_1080P_23HZ */
@@ -755,6 +784,18 @@ static const vinfo_t tv_info[] =
         .sync_duration_den  = 1,
         .video_clk          = 40000000,
     },
+    { /* VMODE_800X600P_75HZ */
+		.name				= "800x600p75hz",
+		.mode 				= VMODE_800X600P_75HZ,
+		.width				= 800,
+		.height				= 600,
+		.field_height		= 600,
+		.aspect_ratio_num	= 4,
+		.aspect_ratio_den	= 3,
+		.sync_duration_num	= 75,
+		.sync_duration_den	= 1,
+		.video_clk			= 49500000,
+    },
     { /* VMODE_800X480P_60HZ */
         .name               = "800x480p60hz",
         .mode               = VMODE_800X480P_60HZ,
@@ -791,6 +832,18 @@ static const vinfo_t tv_info[] =
         .sync_duration_den  = 1,
         .video_clk          = 65000000,
     },
+    { /* VMODE_1024X768P_75HZ */
+    .name              = "1024x768p75hz",
+    .mode              = VMODE_1024X768P_75HZ,
+    .width             = 1024,
+    .height            = 768,
+    .field_height      = 768,
+    .aspect_ratio_num  = 4,
+    .aspect_ratio_den  = 3,
+    .sync_duration_num = 75,
+    .sync_duration_den = 1,
+    .video_clk         = 78750000,
+    },
     { /* VMODE_1280X800P_60HZ */
         .name               = "1280x800p60hz",
         .mode               = VMODE_1280X800P_60HZ,
@@ -802,6 +855,18 @@ static const vinfo_t tv_info[] =
         .sync_duration_num  = 60,
         .sync_duration_den  = 1,
         .video_clk          = 71100000,
+    },
+    { /* VMODE_1280X1024P_75HZ */
+    .name              = "1280x1024p75hz",
+    .mode              = VMODE_1280X1024P_75HZ,
+    .width             = 1280,
+    .height            = 1024,
+    .field_height      = 1024,
+    .aspect_ratio_num  = 5,
+    .aspect_ratio_den  = 4,
+    .sync_duration_num = 75,
+    .sync_duration_den = 1,
+    .video_clk         = 135000000,
     },
     { /* VMODE_1280X1024P_60HZ */
         .name               = "1280x1024p60hz",
