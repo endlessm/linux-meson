@@ -200,8 +200,12 @@ typedef struct hdmi_tvenc_config_
     reg_t* reg_set;
 }hdmi_tvenc_config_t;
 
+static  reg_t hdmi_tvenc_regs_640x480p60[] = {
+    {0,0}
+};
+
 static const hdmi_tvenc_config_t hdmi_tvenc_configs[] = {
-    {HDMI_640x480p60  ,          NULL          },
+    {HDMI_640x480p60  ,          hdmi_tvenc_regs_640x480p60},
     {HDMI_480p60,                hdmi_tvenc_regs_480p},
     {HDMI_480p60_16x9,           hdmi_tvenc_regs_480p},
     {HDMI_720p60,                hdmi_tvenc_regs_720p},
