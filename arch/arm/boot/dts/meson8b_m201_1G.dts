@@ -201,6 +201,45 @@
 			irq_out = <5>;
 			card_type = <5>; /* 0:unknown, 1:mmc card(include eMMC), 2:sd card(include tSD), 3:sdio device(ie:sdio-wifi), 4:SD combo (IO+mem) card, 5:NON sdio device(means sd/mmc card), other:reserved */
 		};
+
+		sdio {
+			status = "ok";
+			port = <0x0>;
+			pinname = "sdio";
+			ocr_avail = <0x200000>;
+			caps = "MMC_CAP_4_BIT_DATA", "MMC_CAP_SDIO_IRQ", "MMC_CAP_MMC_HIGHSPEED", "MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE";
+			f_min = <0x493e0>;
+			f_max = <0x2faf080>;
+			max_req_size = <0x20000>;
+			card_type = <0x3>;
+		};
+	};
+
+	sdhc {
+		compatible = "amlogic,aml_sdhc";
+		dev_name = "aml_sdhc.0";
+		status = "okay";
+		reg = <0xc1108e00 0x3c>;
+		pinctrl-names = "sdhc_sd_clk_cmd_pins", "sdhc_sd_all_pins", "sdhc_emmc_clk_cmd_pins", "sdhc_emmc_all_pins", "sdhc_sdio_clk_cmd_pins", "sdhc_sdio_all_pins";
+		pinctrl-0 = <0xb>;
+		pinctrl-1 = <0xc>;
+		pinctrl-2 = <0xd>;
+		pinctrl-3 = <0xe>;
+		pinctrl-4 = <0xf>;
+		pinctrl-5 = <0x10>;
+
+		emmc {
+			status = "okay";
+			port = <0x5>;
+			pinname = "emmc";
+			ocr_avail = <0x200000>;
+			caps = "MMC_CAP_8_BIT_DATA", "MMC_CAP_MMC_HIGHSPEED", "MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE", "MMC_CAP_ERASE", "MMC_CAP_HW_RESET";
+			f_min = <0x493e0>;
+			f_max = <0x2faf080>;
+			max_req_size = <0x20000>;
+			gpio_dat3 = "BOOT_3";
+			card_type = <0x1>;
+		};
 	};
 
 	i2c@c8100500{ /* I2C-AO */
@@ -805,25 +844,26 @@
 			amlogic,pullupen = <1>;
 		};
 
-		sdhc_emmc_clk_cmd_pins: sdhc_emmc_clk_cmd_pins {
-			amlogic,setmask = <4 0x0c000000>;      /* bit[26-27] */
-			amlogic,clrmask = <2 0x04c000f0        /* sdhc b & nand */
-			                   5 0x00007c00        /* sdhc a */
-			                   6 0x3f000000>;      /* sdio c */
-			amlogic,pins = "BOOT_16","BOOT_17"; /* BOOT_16:CMD, BOOT_17:CLK */
-			amlogic,enable-output = <1>; /* 0:output, 1:input */
-			amlogic,pullup = <1>;
-			amlogic,pullupen = <1>;
+		sdhc_emmc_clk_cmd_pins {
+			amlogic,setmask = <0x7 0xc0000>;
+			amlogic,clrmask = <0x2 0x4c000f0 0x5 0x7c00 0x6 0xff000000>;
+			amlogic,pins = "BOOT_8", "BOOT_10";
+			amlogic,enable-output = <0x1>;
+			amlogic,pullup = <0x1>;
+			amlogic,pullupen = <0x1>;
+			linux,phandle = <0xd>;
+			phandle = <0xd>;
 		};
-		sdhc_emmc_all_pins: sdhc_emmc_all_pins {
-			amlogic,setmask = <4 0x7c000000>;      /* sdhc c */
-			amlogic,clrmask = <2 0x04c000f0        /* sdhc b & nand */
-			                   5 0x00007c00        /* sdhc a */
-			                   6 0x3f000000>;      /* sdio c */
-			amlogic,pins = "BOOT_0","BOOT_1","BOOT_2","BOOT_3","BOOT_4","BOOT_5","BOOT_6","BOOT_7","BOOT_16","BOOT_17";
-			amlogic,enable-output = <1>; /* 0:output, 1:input */
-			amlogic,pullup = <1>;
-			amlogic,pullupen = <1>;
+
+		sdhc_emmc_all_pins {
+			amlogic,setmask = <0x4 0x70000000 0x7 0xc0000>;
+			amlogic,clrmask = <0x2 0x4c000f0 0x5 0x7c00 0x6 0xff000000>;
+			amlogic,pins = "BOOT_0", "BOOT_1", "BOOT_2", "BOOT_3", "BOOT_4", "BOOT_5", "BOOT_6", "BOOT_7", "BOOT_8", "BOOT_10";
+			amlogic,enable-output = <0x1>;
+			amlogic,pullup = <0x1>;
+			amlogic,pullupen = <0x1>;
+			linux,phandle = <0xe>;
+			phandle = <0xe>;
 		};
 
 		sdhc_sdio_clk_cmd_pins: sdhc_sdio_clk_cmd_pins {
