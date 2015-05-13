@@ -226,7 +226,7 @@ static int do_umplock_process(_lock_cmd_priv *lock_cmd)
 			}
 		}
 
-		PDEBUG("failed lock, pid: %d, secure_id: 0x%x, ref_count: %d\n", lock_cmd->pid, lock_item->secure_id, device.items[i_index].references[ref_index].ref_count);
+		PDEBUG(1, "failed lock, pid: %d, secure_id: 0x%x, ref_count: %d\n", lock_cmd->pid, lock_item->secure_id, device.items[i_index].references[ref_index].ref_count);
 
 		mutex_unlock(&device.item_list_lock);
 		return -ERESTARTSYS;
