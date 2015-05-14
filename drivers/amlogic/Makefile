@@ -93,7 +93,7 @@ obj-$(CONFIG_AM_DVB) += dvb_tv/
 obj-$(CONFIG_AM_SMARTCARD) += smartcard/
 
 obj-$(CONFIG_AM_WIFI) += wifi/
-obj-$(CONFIG_SDIO_DHD_CDC_WIFI_40181_MODULE) += wifi/broadcm_40181/
+obj-$(CONFIG_SDIO_DHD_CDC_WIFI_40181) += wifi/broadcm_40181/
 obj-$(CONFIG_BCMDHD) += wifi/bcmdhd/
 ifneq ($(wildcard $(srctree)/../hardware/wifi),)
 	obj-$(CONFIG_RTL8188EU) += ../../../hardware/wifi/realtek/drivers/8188eu/rtl8xxx_EU/

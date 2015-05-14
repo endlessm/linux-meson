@@ -3758,6 +3758,7 @@ int
 wl_iw_attach(struct net_device *dev, void * dhdp)
 {
 	iscan_info_t *iscan = NULL;
+	struct task_struct *task;
 
 	if (!dev)
 		return 0;
@@ -3781,7 +3782,8 @@ wl_iw_attach(struct net_device *dev, void * dhdp)
 
 	sema_init(&iscan->sysioc_sem, 0);
 	init_completion(&iscan->sysioc_exited);
-	iscan->sysioc_pid = kernel_thread(_iscan_sysioc_thread, iscan, 0);
+	task = kthread_run(_iscan_sysioc_thread, iscan, "bcm40181_sysioc");
+	iscan->sysioc_pid = task->pid;
 	if (iscan->sysioc_pid < 0)
 		return -ENOMEM;
 	return 0;
