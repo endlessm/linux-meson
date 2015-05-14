@@ -26,7 +26,7 @@ DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \
 	bcmsdh_sdmmc.o dhd_custom_gpio.o sbutils.o wldev_common.o wl_android.o \
 	dhd_pno.o dhd_config.o
 
-obj-$(CONFIG_SDIO_DHD_CDC_WIFI_40181_MODULE) += dhd.o
+obj-$(CONFIG_SDIO_DHD_CDC_WIFI_40181) += dhd.o
 dhd-objs += $(DHDOFILES)
 
 DHDCFLAGS += -DCUSTOMER_HW_AMLOGIC
@@ -73,6 +73,6 @@ ifneq ($(CONFIG_DHD_USE_SCHED_SCAN),)
 DHDCFLAGS += -DWL_SCHED_SCAN
 endif
 EXTRA_CFLAGS = $(DHDCFLAGS)
-ifeq ($(CONFIG_SDIO_DHD_CDC_WIFI_40181_MODULE),m)
+ifeq ($(CONFIG_SDIO_DHD_CDC_WIFI_40181),m)
 EXTRA_LDFLAGS += --strip-debug
 endif
