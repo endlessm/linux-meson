@@ -2101,14 +2101,6 @@ static int  amstream_probe(struct platform_device *pdev)
 
     printk("Amlogic A/V streaming port init\n");
 
-    if (HAS_HEVC_VDEC) {
-        amstream_port_num = MAX_AMSTREAM_PORT_NUM;
-        amstream_buf_num = BUF_MAX_NUM;
-    } else {
-        amstream_port_num = MAX_AMSTREAM_PORT_NUM - 1;
-        amstream_buf_num = BUF_MAX_NUM - 1;
-    }
-
     r = class_register(&amstream_class);
     if (r) {
         printk("amstream class create fail.\n");
@@ -2126,8 +2118,6 @@ static int  amstream_probe(struct platform_device *pdev)
 
         goto error2;
     }
-
-    vdec_set_decinfo(&amstream_dec_info);
 
     amstream_dev_class = class_create(THIS_MODULE, DEVICE_NAME);
 
@@ -2334,6 +2324,15 @@ static struct platform_driver
 
 static int __init amstream_module_init(void)
 {
+    vdec_set_decinfo(&amstream_dec_info);
+    if (HAS_HEVC_VDEC) {
+        amstream_port_num = MAX_AMSTREAM_PORT_NUM;
+        amstream_buf_num = BUF_MAX_NUM;
+    } else {
+        amstream_port_num = MAX_AMSTREAM_PORT_NUM - 1;
+        amstream_buf_num = BUF_MAX_NUM - 1;
+    }
+
     if (platform_driver_register(&amstream_driver)) {
         printk("failed to register amstream module\n");
         return -ENODEV;
