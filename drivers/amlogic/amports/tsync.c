@@ -177,9 +177,7 @@ extern void set_timestamp_inc_factor(u32 factor);
 extern int pts_cached_time(u8 type);
 #endif
 
-int get_vsync_pts_inc_mode(void) {
-    return 1;
-}
+extern int get_vsync_pts_inc_mode(void);
 
 static void tsync_pcr_recover_with_audio(void)
 {
