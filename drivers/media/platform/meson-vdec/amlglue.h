@@ -1,6 +1,7 @@
 #include "../../../amlogic/amports/streambuf.h"
 #include "../../../amlogic/amports/esparser.h"
 #include "../../../amlogic/amports/amports_priv.h"
+#include "../../../amlogic/amports/vdec.h"
 
 #define PARSER_VIDEO        (ES_TYPE_VIDEO)
 

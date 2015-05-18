@@ -13,6 +13,8 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 
+#include <linux/amlogic/amstream.h>
+#include <linux/amlogic/amports/vformat.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -34,7 +36,13 @@
 // FIXME tweak or make dynamic?
 #define VDEC_MAX_BUFFERS		32
 
-#define VDEC_HW_BUF_SIZE (32*1024*1024) // FIXME i think Aml code uses only a portion of a 32mb allocation for video, need to check
+/* FIXME: does this need to be so big? an alternate/unused codepath in
+ * amstream_probe() sets this to 3mb. */
+#define VDEC_ST_FIFO_SIZE	31719424
+
+/* FIXME: this is for the decoder, as a general buffer and also for the
+ * decoded frame data. Maybe it doesn't have to be contiguous. */
+#define VDEC_HW_BUF_SIZE	(64*1024*1024)
 
 struct vdec_dev {
 	struct v4l2_device	v4l2_dev;
@@ -42,6 +50,9 @@ struct vdec_dev {
 	struct v4l2_m2m_dev	*m2m_dev;
 	void			*vb_alloc_ctx;
 	struct mutex		dev_mutex;
+
+	void			*decoder_buf;
+	phys_addr_t		decoder_buf_phys;
 };
 
 struct vdec_q_data {
@@ -653,7 +664,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *ds
 /*
  * File operations
  */
-static int vdec_open(struct file *file)
+static int meson_vdec_open(struct file *file)
 {
 	struct vdec_dev *dev = video_drvdata(file);
 	struct vdec_ctx *ctx = NULL;
@@ -662,11 +673,14 @@ static int vdec_open(struct file *file)
 	stream_buf_t *sbuf = get_buf_by_type(BUF_TYPE_VIDEO);
 
 	v4l2_info(&dev->v4l2_dev, "vdec_open\n");
-	if (!port)
+	if (!port) {
+pr_err("no port\n");
 		return -ENOENT;
+	}
 
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
+
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		ret = -ENOMEM;
@@ -677,14 +691,14 @@ static int vdec_open(struct file *file)
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
 
-	ctx->buf_vaddr = dma_alloc_coherent(NULL, VDEC_HW_BUF_SIZE,
+	ctx->buf_vaddr = dma_alloc_coherent(NULL, VDEC_ST_FIFO_SIZE,
 					    &sbuf->buf_start, GFP_KERNEL);
 	if (!ctx->buf_vaddr) {
 		ret = -ENOMEM;
 		goto err_free_ctx;
 	}
 
-	sbuf->buf_size = sbuf->default_buf_size = VDEC_HW_BUF_SIZE;
+	sbuf->buf_size = sbuf->default_buf_size = VDEC_ST_FIFO_SIZE;
 	sbuf->flag = BUF_FLAG_IOMEM;
 
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
@@ -696,10 +710,16 @@ static int vdec_open(struct file *file)
 	v4l2_fh_add(&ctx->fh);
 	INIT_LIST_HEAD(&ctx->src_queue);
 	INIT_LIST_HEAD(&ctx->dst_queue);
-	amstream_port_open(port);
 
-	// FIXME should this be done on device_run instead?
+	amstream_port_open(port);
+	port->vformat = VFORMAT_H264;
+	port->flag |= PORT_FLAG_VFORMAT;
+
+	/* FIXME: the video_port_init codepath does a mix of device
+	 * initialization (good to do now), but also powering/clocking up
+	 * (should be done at device_run time). */
 	ret = video_port_init(port, sbuf);
+pr_err("video_port_init err %d\n", ret);
 	// FIXME handle error
 
 open_unlock:
@@ -707,13 +727,14 @@ open_unlock:
 	return ret;
 
 err_free_buf:
-	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, ctx->buf_vaddr, sbuf->buf_start);
+	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
+			  sbuf->buf_start);
 err_free_ctx:
 	kfree(ctx);
 	goto open_unlock;
 }
 
-static int vdec_release(struct file *file)
+static int meson_vdec_release(struct file *file)
 {
 	struct vdec_dev *dev = video_drvdata(file);
 	struct vdec_ctx *ctx = file2ctx(file);
@@ -757,8 +778,8 @@ static int vdec_mmap(struct file *file, struct vm_area_struct *vma)
 
 static const struct v4l2_file_operations vdec_fops = {
 	.owner		= THIS_MODULE,
-	.open		= vdec_open,
-	.release	= vdec_release,
+	.open		= meson_vdec_open,
+	.release	= meson_vdec_release,
 	.poll		= vdec_poll,
 	.unlocked_ioctl	= video_ioctl2,
 	.mmap		= vdec_mmap,
@@ -777,17 +798,30 @@ static int meson_vdec_probe(struct platform_device *pdev)
 {
 	struct vdec_dev *dev;
 	struct video_device *vfd;
+	struct resource res;
 	int ret;
 
 	dev_info(&pdev->dev, "probe\n");
-
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
+	dev->decoder_buf = dma_alloc_coherent(NULL, VDEC_HW_BUF_SIZE,
+					      &dev->decoder_buf_phys,
+					      GFP_KERNEL);
+	if (!dev->decoder_buf) {
+		dev_err(&pdev->dev, "Couldn't allocate decoder buffer\n");
+		return -ENOMEM;
+	}
+
+	res.start = dev->decoder_buf_phys;
+	res.end = res.start + VDEC_HW_BUF_SIZE - 1;
+	res.flags = IORESOURCE_MEM;
+	vdec_set_resource(&res, &pdev->dev);
+
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret)
-		return ret;
+		goto free_buffer;
 
 	mutex_init(&dev->dev_mutex);
 
@@ -831,6 +865,9 @@ rel_vdev:
 	video_device_release(vfd);
 unreg_dev:
 	v4l2_device_unregister(&dev->v4l2_dev);
+free_buffer:
+	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, dev->decoder_buf,
+			  dev->decoder_buf_phys);
 
 	return ret;
 }
@@ -844,6 +881,8 @@ static int meson_vdec_remove(struct platform_device *pdev)
 	v4l2_m2m_release(dev->m2m_dev);
 	video_unregister_device(dev->vfd);
 	v4l2_device_unregister(&dev->v4l2_dev);
+	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, dev->decoder_buf,
+			  dev->decoder_buf_phys);
 	return 0;
 }
 

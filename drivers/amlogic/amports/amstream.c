@@ -463,8 +463,8 @@ int video_port_init(stream_port_t *port, struct stream_buf_s * pbuf)
     if (port->type & PORT_TYPE_ES) {
         r = esparser_init(pbuf);
         if (r < 0) {
-            video_port_release(port, pbuf, 3);
             printk("esparser_init() failed\n");
+            video_port_release(port, pbuf, 3);
             return r;
         }
     }
@@ -2188,10 +2188,6 @@ static int  amstream_probe(struct platform_device *pdev)
         bufs[BUF_TYPE_HEVC].default_buf_size = bufs[BUF_TYPE_VIDEO].default_buf_size;
     }
 
-    if (stbuf_fetch_init() != 0) {
-        r = (-ENOMEM);
-        goto error7;
-    }
     init_waitqueue_head(&amstream_sub_wait);
     init_waitqueue_head(&amstream_userdata_wait);
     reset_canuse_buferlevel(10000);
@@ -2234,7 +2230,6 @@ static int  amstream_remove(struct platform_device *pdev)
     if (bufs[BUF_TYPE_AUDIO].flag & BUF_FLAG_ALLOC) {
         stbuf_change_size(&bufs[BUF_TYPE_AUDIO], 0);
     }
-    stbuf_fetch_release();
     tsdemux_class_unregister();
     for (st = &ports[0], i = 0; i < amstream_port_num; i++, st++) {
         device_destroy(amstream_dev_class, MKDEV(AMSTREAM_MAJOR, i));
@@ -2324,6 +2319,8 @@ static struct platform_driver
 
 static int __init amstream_module_init(void)
 {
+	int ret;
+
     vdec_set_decinfo(&amstream_dec_info);
     if (HAS_HEVC_VDEC) {
         amstream_port_num = MAX_AMSTREAM_PORT_NUM;
@@ -2332,6 +2329,10 @@ static int __init amstream_module_init(void)
         amstream_port_num = MAX_AMSTREAM_PORT_NUM - 1;
         amstream_buf_num = BUF_MAX_NUM - 1;
     }
+
+  	ret = stbuf_fetch_init();
+	if (ret)
+		return ret;
 
     if (platform_driver_register(&amstream_driver)) {
         printk("failed to register amstream module\n");
@@ -2344,6 +2345,7 @@ static int __init amstream_module_init(void)
 static void __exit amstream_module_exit(void)
 {
     platform_driver_unregister(&amstream_driver);
+    stbuf_fetch_release();
     return ;
 }
 
