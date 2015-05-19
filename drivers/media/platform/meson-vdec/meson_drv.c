@@ -742,11 +742,14 @@ static int meson_vdec_release(struct file *file)
 
 	v4l2_info(&ctx->dev->v4l2_dev, "vdec_release\n");
 
-	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, ctx->buf_vaddr, sbuf->buf_start);
+	amstream_port_release(amstream_find_port("amstream_vbuf"));
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	mutex_lock(&dev->dev_mutex);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
+	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
+		          sbuf->buf_start);
+
 	mutex_unlock(&dev->dev_mutex);
 	kfree(ctx);
 

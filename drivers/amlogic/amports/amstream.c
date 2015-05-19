@@ -738,7 +738,7 @@ error1:
 
     return r;
 }
-static  int amstream_port_release(stream_port_t *port)
+int amstream_port_release(stream_port_t *port)
 {
     stream_buf_t *pvbuf = &bufs[BUF_TYPE_VIDEO];
     stream_buf_t *pabuf = &bufs[BUF_TYPE_AUDIO];
@@ -774,6 +774,35 @@ static  int amstream_port_release(stream_port_t *port)
 
     port->pcr_inited=0;
     port->flag = 0;
+
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
+    if (port->type & PORT_TYPE_VIDEO) {
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
+        if (HAS_HEVC_VDEC) {
+            vdec_poweroff(VDEC_HEVC);
+        }
+        
+        vdec_poweroff(VDEC_1);
+#endif
+
+        switch_mod_gate_by_name("vdec", 0);
+    }
+
+    if (port->type & PORT_TYPE_AUDIO) {
+        switch_mod_gate_by_name("audio", 0);
+    }
+
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+    CLK_GATE_OFF(VPU_INTR);
+#endif
+
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
+    CLK_GATE_OFF(HIU_PARSER_TOP);
+#endif
+
+    switch_mod_gate_by_name("demux", 0);
+#endif 
+
     return 0;
 }
 
@@ -1210,34 +1239,6 @@ static int amstream_release(struct inode *inode, struct file *file)
         debug_file_pos = 0;
     }
 #endif
-
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-    if (this->type & PORT_TYPE_VIDEO) {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
-        if (HAS_HEVC_VDEC) {
-            vdec_poweroff(VDEC_HEVC);
-        }
-        
-        vdec_poweroff(VDEC_1);
-#endif
-
-        switch_mod_gate_by_name("vdec", 0);
-    }
-
-    if (this->type & PORT_TYPE_AUDIO) {
-        switch_mod_gate_by_name("audio", 0);
-    }
-
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-    CLK_GATE_OFF(VPU_INTR);
-#endif
-
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
-    CLK_GATE_OFF(HIU_PARSER_TOP);
-#endif
-
-    switch_mod_gate_by_name("demux", 0);
-#endif 
 
     return 0;
 }

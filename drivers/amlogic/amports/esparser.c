@@ -297,9 +297,6 @@ s32 esparser_init(struct stream_buf_s *buf)
                                                 SEARCH_PATTERN_LEN, DMA_TO_DEVICE);
         }
 
-
-	return 0;
-
         /* reset PARSER with first esparser_init() call */
         WRITE_MPEG_REG(RESET1_REGISTER, RESET_PARSER);
 
