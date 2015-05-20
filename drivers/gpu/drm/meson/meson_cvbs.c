@@ -115,12 +115,14 @@ struct meson_connector {
 	struct drm_connector base;
 	struct drm_encoder *encoder;
 	bool enabled;
+	struct drm_display_mode *mode;
 };
 #define to_meson_connector(x) container_of(x, struct meson_connector, base)
 
 static void meson_connector_destroy(struct drm_connector *connector)
 {
 	struct meson_connector *meson_connector = to_meson_connector(connector);
+	drm_mode_destroy(connector->dev, meson_connector->mode);
 	drm_connector_cleanup(connector);
 	kfree(meson_connector);
 }
@@ -144,16 +146,9 @@ static enum drm_connector_status meson_connector_detect(struct drm_connector *co
 
 static int meson_connector_get_modes(struct drm_connector *connector)
 {
+	struct meson_connector *meson_connector = to_meson_connector(connector);
 	struct drm_device *dev = connector->dev;
-	struct drm_display_mode *mode;
-
-	mode = drm_cvt_mode(dev,
-			    CVBS_HACK_MODE_SIZE(720),
-			    CVBS_HACK_MODE_SIZE(480),
-			    60, false, true, false);
-	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-	drm_mode_probed_add(connector, mode);
-
+	drm_mode_probed_add(connector, drm_mode_duplicate(dev, meson_connector->mode));
 	return 1;
 }
 
@@ -185,7 +180,8 @@ static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
 };
 
 struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
-						  bool enabled)
+						  bool enabled,
+						  struct drm_display_mode *mode)
 {
 	struct meson_connector *meson_connector;
 	struct drm_connector *connector;
@@ -203,6 +199,7 @@ struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
 	connector = &meson_connector->base;
 	meson_connector->encoder = encoder;
 	meson_connector->enabled = enabled;
+	meson_connector->mode = mode;
 
 	drm_connector_init(dev, connector, &meson_connector_funcs, DRM_MODE_CONNECTOR_Composite);
 	drm_connector_helper_add(connector, &meson_connector_helper_funcs);
