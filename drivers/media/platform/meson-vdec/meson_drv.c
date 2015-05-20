@@ -90,6 +90,10 @@ struct vdec_ctx {
 	/* Source and destination queue data */
 	struct vdec_q_data   src_q_data;
 	struct vdec_q_data   dst_q_data;
+	u32 dst_width;
+	u32 dst_height;
+	u32 luma_size;
+	u32 chroma_size;
 };
 
 static inline struct vdec_ctx *file2ctx(struct file *file)
@@ -109,6 +113,30 @@ static struct vdec_q_data *get_q_data(struct vdec_ctx *ctx,
 		BUG();
 	}
 	return NULL;
+}
+
+/*
+ * Amlogic callbacks
+ */
+static void h264_params_cb(void *data, int status, u32 width, u32 height,
+			   u32 plane1size, u32 plane2size)
+{
+	struct vdec_ctx *ctx = data;
+	v4l2_info(&ctx->dev->v4l2_dev,
+		  "h264_params_cb status=%d w=%d h=%d planesz=(%d,%d)\n",
+		  status, width, height, plane1size, plane2size);
+
+	if (status) {
+		v4l2_err(&ctx->dev->v4l2_dev, "H264 params error.\n");
+		return;
+	}
+
+	ctx->dst_width = width;
+	ctx->dst_height = height;
+	ctx->luma_size = plane1size;
+	ctx->chroma_size = plane2size;
+	
+	// FIXME raise v4l event
 }
 
 /*
@@ -219,45 +247,37 @@ static int vidioc_enum_fmt_vid_out(struct file *file, void *priv,
 	return 0;
 }
 
-static int vidioc_g_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
-{
-	struct vdec_q_data *q_data;
-
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_g_fmt type %d\n", f->type);
-	q_data = get_q_data(ctx, f->type);
-
-	f->fmt.pix.width	= q_data->width;
-	f->fmt.pix.height	= q_data->height;
-	f->fmt.pix.field	= V4L2_FIELD_NONE;
-	f->fmt.pix.sizeimage	= q_data->sizeimage;
-	f->fmt.pix.colorspace	= ctx->colorspace;
-
-	switch (f->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		f->fmt.pix.pixelformat = V4L2_PIX_FMT_H264;
-		f->fmt.pix.bytesperline	= (q_data->width * 16) >> 3;
-		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		f->fmt.pix.pixelformat = V4L2_PIX_FMT_NV21M;
-		f->fmt.pix.bytesperline	= (q_data->width * 32) >> 3; // FIXME check
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int vidioc_g_fmt_vid_out(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
-	return vidioc_g_fmt(file2ctx(file), f);
+	struct vdec_ctx *ctx = file2ctx(file);
+	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_out\n");
+
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+	f->fmt.pix_mp.width = f->fmt.pix_mp.height = 0;
+	f->fmt.pix_mp.field = V4L2_FIELD_NONE;
+	f->fmt.pix_mp.num_planes = 1;
+	f->fmt.pix_mp.plane_fmt[0].bytesperline = 0; // FIXME should be buffer size
+	f->fmt.pix_mp.plane_fmt[0].sizeimage = 0; // FIXME should be buffer size
+	return 0;
 }
 
 static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
-	return vidioc_g_fmt(file2ctx(file), f);
+	struct vdec_ctx *ctx = file2ctx(file);
+	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
+
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV21M;
+	f->fmt.pix_mp.width	= ctx->dst_width;
+	f->fmt.pix_mp.height = ctx->dst_height;
+	f->fmt.pix_mp.field	= V4L2_FIELD_NONE;
+	f->fmt.pix_mp.num_planes = 2;
+	f->fmt.pix_mp.plane_fmt[0].bytesperline = ctx->dst_width;
+	f->fmt.pix_mp.plane_fmt[0].sizeimage = ctx->luma_size;
+	f->fmt.pix_mp.plane_fmt[1].bytesperline = ctx->dst_width;
+	f->fmt.pix_mp.plane_fmt[1].sizeimage = ctx->chroma_size;
+	return 0;
 }
 
 static int vidioc_try_fmt(struct v4l2_format *f, int depth)
@@ -422,8 +442,7 @@ static int vidioc_querybuf(struct file *file, void *priv,
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_qbuf %d\n", buf->index);
-
+	v4l2_info(&ctx->dev->v4l2_dev, "ioc_qbuf %d %d\n", buf->index, buf->m.planes[0].bytesused);
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
 }
 
@@ -481,6 +500,29 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 /*
  * Queue operations
  */
+static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
+{
+	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
+	struct vb2_buffer *src_buf;
+	dma_addr_t phys_addr;
+	unsigned long size;
+
+	v4l2_info(&ctx->dev->v4l2_dev, "src_start_streaming\n");
+	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	if (!src_buf)
+		return -ENOENT;
+
+	phys_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
+	size = vb2_get_plane_payload(src_buf, 0);
+
+	v4l2_info(&ctx->dev->v4l2_dev,
+		  "parse header from src buffer %d, phys addr %x size %ld\n",
+		  src_buf->v4l2_buf.index, phys_addr, size);
+	esparser_start_search(PARSER_VIDEO, phys_addr, size);
+
+	return 0;
+}
+
 static int vdec_src_queue_setup(struct vb2_queue *vq,
 				const struct v4l2_format *fmt,
 				unsigned int *nbuffers,
@@ -554,7 +596,7 @@ static int vdec_dst_buf_init(struct vb2_buffer *vb)
 }
 
 // user space queues the buffer
-static int vdec_buf_prepare(struct vb2_buffer *vb)
+static int vdec_dst_buf_prepare(struct vb2_buffer *vb)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct vdec_q_data *q_data;
@@ -614,9 +656,9 @@ static void vdec_wait_finish(struct vb2_queue *q)
 
 
 static struct vb2_ops vdec_src_qops = {
+	.start_streaming = vdec_src_start_streaming,
 	.queue_setup	 = vdec_src_queue_setup,
 	.buf_init	 = vdec_src_buf_init,
-	.buf_prepare	 = vdec_buf_prepare,
 	.buf_queue	 = vdec_src_buf_queue,
 	.wait_prepare	 = vdec_wait_prepare,
 	.wait_finish	 = vdec_wait_finish,
@@ -625,7 +667,7 @@ static struct vb2_ops vdec_src_qops = {
 static struct vb2_ops vdec_dst_qops = {
 	.queue_setup	 = vdec_dst_queue_setup,
 	.buf_init	 = vdec_dst_buf_init,
-	.buf_prepare	 = vdec_buf_prepare,
+	.buf_prepare	 = vdec_dst_buf_prepare,
 	.buf_queue	 = vdec_dst_buf_queue,
 	.wait_prepare	 = vdec_wait_prepare,
 	.wait_finish	 = vdec_wait_finish,
@@ -687,6 +729,7 @@ pr_err("no port\n");
 		goto open_unlock;
 	}
 
+	vh264_set_params_cb(ctx, h264_params_cb);
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
@@ -805,6 +848,7 @@ static int meson_vdec_probe(struct platform_device *pdev)
 	int ret;
 
 	dev_info(&pdev->dev, "probe\n");
+
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;

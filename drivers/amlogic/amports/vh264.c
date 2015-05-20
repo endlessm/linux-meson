@@ -266,6 +266,15 @@ extern u32 get_blackout_policy(void);
 
 #define DFS_HIGH_THEASHOLD 3
 
+static void *params_cb_data;
+static void (*params_cb)(void *data, int status, u32 width, u32 height, u32 plane1size, u32 plane2size) = NULL;
+
+void vh264_set_params_cb(void *data, void *cb)
+{
+	params_cb_data = data;
+	params_cb = cb;
+}
+
 #ifdef CONFIG_GE2D_KEEP_FRAME
 static ge2d_context_t *ge2d_videoh264_context = NULL;
 
@@ -598,7 +607,7 @@ static int vh264_set_params(void)
             frame_width   = frame_width - (4>>chroma444)*min(crop_right, (unsigned int)((8<<chroma444)-1));			
         }
         printk("frame_mbs_only_flag %d, crop_bottom %d,  frame_height %d, mb_height %d,crop_right %d, frame_width %d, mb_width %d\n",
-            frame_mbs_only_flag, crop_bottom,frame_height, mb_height,crop_right,frame_width, mb_height);
+            frame_mbs_only_flag, crop_bottom,frame_height, mb_height,crop_right,frame_width, mb_width);
 
         if (frame_height == 1088) {
             frame_height = 1080;
@@ -608,11 +617,15 @@ static int vh264_set_params(void)
     mb_width = (mb_width + 3) & 0xfffffffc;
     mb_height = (mb_height + 3) & 0xfffffffc;
     mb_total = mb_width * mb_height;
+pr_info("final mb_width=%d mb_height=%d mb_total=%d\n", mb_width, mb_height, mb_total);
 
     if(mb_total > 8160){//resolution exceed 1920x1088,
         printk("mb_total %d, mb_width %d, mb_height %d\n",  mb_total, mb_width, mb_height);
         return -1;  
     }
+
+	if (params_cb)
+		params_cb(params_cb_data, 0, mb_width << 4, mb_height << 4, mb_total << 8, mb_total << 7);
 
     max_dpb_size = (frame_buffer_size - mb_total * 384 * 4 - mb_total * mb_mv_byte) / (mb_total * 384 + mb_total * mb_mv_byte);
     if (max_reference_size <= max_dpb_size) {
@@ -949,6 +962,7 @@ static void vh264_isr(void)
     }
 
     cpu_cmd = READ_VREG(AV_SCRATCH_0);
+pr_err("h264 irq %x\n", cpu_cmd);
 
 #ifdef DROP_B_FRAME_FOR_1080P_50_60FPS
     if((frame_dur < 2004) &&

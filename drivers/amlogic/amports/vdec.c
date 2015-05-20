@@ -129,7 +129,7 @@ s32 vdec_init(vformat_t vf)
         return -ENOMEM;
     }
 
-    //printk("vdec_device allocate %s\n", vdec_device_name[vf]);
+    printk("vdec_device allocate %s\n", vdec_device_name[vf]);
     vdec_device = platform_device_alloc(vdec_device_name[vf], -1);
 
     if (!vdec_device) {
