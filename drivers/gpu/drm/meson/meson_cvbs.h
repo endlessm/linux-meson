@@ -29,6 +29,7 @@
 #include <drm/drmP.h>
 
 struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
-                                                  bool enabled);
+                                                  bool enabled,
+                                                  struct drm_display_mode *mode);
 
 #endif

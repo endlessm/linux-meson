@@ -47,7 +47,8 @@
 
 enum meson_connectors {
 	MESON_CONNECTORS_HDMI      = 0x1,
-	MESON_CONNECTORS_CVBS      = 0x2,
+	MESON_CONNECTORS_CVBS_NTSC = 0x2,
+	MESON_CONNECTORS_CVBS_PAL  = 0x4,
 };
 static char enabled_connectors = MESON_CONNECTORS_HDMI;
 module_param(enabled_connectors, byte, S_IRUGO | S_IWUSR);
@@ -655,8 +656,6 @@ fail:
 
 struct meson_drm_private {
 	struct drm_crtc *crtc;
-	struct drm_connector *hdmi_connector;
-	struct drm_connector *cvbs_connector;
 	struct drm_fbdev_cma *fbdev;
 
 	struct drm_atomic_state *cleanup_state;
@@ -870,8 +869,25 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	priv->crtc = meson_crtc_create(dev);
 
-	priv->hdmi_connector = meson_hdmi_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_HDMI));
-	priv->cvbs_connector = meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS));
+	meson_hdmi_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_HDMI));
+
+	{
+		struct drm_display_mode *mode = drm_cvt_mode(dev,
+							     CVBS_HACK_MODE_SIZE(720),
+							     CVBS_HACK_MODE_SIZE(480),
+							     60, false, true, false);
+		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_NTSC), mode);
+	}
+
+	{
+		struct drm_display_mode *mode = drm_cvt_mode(dev,
+							     CVBS_HACK_MODE_SIZE(576),
+							     CVBS_HACK_MODE_SIZE(480),
+							     50, false, true, false);
+		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode);
+	}
 
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
 	if (ret < 0) {
