@@ -114,6 +114,7 @@ fail:
 struct meson_connector {
 	struct drm_connector base;
 	struct drm_encoder *encoder;
+	bool enabled;
 };
 #define to_meson_connector(x) container_of(x, struct meson_connector, base)
 
@@ -131,10 +132,13 @@ static bool read_hpd_gpio(void)
 
 static enum drm_connector_status meson_connector_detect(struct drm_connector *connector, bool force)
 {
+	struct meson_connector *meson_connector = to_meson_connector(connector);
+	if (!meson_connector->enabled)
+		return connector_status_disconnected;
+
 	/* Userspace can get really confused sometimes if we give it
 	 * two connectors that are connected. Detect if HDMI is plugged in,
 	 * and if so, disconnect our connector. */
-
 	return read_hpd_gpio() ? connector_status_disconnected : connector_status_connected;
 }
 
@@ -180,7 +184,8 @@ static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
 	.best_encoder       = meson_connector_best_encoder,
 };
 
-struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev)
+struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
+						  bool enabled)
 {
 	struct meson_connector *meson_connector;
 	struct drm_connector *connector;
@@ -197,6 +202,7 @@ struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev)
 
 	connector = &meson_connector->base;
 	meson_connector->encoder = encoder;
+	meson_connector->enabled = enabled;
 
 	drm_connector_init(dev, connector, &meson_connector_funcs, DRM_MODE_CONNECTOR_Composite);
 	drm_connector_helper_add(connector, &meson_connector_helper_funcs);

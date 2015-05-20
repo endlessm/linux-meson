@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 
-struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev);
+struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
+                                                  bool enabled);
 
 #endif
