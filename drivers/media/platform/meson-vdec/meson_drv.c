@@ -122,6 +122,11 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height,
 			   u32 plane1size, u32 plane2size)
 {
 	struct vdec_ctx *ctx = data;
+	const struct v4l2_event ev = {
+		.type = V4L2_EVENT_SOURCE_CHANGE,
+		.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION,
+	};
+
 	v4l2_info(&ctx->dev->v4l2_dev,
 		  "h264_params_cb status=%d w=%d h=%d planesz=(%d,%d)\n",
 		  status, width, height, plane1size, plane2size);
@@ -135,8 +140,7 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height,
 	ctx->dst_height = height;
 	ctx->luma_size = plane1size;
 	ctx->chroma_size = plane2size;
-	
-	// FIXME raise v4l event
+	v4l2_event_queue_fh(&ctx->fh, &ev);
 }
 
 /*
@@ -472,6 +476,21 @@ static int vidioc_streamoff(struct file *file, void *priv,
 	return v4l2_m2m_streamoff(file, ctx->m2m_ctx, type);
 }
 
+static int vidioc_subscribe_event(struct v4l2_fh *fh,
+				  const struct  v4l2_event_subscription *sub)
+{
+	v4l2_info(fh->vdev->v4l2_dev, "subscribe event %d\n", sub->type);
+
+	switch (sub->type) {
+	case V4L2_EVENT_SOURCE_CHANGE:
+		return v4l2_src_change_event_subscribe(fh, sub);
+	default:
+		v4l2_err(fh->vdev->v4l2_dev, "unknown event subscribe %d\n",
+			 sub->type);
+		return -EINVAL;
+	}
+}
+
 static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 	.vidioc_querycap	= vidioc_querycap,
 
@@ -493,7 +512,7 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 
 	.vidioc_streamon	= vidioc_streamon,
 	.vidioc_streamoff	= vidioc_streamoff,
-	.vidioc_subscribe_event = v4l2_ctrl_subscribe_event,
+	.vidioc_subscribe_event = vidioc_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 };
 
