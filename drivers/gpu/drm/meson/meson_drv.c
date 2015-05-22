@@ -786,6 +786,13 @@ static void reset_vpp(void)
 			   1 << 0 | /* Urgent DDR request priority */
 			   3 << 10 /* Increase burst length from 24 to 64 */
 			   );
+
+	/* Increase the number of lines that the display controller waits
+	 * after vsync before starting RAM access. This gives the vsync
+	 * interrupt handler more time to update the registers, avoiding
+	 * visual glitches. */
+	aml_set_reg32_bits(P_VIU_OSD1_FIFO_CTRL_STAT, 12, 5, 5);
+	aml_set_reg32_bits(P_VIU_OSD2_FIFO_CTRL_STAT, 12, 5, 5);
 }
 
 static ssize_t meson_get_underscan_hborder(struct device *dev,
