@@ -12,4 +12,5 @@ int video_port_init(stream_port_t *port, struct stream_buf_s * pbuf);
 
 void esparser_start_search(u32 parser_type, u32 phys_addr, u32 len);
 
+void esparser_set_search_done_cb(void *data, void *cb);
 void vh264_set_params_cb(void *data, void *cb);

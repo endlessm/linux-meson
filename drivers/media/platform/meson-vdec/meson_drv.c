@@ -67,6 +67,12 @@ struct vdec_buf {
 	struct vb2_buffer *buf;
 };
 
+enum hdr_parse_state {
+	HEADER_NOT_PARSED,
+	HEADER_PARSING,
+	HEADER_PARSED,
+};
+
 struct vdec_ctx {
 	struct v4l2_fh		fh;
 	struct vdec_dev	*dev;
@@ -90,6 +96,7 @@ struct vdec_ctx {
 	/* Source and destination queue data */
 	struct vdec_q_data   src_q_data;
 	struct vdec_q_data   dst_q_data;
+	enum hdr_parse_state hdr_parse_state;
 	u32 dst_width;
 	u32 dst_height;
 	u32 luma_size;
@@ -118,6 +125,18 @@ static struct vdec_q_data *get_q_data(struct vdec_ctx *ctx,
 /*
  * Amlogic callbacks
  */
+static void parser_cb(void *data)
+{
+	struct vdec_ctx *ctx = data;
+	struct vb2_buffer *src_buf;
+
+	/* Compressed video has been parsed into the decoder FIFO, so we can
+	 * return this buffer to userspace. */
+	v4l2_info(&ctx->dev->v4l2_dev, "esparser reports completion\n");
+	src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
+}
+
 static void h264_params_cb(void *data, int status, u32 width, u32 height,
 			   u32 plane1size, u32 plane2size)
 {
@@ -140,27 +159,30 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height,
 	ctx->dst_height = height;
 	ctx->luma_size = plane1size;
 	ctx->chroma_size = plane2size;
+	ctx->hdr_parse_state = HEADER_PARSED;
 	v4l2_event_queue_fh(&ctx->fh, &ev);
 }
 
 /*
  * m2m operations
  */
+static void send_to_parser(struct vdec_ctx *ctx, struct vb2_buffer *buf)
+{
+	dma_addr_t phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
+	unsigned long size = vb2_get_plane_payload(buf, 0);
+
+	v4l2_info(&ctx->dev->v4l2_dev,
+		  "send src buffer %d to parser, phys addr %x size %ld\n",
+		  buf->v4l2_buf.index, phys_addr, size);
+	esparser_start_search(PARSER_VIDEO, phys_addr, size);
+}
+
 static void device_run(void *priv)
 {
 	struct vdec_ctx *ctx = priv;
-	struct vb2_buffer *src_buf;
-	dma_addr_t phys_addr;
-	unsigned long size;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "device_run\n");
-	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
-	phys_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
-	size = vb2_plane_size(src_buf, 0);
-
-	v4l2_info(&ctx->dev->v4l2_dev, "got src buffer %d, phys addr %x size %ld\n",
-		  src_buf->v4l2_buf.index, phys_addr, size);
-	esparser_start_search(PARSER_VIDEO, phys_addr, size);
+	send_to_parser(ctx, v4l2_m2m_next_src_buf(ctx->m2m_ctx));
 }
 
 /**
@@ -170,6 +192,9 @@ static int job_ready(void *priv)
 {
 	struct vdec_ctx *ctx = priv;
 	v4l2_info(&ctx->dev->v4l2_dev, "job_ready\n");
+
+	if (ctx->hdr_parse_state == HEADER_PARSING)
+		return 0;
 
 #if 0 // FIXME
 
@@ -522,22 +547,19 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
-	struct vb2_buffer *src_buf;
-	dma_addr_t phys_addr;
-	unsigned long size;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "src_start_streaming\n");
-	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
-	if (!src_buf)
-		return -ENOENT;
 
-	phys_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
-	size = vb2_get_plane_payload(src_buf, 0);
+	/* If we haven't parsed the header yet, we require the header and
+	 * first frame to have been queued before STREAMON. */
+	if (ctx->hdr_parse_state == HEADER_NOT_PARSED) {
+		struct vb2_buffer *buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+		if (!buf)
+			return -ENOENT;
 
-	v4l2_info(&ctx->dev->v4l2_dev,
-		  "parse header from src buffer %d, phys addr %x size %ld\n",
-		  src_buf->v4l2_buf.index, phys_addr, size);
-	esparser_start_search(PARSER_VIDEO, phys_addr, size);
+		ctx->hdr_parse_state = HEADER_PARSING;
+		send_to_parser(ctx, buf);
+	}
 
 	return 0;
 }
@@ -748,10 +770,12 @@ pr_err("no port\n");
 		goto open_unlock;
 	}
 
+	esparser_set_search_done_cb(ctx, parser_cb);
 	vh264_set_params_cb(ctx, h264_params_cb);
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
+	ctx->hdr_parse_state = HEADER_NOT_PARSED;
 
 	ctx->buf_vaddr = dma_alloc_coherent(NULL, VDEC_ST_FIFO_SIZE,
 					    &sbuf->buf_start, GFP_KERNEL);
