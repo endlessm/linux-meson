@@ -72,6 +72,15 @@ static u32 audio_data_parsed;
 static atomic_t esparser_use_count = ATOMIC_INIT(0);
 static DEFINE_MUTEX(esparser_mutex);
 
+static void *search_done_cb_data;
+static void (*search_done_cb)(void *data) = NULL;
+
+void esparser_set_search_done_cb(void *data, void *cb)
+{
+	search_done_cb_data = data;
+	search_done_cb = cb;
+}
+
 static void parser_tasklet(ulong data)
 {
     u32 int_status = READ_MPEG_REG(PARSER_INT_STATUS);
@@ -82,6 +91,8 @@ static void parser_tasklet(ulong data)
         WRITE_MPEG_REG(PFIFO_RD_PTR, 0);
         WRITE_MPEG_REG(PFIFO_WR_PTR, 0);
         search_done = 1;
+		if (search_done_cb)
+			search_done_cb(search_done_cb_data);
         wake_up_interruptible(&wq);
     }
 }
