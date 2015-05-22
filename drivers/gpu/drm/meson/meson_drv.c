@@ -108,6 +108,8 @@ struct meson_crtc {
 	enum meson_underscan_type underscan_type;
 	int underscan_hborder;
 	int underscan_vborder;
+
+	spinlock_t irq_lock;
 };
 #define to_meson_crtc(x) container_of(x, struct meson_crtc, base)
 
@@ -309,6 +311,7 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 {
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 	struct drm_plane_state *state = plane->state;
+	struct meson_crtc *meson_crtc = to_meson_crtc(state->crtc);
 	struct drm_rect src = {
 		.x1 = (state->src_x),
 		.y1 = (state->src_y),
@@ -324,6 +327,7 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 	struct drm_rect clip = {};
 	bool is_scaling;
 	bool visible;
+	unsigned long flags;
 
 	if (state->fb) {
 		struct drm_rect input, output;
@@ -370,6 +374,7 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 		if (state->fb != old_state->fb)
 			meson_plane->fb_changed = true;
 
+		spin_lock_irqsave(&meson_crtc->irq_lock, flags);
 		/* Enable OSD and BLK0. */
 		meson_plane->reg.CTRL_STAT = ((1 << 21) |    /* Enable OSD */
 					      (0xFF << 12) | /* Alpha is 0xFF */
@@ -388,6 +393,7 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 		meson_plane->reg.BLK0_CFG_W2 = ((fixed16_to_int(src.y2) - 1) << 16) | fixed16_to_int(src.y1);
 		meson_plane->reg.BLK0_CFG_W3 = ((dest.x2 - 1) << 16) | dest.x1;
 		meson_plane->reg.BLK0_CFG_W4 = ((dest.y2 - 1) << 16) | dest.y1;
+		spin_unlock_irqrestore(&meson_crtc->irq_lock, flags);
 	}
 }
 
@@ -612,6 +618,7 @@ struct drm_crtc *meson_crtc_create(struct drm_device *dev)
 	if (!meson_crtc)
 		return NULL;
 
+	spin_lock_init(&meson_crtc->irq_lock);
 	primary_plane = meson_plane_create(dev,
 					   DRM_PLANE_TYPE_PRIMARY,
 					   &osd_plane_defs[0]);
@@ -1066,10 +1073,13 @@ static irqreturn_t meson_irq(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
 	struct meson_drm_private *priv = dev->dev_private;
+	struct meson_crtc *meson_crtc = to_meson_crtc(priv->crtc);
 
 	drm_handle_vblank(dev, 0);
 
 	meson_crtc_send_vblank_event(priv->crtc);
+
+	spin_lock(&meson_crtc->irq_lock);
 
 	update_interlaced_field(priv->crtc->primary);
 	update_interlaced_field(priv->crtc->cursor);
@@ -1078,6 +1088,8 @@ static irqreturn_t meson_irq(int irq, void *arg)
 	update_plane_shadow_registers(priv->crtc->cursor);
 
 	update_scaler(priv->crtc);
+
+	spin_unlock(&meson_crtc->irq_lock);
 
 	if (priv->cleanup_state) {
 		drm_flip_work_queue(&priv->unref_work, priv->cleanup_state);
