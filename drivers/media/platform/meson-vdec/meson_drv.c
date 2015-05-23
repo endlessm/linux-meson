@@ -8,6 +8,8 @@
  * the Free Software Foundation; version 2 of the License.
  */
 
+#include <linux/freezer.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
@@ -15,6 +17,7 @@
 
 #include <linux/amlogic/amstream.h>
 #include <linux/amlogic/amports/vformat.h>
+#include <linux/amlogic/amports/vframe_provider.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -22,9 +25,11 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
+#include "meson_vdec.h"
 #include "amlglue.h"
 
 #define DRIVER_NAME "meson-vdec"
+#define RECEIVER_NAME "m2m"
 
 // FIXME check these against reality
 #define MIN_W 32
@@ -43,17 +48,6 @@
 /* FIXME: this is for the decoder, as a general buffer and also for the
  * decoded frame data. Maybe it doesn't have to be contiguous. */
 #define VDEC_HW_BUF_SIZE	(64*1024*1024)
-
-struct vdec_dev {
-	struct v4l2_device	v4l2_dev;
-	struct video_device	*vfd;
-	struct v4l2_m2m_dev	*m2m_dev;
-	void			*vb_alloc_ctx;
-	struct mutex		dev_mutex;
-
-	void			*decoder_buf;
-	phys_addr_t		decoder_buf_phys;
-};
 
 struct vdec_q_data {
 	unsigned int		width;
@@ -77,6 +71,8 @@ struct vdec_ctx {
 	struct v4l2_fh		fh;
 	struct vdec_dev	*dev;
 	struct v4l2_m2m_ctx	*m2m_ctx;
+    struct task_struct *image_thread;
+    struct vframe_receiver_s vf_receiver;
 
 	enum v4l2_colorspace	colorspace;
 
@@ -137,6 +133,7 @@ static void parser_cb(void *data)
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 }
 
+// FIXME should be a VF message
 static void h264_params_cb(void *data, int status, u32 width, u32 height,
 			   u32 plane1size, u32 plane2size)
 {
@@ -744,6 +741,56 @@ static int queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *ds
 	return vb2_queue_init(dst_vq);
 }
 
+// FIXME: make this async (interrupt-driven)
+static int image_thread(void *data) {
+	struct vdec_ctx *ctx = data;
+    struct vframe_s *vf;
+	struct vb2_buffer *dst;
+
+	set_freezable();
+	for (;;) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (!kthread_should_stop() && !vf_peek(RECEIVER_NAME))
+			schedule();
+
+		set_current_state(TASK_RUNNING);
+		try_to_freeze();
+		if (kthread_should_stop())
+			break;
+
+		v4l2_info(&ctx->dev->v4l2_dev, "image thread wakeup\n");
+
+	    vf = vf_get(RECEIVER_NAME);
+		if (!vf) {
+			v4l2_err(&ctx->dev->v4l2_dev, "no frame?\n");
+			continue;
+		}
+
+		dst = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+		vdec_process_image(ctx->dev, vf, dst);
+		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
+	}
+
+	v4l2_info(&ctx->dev->v4l2_dev, "image thread exit\n");
+	return 0;
+}
+
+static int vf_receiver_event(int type, void *data, void *user_data)
+{
+	struct vdec_ctx *ctx = user_data;
+	v4l2_info(&ctx->dev->v4l2_dev, "vf event %d\n", type);
+	switch (type) {
+	case VFRAME_EVENT_PROVIDER_VFRAME_READY:
+		wake_up_process(ctx->image_thread);
+		break;
+	}
+	return 0;
+}
+
+
+static const struct vframe_receiver_op_s vf_receiver =
+	{ .event_cb = vf_receiver_event };
+
 /*
  * File operations
  */
@@ -787,10 +834,16 @@ pr_err("no port\n");
 	sbuf->buf_size = sbuf->default_buf_size = VDEC_ST_FIFO_SIZE;
 	sbuf->flag = BUF_FLAG_IOMEM;
 
+	ctx->image_thread = kthread_run(image_thread, ctx, DRIVER_NAME);
+	if (IS_ERR(ctx->image_thread)) {
+		ret = PTR_ERR(ctx->image_thread);
+		goto err_free_buf;
+	}
+
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
 	if (IS_ERR(ctx->m2m_ctx)) {
 		ret = PTR_ERR(ctx->m2m_ctx);
-		goto err_free_buf;
+		goto err_stop_thread;
 	}
 
 	v4l2_fh_add(&ctx->fh);
@@ -800,6 +853,9 @@ pr_err("no port\n");
 	amstream_port_open(port);
 	port->vformat = VFORMAT_H264;
 	port->flag |= PORT_FLAG_VFORMAT;
+
+	vf_receiver_init(&ctx->vf_receiver, RECEIVER_NAME, &vf_receiver, ctx);
+	vf_reg_receiver(&ctx->vf_receiver);
 
 	/* FIXME: the video_port_init codepath does a mix of device
 	 * initialization (good to do now), but also powering/clocking up
@@ -811,6 +867,9 @@ pr_err("video_port_init err %d\n", ret);
 open_unlock:
 	mutex_unlock(&dev->dev_mutex);
 	return ret;
+
+err_stop_thread:
+	kthread_stop(ctx->image_thread);
 
 err_free_buf:
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
@@ -829,10 +888,12 @@ static int meson_vdec_release(struct file *file)
 	v4l2_info(&ctx->dev->v4l2_dev, "vdec_release\n");
 
 	amstream_port_release(amstream_find_port("amstream_vbuf"));
+	vf_unreg_receiver(&ctx->vf_receiver);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	mutex_lock(&dev->dev_mutex);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
+	kthread_stop(ctx->image_thread);
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
 		          sbuf->buf_start);
 
@@ -896,12 +957,17 @@ static int meson_vdec_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+	ret = vdec_image_init(dev);
+	if (ret)
+		return ret;
+
 	dev->decoder_buf = dma_alloc_coherent(NULL, VDEC_HW_BUF_SIZE,
 					      &dev->decoder_buf_phys,
 					      GFP_KERNEL);
 	if (!dev->decoder_buf) {
 		dev_err(&pdev->dev, "Couldn't allocate decoder buffer\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto image_exit;
 	}
 
 	res.start = dev->decoder_buf_phys;
@@ -946,6 +1012,7 @@ static int meson_vdec_probe(struct platform_device *pdev)
 	}
 
 	dev->vb_alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
+
 	return 0;
 
 err_m2m:
@@ -958,6 +1025,8 @@ unreg_dev:
 free_buffer:
 	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, dev->decoder_buf,
 			  dev->decoder_buf_phys);
+image_exit:
+	vdec_image_exit(dev);
 
 	return ret;
 }
@@ -967,6 +1036,7 @@ static int meson_vdec_remove(struct platform_device *pdev)
 	struct vdec_dev *dev = (struct vdec_dev *)platform_get_drvdata(pdev);
 
 	v4l2_info(&dev->v4l2_dev, "Removing " DRIVER_NAME);
+	vdec_image_exit(dev);
 	vb2_dma_contig_cleanup_ctx(dev->vb_alloc_ctx);
 	v4l2_m2m_release(dev->m2m_dev);
 	video_unregister_device(dev->vfd);
