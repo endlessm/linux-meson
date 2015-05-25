@@ -267,6 +267,8 @@ init_ge2d_device(void)
 	return ge2d_setup();
 	
 }
+
+#ifdef MODULE
 static int remove_ge2d_device(void)
 {
 	if(ge2d_device.cla)
@@ -303,5 +305,6 @@ module_exit(ge2d_remove_module);
 MODULE_DESCRIPTION("AMLOGIC  ge2d driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("jianfeng <jianfeng.wang@amlogic.com>");
-
-
+#else
+subsys_initcall(init_ge2d_device);
+#endif
