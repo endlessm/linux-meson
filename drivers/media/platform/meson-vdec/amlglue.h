@@ -5,6 +5,8 @@
 
 #define PARSER_VIDEO        (ES_TYPE_VIDEO)
 
+extern struct dec_sysinfo amstream_dec_info;
+
 stream_port_t *amstream_find_port(const char *name);
 void amstream_port_open(stream_port_t *this);
 int amstream_port_release(stream_port_t *port);

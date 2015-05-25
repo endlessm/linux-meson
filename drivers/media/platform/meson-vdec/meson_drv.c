@@ -131,6 +131,7 @@ static void parser_cb(void *data)
 	v4l2_info(&ctx->dev->v4l2_dev, "esparser reports completion\n");
 	src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
+	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->m2m_ctx);
 }
 
 // FIXME should be a VF message
@@ -257,8 +258,8 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_info(&ctx->dev->v4l2_dev, "enum_fmt_vid_cap\n");
 
-	snprintf(f->description, sizeof(f->description), "NV21M");
-	f->pixelformat = V4L2_PIX_FMT_NV21M;
+	snprintf(f->description, sizeof(f->description), "ARGB");
+	f->pixelformat = V4L2_PIX_FMT_RGB32;
 	return 0;
 }
 
@@ -294,15 +295,13 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
-	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV21M;
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_RGB32;
 	f->fmt.pix_mp.width	= ctx->dst_width;
 	f->fmt.pix_mp.height = ctx->dst_height;
 	f->fmt.pix_mp.field	= V4L2_FIELD_NONE;
-	f->fmt.pix_mp.num_planes = 2;
-	f->fmt.pix_mp.plane_fmt[0].bytesperline = ctx->dst_width;
-	f->fmt.pix_mp.plane_fmt[0].sizeimage = ctx->luma_size;
-	f->fmt.pix_mp.plane_fmt[1].bytesperline = ctx->dst_width;
-	f->fmt.pix_mp.plane_fmt[1].sizeimage = ctx->chroma_size;
+	f->fmt.pix_mp.num_planes = 1;
+	f->fmt.pix_mp.plane_fmt[0].bytesperline = ctx->dst_width * 4; // 32bpp
+	f->fmt.pix_mp.plane_fmt[0].sizeimage = f->fmt.pix_mp.plane_fmt[0].bytesperline * ctx->dst_height;
 	return 0;
 }
 
@@ -344,7 +343,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
 
-	if (f->fmt.pix.pixelformat != V4L2_PIX_FMT_NV21M) {
+	if (f->fmt.pix.pixelformat != V4L2_PIX_FMT_RGB32) {
 		v4l2_err(&ctx->dev->v4l2_dev,
 			 "Capture format (0x%08x) invalid.\n",
 			 f->fmt.pix.pixelformat);
@@ -353,7 +352,6 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 
 	f->fmt.pix.colorspace = ctx->colorspace;
 
-	/* FIXME right depth for nv21? */
 	return vidioc_try_fmt(f, 32);
 }
 
@@ -594,16 +592,9 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
-	*nplanes = 2;
-
-	/* Plane sizes based on how vh264_set_params() deals with a 1080p
-	 * video (mb_total = 8160).
-	 * FIXME should be detected from header */
-	sizes[0] = 2088960;
-	sizes[1] = 1044480;
-
+	*nplanes = 1;
+	sizes[0] = ctx->dst_width * ctx->dst_height * 4; //FIXME 32bpp only
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
-	alloc_ctxs[1] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_info(&ctx->dev->v4l2_dev,
 		  "get %d capture buffer(s).\n", *nbuffers);
@@ -767,8 +758,12 @@ static int image_thread(void *data) {
 		}
 
 		dst = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-		vdec_process_image(ctx->dev, vf, dst);
-		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
+		if (dst) {
+			vdec_process_image(ctx->dev, vf, dst);
+			v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
+		}
+
+		vf_put(vf, RECEIVER_NAME);
 	}
 
 	v4l2_info(&ctx->dev->v4l2_dev, "image thread exit\n");
@@ -778,7 +773,9 @@ static int image_thread(void *data) {
 static int vf_receiver_event(int type, void *data, void *user_data)
 {
 	struct vdec_ctx *ctx = user_data;
-	v4l2_info(&ctx->dev->v4l2_dev, "vf event %d\n", type);
+	if (type != 5)
+		v4l2_info(&ctx->dev->v4l2_dev, "vf event %d\n", type);
+
 	switch (type) {
 	case VFRAME_EVENT_PROVIDER_VFRAME_READY:
 		wake_up_process(ctx->image_thread);
@@ -851,15 +848,14 @@ pr_err("no port\n");
 	INIT_LIST_HEAD(&ctx->dst_queue);
 
 	amstream_port_open(port);
-	port->vformat = VFORMAT_H264;
-	port->flag |= PORT_FLAG_VFORMAT;
+	/* enable sync_outside and pts_outside */
+	amstream_dec_info.param = (void *) 0x3;
 
 	vf_receiver_init(&ctx->vf_receiver, RECEIVER_NAME, &vf_receiver, ctx);
 	vf_reg_receiver(&ctx->vf_receiver);
 
-	/* FIXME: the video_port_init codepath does a mix of device
-	 * initialization (good to do now), but also powering/clocking up
-	 * (should be done at device_run time). */
+	port->vformat = VFORMAT_H264;
+	port->flag |= PORT_FLAG_VFORMAT;
 	ret = video_port_init(port, sbuf);
 pr_err("video_port_init err %d\n", ret);
 	// FIXME handle error

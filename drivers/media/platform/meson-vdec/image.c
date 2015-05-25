@@ -10,7 +10,7 @@
 
 #include <linux/amlogic/amports/canvas.h>
 #include <linux/amlogic/ge2d/ge2d.h>
-#include <linux/amlogic/vframe.h>
+#include <linux/amlogic/amports/vframe.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include <mach/mod_gate.h>
@@ -108,6 +108,9 @@ int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
 	int dst_paint_position[4];
 	int dst_plane_position[4];
 	int dst_pixel_format = GE2D_FORMAT_S32_ABGR; // FIXME allow fmt selection
+
+	v4l2_info(&dev->v4l2_dev, "Processing vf %d %p into vb2 buf %d\n",
+		  vf->index, vf, dst->v4l2_buf.index);
 
 	src_position[0] = 0;
 	src_position[1] = 0;
