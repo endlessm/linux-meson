@@ -463,8 +463,8 @@ int video_port_init(stream_port_t *port, struct stream_buf_s * pbuf)
     if (port->type & PORT_TYPE_ES) {
         r = esparser_init(pbuf);
         if (r < 0) {
-            video_port_release(port, pbuf, 3);
             printk("esparser_init() failed\n");
+            video_port_release(port, pbuf, 3);
             return r;
         }
     }
