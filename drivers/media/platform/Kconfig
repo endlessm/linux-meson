@@ -210,6 +210,14 @@ config VIDEO_SH_VEU
 	    Support for the Video Engine Unit (VEU) on SuperH and
 	    SH-Mobile SoCs.
 
+config VIDEO_MESON_VDEC
+	tristate "Amlogic Meson video decoding driver"
+	depends on VIDEO_DEV && VIDEO_V4L2 && AM_VDEC_H264
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	help
+	    Support for the video decoding hardware on Amlogic Meson SoCs.
+
 endif # V4L_MEM2MEM_DRIVERS
 
 menuconfig V4L_TEST_DRIVERS
