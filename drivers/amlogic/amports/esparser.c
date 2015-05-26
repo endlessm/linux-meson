@@ -72,6 +72,15 @@ static u32 audio_data_parsed;
 static atomic_t esparser_use_count = ATOMIC_INIT(0);
 static DEFINE_MUTEX(esparser_mutex);
 
+static void *search_done_cb_data;
+static void (*search_done_cb)(void *data) = NULL;
+
+void esparser_set_search_done_cb(void *data, void *cb)
+{
+	search_done_cb_data = data;
+	search_done_cb = cb;
+}
+
 static void parser_tasklet(ulong data)
 {
     u32 int_status = READ_MPEG_REG(PARSER_INT_STATUS);
@@ -82,6 +91,8 @@ static void parser_tasklet(ulong data)
         WRITE_MPEG_REG(PFIFO_RD_PTR, 0);
         WRITE_MPEG_REG(PFIFO_WR_PTR, 0);
         search_done = 1;
+		if (search_done_cb)
+			search_done_cb(search_done_cb_data);
         wake_up_interruptible(&wq);
     }
 }
@@ -104,6 +115,30 @@ static inline u32 buf_wp(u32 type)
                                READ_MPEG_REG(PARSER_SUB_START_PTR);
 
     return wp;
+}
+
+void esparser_start_search(u32 parser_type, u32 phys_addr, u32 len)
+{
+        wmb();
+        // reset the Write and read pointer to zero again
+        WRITE_MPEG_REG(PFIFO_RD_PTR, 0);
+        WRITE_MPEG_REG(PFIFO_WR_PTR, 0);
+
+        WRITE_MPEG_REG_BITS(PARSER_CONTROL, len, ES_PACK_SIZE_BIT, ES_PACK_SIZE_WID);
+        WRITE_MPEG_REG_BITS(PARSER_CONTROL,
+                            parser_type | PARSER_WRITE | PARSER_AUTOSEARCH,
+                            ES_CTRL_BIT, ES_CTRL_WID);
+
+        WRITE_MPEG_REG(PARSER_FETCH_ADDR, phys_addr);
+        WRITE_MPEG_REG(PARSER_FETCH_CMD,
+                       (7 << FETCH_ENDIAN) | len);
+
+        search_done = 0;
+
+        WRITE_MPEG_REG(PARSER_FETCH_ADDR, search_pattern_map);
+
+        WRITE_MPEG_REG(PARSER_FETCH_CMD,
+                       (7 << FETCH_ENDIAN) | SEARCH_PATTERN_LEN);
 }
 
 static ssize_t _esparser_write(const char __user *buf, 
@@ -141,31 +176,11 @@ static ssize_t _esparser_write(const char __user *buf,
             }
         }
    
-        wmb();
-        // reset the Write and read pointer to zero again
-        WRITE_MPEG_REG(PFIFO_RD_PTR, 0);
-        WRITE_MPEG_REG(PFIFO_WR_PTR, 0);
-
-        WRITE_MPEG_REG_BITS(PARSER_CONTROL, len, ES_PACK_SIZE_BIT, ES_PACK_SIZE_WID);
-        WRITE_MPEG_REG_BITS(PARSER_CONTROL,
-                            parser_type | PARSER_WRITE | PARSER_AUTOSEARCH,
-                            ES_CTRL_BIT, ES_CTRL_WID);
-
         if (isphybuf) {
-            WRITE_MPEG_REG(PARSER_FETCH_ADDR, (u32)buf);
+            esparser_start_search(parser_type, (u32)buf, len);
         } else {
-            WRITE_MPEG_REG(PARSER_FETCH_ADDR, virt_to_phys((u8 *)fetchbuf));
+            esparser_start_search(parser_type, virt_to_phys((u8 *)fetchbuf), len);
         }
-
-        WRITE_MPEG_REG(PARSER_FETCH_CMD,
-                       (7 << FETCH_ENDIAN) | len);
-
-        search_done = 0;
-
-        WRITE_MPEG_REG(PARSER_FETCH_ADDR, search_pattern_map);
-
-        WRITE_MPEG_REG(PARSER_FETCH_CMD,
-                       (7 << FETCH_ENDIAN) | SEARCH_PATTERN_LEN);
 
         ret = wait_event_interruptible_timeout(wq, search_done != 0, HZ/5);
         if (ret == 0) {
