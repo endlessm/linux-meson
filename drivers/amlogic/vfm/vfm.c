@@ -253,7 +253,11 @@ char* vf_get_receiver_name(const char* provider_name)
 static void vfm_init(void)
 {
 
-#if (defined CONFIG_POST_PROCESS_MANAGER)&&(defined CONFIG_DEINTERLACE)
+#ifdef CONFIG_VIDEO_MESON_VDEC
+    char def_id[] = "default";
+    char def_name_chain[] = "decoder m2m";
+#else
+#ifdef CONFIG_POST_PROCESS_MANAGER
     char def_id[] = "default";
     char def_name_chain[] = "decoder ppmgr deinterlace amvideo";
 #elif (defined CONFIG_POST_PROCESS_MANAGER)
@@ -266,7 +270,7 @@ static void vfm_init(void)
      char def_id[] = "default";
      char def_name_chain[] = "decoder amvideo";
 #endif
-
+#endif
 #ifdef CONFIG_TVIN_VIUIN
     char def_ext_id[] = "default_ext";
     char def_ext_name_chain[] = "vdin amvideo2";
