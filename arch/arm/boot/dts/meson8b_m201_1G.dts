@@ -1140,4 +1140,9 @@
 		compatible = "amlogic,meson8b";
 		dev_name = "mesondrm";
 	};
+
+	codec {
+		compatible = "amlogic,meson8b-codec";
+	};
+
 }; /* end of / */
