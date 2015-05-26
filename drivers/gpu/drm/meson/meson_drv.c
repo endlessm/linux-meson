@@ -201,19 +201,37 @@ struct meson_plane {
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
+/* XXX: This is super gross. Figure a better way to do this. */
+static bool try_adjust_cvbs_hack_mode(struct drm_plane_state *state,
+				      struct drm_rect *output,
+				      int w, int h)
+{
+	if (state->crtc_w == CVBS_HACK_MODE_SIZE(w) &&
+	    state->crtc_h == CVBS_HACK_MODE_SIZE(h)) {
+		int hborder = w / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+		int vborder = h / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+
+		output->x1 = hborder;
+		output->x2 = w - hborder;
+		output->y1 = vborder;
+		output->y2 = h - vborder;
+
+		return true;
+	} else {
+		return false;
+	}
+}
+
 static void adjust_cvbs_hack_mode(struct drm_plane_state *state,
 				  struct drm_rect *output)
 {
-	if (state->crtc_w == CVBS_HACK_MODE_SIZE(720) &&
-	    state->crtc_h == CVBS_HACK_MODE_SIZE(480)) {
-		int hborder = 720 / CVBS_HACK_MODE_OVERSCAN_PERCENT;
-		int vborder = 480 / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+	if (!(state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE))
+		return;
 
-		output->x1 = hborder;
-		output->x2 = 720 - hborder;
-		output->y1 = vborder;
-		output->y2 = 480 - vborder;
-	}
+	if (try_adjust_cvbs_hack_mode(state, output, 720, 480))
+		return;
+	if (try_adjust_cvbs_hack_mode(state, output, 720, 576))
+		return;
 }
 
 static bool get_scaler_rects(struct drm_crtc *crtc,
@@ -896,8 +914,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	{
 		struct drm_display_mode *mode = drm_cvt_mode(dev,
+							     CVBS_HACK_MODE_SIZE(720),
 							     CVBS_HACK_MODE_SIZE(576),
-							     CVBS_HACK_MODE_SIZE(480),
 							     50, false, true, false);
 		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode);
