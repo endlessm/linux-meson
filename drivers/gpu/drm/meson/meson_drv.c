@@ -197,6 +197,7 @@ struct meson_plane {
 	enum meson_interlacing_strategy interlacing_strategy;
 
 	bool fb_changed;
+	bool visible;
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
@@ -331,7 +332,6 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 	};
 	struct drm_rect clip = {};
 	bool is_scaling;
-	bool visible;
 	unsigned long flags;
 
 	if (state->fb) {
@@ -355,14 +355,14 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 			dest.y2 /= 2;
 		}
 
-		visible = drm_rect_clip_scaled(&src, &dest, &clip,
-					       DRM_PLANE_HELPER_NO_SCALING,
-					       DRM_PLANE_HELPER_NO_SCALING);
+		meson_plane->visible = drm_rect_clip_scaled(&src, &dest, &clip,
+							    DRM_PLANE_HELPER_NO_SCALING,
+							    DRM_PLANE_HELPER_NO_SCALING);
 	} else {
-		visible = false;
+		meson_plane->visible = false;
 	}
 
-	if (visible) {
+	if (meson_plane->visible) {
 		/* If we're interlacing, then figure out what strategy we're
 		 * going to use. */
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
@@ -1050,7 +1050,7 @@ static void update_plane_shadow_registers(struct drm_plane *plane)
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 	struct drm_plane_state *state = plane->state;
 
-	if (state && state->fb) {
+	if (meson_plane->visible) {
 		if (meson_plane->fb_changed) {
 			struct drm_gem_cma_object *cma_bo;
 
