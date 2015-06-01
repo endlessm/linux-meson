@@ -624,7 +624,7 @@ static int vh264_set_params(void)
     }
 
 	if (params_cb)
-		params_cb(params_cb_data, 0, mb_width << 4, mb_height << 4);
+		params_cb(params_cb_data, 0, frame_width, frame_height);
 
     max_dpb_size = (frame_buffer_size - mb_total * 384 * 4 - mb_total * mb_mv_byte) / (mb_total * 384 + mb_total * mb_mv_byte);
     if (max_reference_size <= max_dpb_size) {
