@@ -699,7 +699,7 @@ static int vh264_set_params(void)
     // max_reference_size <= max_dpb_size <= actual_dpb_size
 
 	if (params_cb)
-		params_cb(params_cb_data, 0, mb_width << 4, mb_height << 4);
+		params_cb(params_cb_data, 0, frame_width, frame_height);
 
     actual_dpb_size = (frame_buffer_size - mb_total * mb_mv_byte * max_reference_size) / (mb_total * 384);
     actual_dpb_size = min(actual_dpb_size, 24);
