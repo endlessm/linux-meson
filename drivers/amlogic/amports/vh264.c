@@ -1392,6 +1392,12 @@ static void vh264_isr(void)
 #endif
 }
 
+bool vh264_output_is_starved(void)
+{
+	return kfifo_is_empty(&display_q) && kfifo_is_empty(&recycle_q) &&
+		READ_VREG(AV_SCRATCH_9) & (1 << 31);
+}
+
 static void vh264_put_timer_func(unsigned long arg)
 {
     struct timer_list *timer = (struct timer_list *)arg;
