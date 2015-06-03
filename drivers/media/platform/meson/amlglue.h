@@ -5,6 +5,8 @@
 
 #define PARSER_VIDEO        (ES_TYPE_VIDEO)
 
+#define READ_VREG(r) __raw_readl((volatile void __iomem *)DOS_REG_ADDR(r))
+
 extern struct dec_sysinfo amstream_dec_info;
 
 stream_port_t *amstream_find_port(const char *name);
@@ -16,3 +18,4 @@ void esparser_start_search(u32 parser_type, u32 phys_addr, u32 len);
 
 void esparser_set_search_done_cb(void *data, void *cb);
 void vh264_set_params_cb(void *data, void *cb);
+bool vh264_output_is_starved(void);
