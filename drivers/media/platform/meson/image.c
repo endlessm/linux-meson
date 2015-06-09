@@ -55,8 +55,6 @@ static void src_config(struct vframe_s *vf, config_para_ex_t *ge2d_config)
 	ge2d_config->src_para.left = 0;
 	ge2d_config->src_para.height = vf->height;
 	ge2d_config->src_para.width = vf->width;
-	if (vf->type & VIDTYPE_INTERLACE)
-		ge2d_config->src_para.height >>= 1;
 
 	ge2d_config->src2_para.mem_type = CANVAS_TYPE_INVALID;
 }
@@ -120,9 +118,6 @@ int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
 		pr_err("bad src position params\n");
 		return -1;
 	}
-
-	if (vf->type & VIDTYPE_INTERLACE)
-		src_position[3] >>= 1;
 
 	dst_plane_position[0] = 0;
 	dst_plane_position[1] = 0;
