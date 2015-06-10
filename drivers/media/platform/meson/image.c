@@ -21,24 +21,9 @@
 
 static void src_config(struct vframe_s *vf, config_para_ex_t *ge2d_config)
 {
-	canvas_t src_cs0, src_cs1, src_cs2;
-
 	ge2d_config->alu_const_color = 0;
 	ge2d_config->bitmask_en = 0;
 	ge2d_config->src1_gb_alpha = 0;
-
-	canvas_read(vf->canvas0Addr & 0xff, &src_cs0);
-	canvas_read(vf->canvas0Addr >> 8 & 0xff, &src_cs1);
-	canvas_read(vf->canvas0Addr >> 16 & 0xff, &src_cs2);
-	ge2d_config->src_planes[0].addr = src_cs0.addr;
-	ge2d_config->src_planes[0].w = src_cs0.width;
-	ge2d_config->src_planes[0].h = src_cs0.height;
-	ge2d_config->src_planes[1].addr = src_cs1.addr;
-	ge2d_config->src_planes[1].w = src_cs1.width;
-	ge2d_config->src_planes[1].h = src_cs1.height;
-	ge2d_config->src_planes[2].addr = src_cs2.addr;
-	ge2d_config->src_planes[2].w = src_cs2.width;
-	ge2d_config->src_planes[2].h = src_cs2.height;
 
 	ge2d_config->src_key.key_enable = 0;
 	ge2d_config->src_key.key_mask = 0;
@@ -61,8 +46,6 @@ static void src_config(struct vframe_s *vf, config_para_ex_t *ge2d_config)
 
 static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst_pixel_format, int* src_position, int* dst_paint_position, int* dst_plane_position)
 {
-	canvas_t dst_cd;
-
 	ge2d_config->dst_para.mem_type = CANVAS_TYPE_INVALID;
 	ge2d_config->dst_para.fill_color_en = 0;
 	ge2d_config->dst_para.fill_mode = 0;
@@ -75,10 +58,6 @@ static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst
 	ge2d_config->dst_para.y_rev = 0;
 	ge2d_config->dst_xy_swap = 0;
 
-	canvas_read(DST_CANVAS_INDEX, &dst_cd);
-	ge2d_config->dst_planes[0].addr = dst_cd.addr;
-	ge2d_config->dst_planes[0].w = dst_cd.width;
-	ge2d_config->dst_planes[0].h = dst_cd.height;
 	ge2d_config->dst_para.format = dst_pixel_format | GE2D_LITTLE_ENDIAN;
 	ge2d_config->dst_para.canvas_index = DST_CANVAS_INDEX;
 
