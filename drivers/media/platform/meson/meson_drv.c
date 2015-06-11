@@ -31,13 +31,6 @@
 #define DRIVER_NAME "meson-vdec"
 #define RECEIVER_NAME "m2m"
 
-// FIXME check these against reality
-#define MIN_W 32
-#define MIN_H 32
-#define MAX_W 1920
-#define MAX_H 1080
-#define DIM_ALIGN_MASK 7 /* 8-byte alignment for line length */
-
 // FIXME tweak or make dynamic?
 #define VDEC_MAX_BUFFERS		32
 
@@ -134,8 +127,8 @@ struct vdec_ctx {
 	enum hdr_parse_state hdr_parse_state;
 	bool src_streaming;
 	bool dst_streaming;
-	u32 dst_width;
-	u32 dst_height;
+	u32 frame_width;
+	u32 frame_height;
 };
 
 static inline struct vdec_ctx *file2ctx(struct file *file)
@@ -243,8 +236,8 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height)
 		return;
 	}
 
-	ctx->dst_width = width;
-	ctx->dst_height = height;
+	ctx->frame_width = width;
+	ctx->frame_height = height;
 	ctx->hdr_parse_state = HEADER_PARSED;
 	v4l2_event_queue_fh(&ctx->fh, &ev);
 }
@@ -375,24 +368,30 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
+	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
+
 	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_RGB32;
-	f->fmt.pix_mp.width	= ctx->dst_width;
-	f->fmt.pix_mp.height = ctx->dst_height;
-	f->fmt.pix_mp.field	= V4L2_FIELD_NONE;
+	f->fmt.pix_mp.width = ctx->frame_width;
+	f->fmt.pix_mp.height = ctx->frame_height;
+	f->fmt.pix_mp.field = V4L2_FIELD_NONE;
 	f->fmt.pix_mp.num_planes = 1;
-	f->fmt.pix_mp.plane_fmt[0].bytesperline = ctx->dst_width * 4; // 32bpp
-	f->fmt.pix_mp.plane_fmt[0].sizeimage = f->fmt.pix_mp.plane_fmt[0].bytesperline * ctx->dst_height;
+	plane->bytesperline = round_up(f->fmt.pix_mp.width, WIDTH_ALIGN) * 4;
+	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
 	return 0;
 }
 
-static int vidioc_try_fmt(struct v4l2_format *f, int depth)
+static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
+				  struct v4l2_format *f)
 {
+	struct vdec_ctx *ctx = file2ctx(file);
+	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
 	enum v4l2_field field;
 
-	field = f->fmt.pix.field;
+	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
 
+	field = f->fmt.pix.field;
 	if (field == V4L2_FIELD_ANY)
 		field = V4L2_FIELD_NONE;
 	else if (V4L2_FIELD_NONE != field)
@@ -402,63 +401,37 @@ static int vidioc_try_fmt(struct v4l2_format *f, int depth)
 	 * if any of the dimensions is unsupported */
 	f->fmt.pix.field = field;
 
-	if (f->fmt.pix.height < MIN_H)
-		f->fmt.pix.height = MIN_H;
-	else if (f->fmt.pix.height > MAX_H)
-		f->fmt.pix.height = MAX_H;
-
-	if (f->fmt.pix.width < MIN_W)
-		f->fmt.pix.width = MIN_W;
-	else if (f->fmt.pix.width > MAX_W)
-		f->fmt.pix.width = MAX_W;
-
-	f->fmt.pix.width &= ~DIM_ALIGN_MASK;
-	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth) >> 3;
-	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
-
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_RGB32;
+	f->fmt.pix_mp.width = ctx->frame_width;
+	f->fmt.pix_mp.height = ctx->frame_height;
+	f->fmt.pix_mp.num_planes = 1;
+	plane->bytesperline = round_up(f->fmt.pix_mp.width, WIDTH_ALIGN) * 4;
+	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
 	return 0;
-}
-
-static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
-				  struct v4l2_format *f)
-{
-	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
-
-	if (f->fmt.pix.pixelformat != V4L2_PIX_FMT_RGB32) {
-		v4l2_err(&ctx->dev->v4l2_dev,
-			 "Capture format (0x%08x) invalid.\n",
-			 f->fmt.pix.pixelformat);
-		return -EINVAL;
-	}
-
-	return vidioc_try_fmt(f, 32);
 }
 
 static int vidioc_try_fmt_vid_out(struct file *file, void *priv,
 				  struct v4l2_format *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
+
 	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_out\n");
 
-	if (f->fmt.pix.pixelformat != V4L2_PIX_FMT_H264) {
-		v4l2_err(&ctx->dev->v4l2_dev,
-			 "Output format (0x%08x) invalid.\n",
-			 f->fmt.pix.pixelformat);
-		return -EINVAL;
-	}
-
-	// FIXME doc why h264 has depth 16
-	return vidioc_try_fmt(f, 16);
+	/* FIXME: set sizeimage too? */
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+	f->fmt.pix_mp.num_planes = 1;
+	f->fmt.pix_mp.plane_fmt[0].bytesperline = 0;
+	return 0;
 }
 
-static int vidioc_s_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
+static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
+				struct v4l2_format *f)
 {
-	struct vb2_queue *vq;
+	struct vdec_ctx *ctx = file2ctx(file);
+	struct vb2_queue *vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_s_fmt type=%d\n", f->type);
+	v4l2_info(&ctx->dev->v4l2_dev, "ioc_s_fmt_vid_cap type=%d\n", f->type);
 
-	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
 	if (!vq)
 		return -EINVAL;
 
@@ -467,22 +440,7 @@ static int vidioc_s_fmt(struct vdec_ctx *ctx, struct v4l2_format *f)
 		return -EBUSY;
 	}
 
-	v4l2_info(&ctx->dev->v4l2_dev,
-		"Setting format for type %d\n", f->type);
-
-	return 0;
-}
-
-static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
-				struct v4l2_format *f)
-{
-	int ret;
-
-	ret = vidioc_try_fmt_vid_cap(file, priv, f);
-	if (ret)
-		return ret;
-
-	return vidioc_s_fmt(file2ctx(file), f);
+	return vidioc_try_fmt_vid_cap(file, priv, f);
 }
 
 static int vidioc_s_fmt_vid_out(struct file *file, void *priv,
@@ -704,7 +662,7 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
 	*nplanes = 1;
-	sizes[0] = ctx->dst_width * ctx->dst_height * 4; //FIXME 32bpp only
+	sizes[0] = round_up(ctx->frame_width, WIDTH_ALIGN) * 4 * ctx->frame_height; //FIXME 32bpp only
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_info(&ctx->dev->v4l2_dev,
