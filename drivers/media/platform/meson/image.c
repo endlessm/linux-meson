@@ -91,17 +91,17 @@ static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst
 	return 0;
 }
 
-void dst_canvas_config(struct vframe_s *vf, struct vb2_buffer *buf)
+static void dst_canvas_config(struct vframe_s *vf, struct vb2_buffer *buf,
+			      u32 bytesperline)
 {
 	dma_addr_t phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	canvas_config(DST_CANVAS_INDEX, phys_addr,
-		      round_up(vf->width, WIDTH_ALIGN) * 4, vf->height,
+	canvas_config(DST_CANVAS_INDEX, phys_addr, bytesperline, vf->height,
 		      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
 }
 
 int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
-		       struct vb2_buffer *dst)
+		       struct vb2_buffer *dst, u32 bytesperline)
 {
 	int src_position[4];
 	int dst_paint_position[4];
@@ -130,7 +130,7 @@ int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
 	dst_paint_position[3] = dst_plane_position[3];
 
 	src_config(vf, &dev->ge2d_config);
-	dst_canvas_config(vf, dst);
+	dst_canvas_config(vf, dst, bytesperline);
 
 	paint(dev->ge2d_context, &dev->ge2d_config, dst_pixel_format, src_position, dst_paint_position, dst_plane_position);
 	vb2_set_plane_payload(dst, 0, vf->height * vf->width * 4); // FIXME 32bpp
