@@ -95,7 +95,8 @@ void dst_canvas_config(struct vframe_s *vf, struct vb2_buffer *buf)
 {
 	dma_addr_t phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	canvas_config(DST_CANVAS_INDEX, phys_addr, vf->width * 4, vf->height,
+	canvas_config(DST_CANVAS_INDEX, phys_addr,
+		      round_up(vf->width, WIDTH_ALIGN) * 4, vf->height,
 		      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
 }
 
