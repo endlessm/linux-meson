@@ -18,9 +18,6 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
 
-/* GE2D can only work with output buffers with an 8-byte aligned width */
-#define WIDTH_ALIGN 8
-
 struct vdec_dev {
 	struct v4l2_device	v4l2_dev;
 	struct vframe_receiver_s video_vf_receiver;
@@ -41,6 +38,6 @@ int vdec_image_init(struct vdec_dev *dev);
 void vdec_image_exit(struct vdec_dev *dev);
 
 int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
-		       struct vb2_buffer *dst);
+		       struct vb2_buffer *dst, u32 bytesperline);
 
 #endif

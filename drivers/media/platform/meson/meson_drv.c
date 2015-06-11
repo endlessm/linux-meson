@@ -131,6 +131,13 @@ struct vdec_ctx {
 	u32 frame_height;
 };
 
+static u32 get_bytesperline(struct vdec_ctx *ctx)
+{
+	/* GE2D can only work with output buffers with an 8-byte aligned
+	 width */
+	return round_up(ctx->frame_width, 8) * 4;
+}
+
 static inline struct vdec_ctx *file2ctx(struct file *file)
 {
 	return container_of(file->private_data, struct vdec_ctx, fh);
@@ -368,17 +375,18 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
+	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
-	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_RGB32;
-	f->fmt.pix_mp.width = ctx->frame_width;
-	f->fmt.pix_mp.height = ctx->frame_height;
-	f->fmt.pix_mp.field = V4L2_FIELD_NONE;
-	f->fmt.pix_mp.num_planes = 1;
-	plane->bytesperline = round_up(f->fmt.pix_mp.width, WIDTH_ALIGN) * 4;
-	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
+	mp->pixelformat = V4L2_PIX_FMT_RGB32;
+	mp->width = ctx->frame_width;
+	mp->height = ctx->frame_height;
+	mp->field = V4L2_FIELD_NONE;
+	mp->num_planes = 1;
+	mp->plane_fmt[0].bytesperline = get_bytesperline(ctx);
+	mp->plane_fmt[0].sizeimage = mp->plane_fmt[0].bytesperline *
+				     mp->height;
 	return 0;
 }
 
@@ -405,7 +413,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix_mp.width = ctx->frame_width;
 	f->fmt.pix_mp.height = ctx->frame_height;
 	f->fmt.pix_mp.num_planes = 1;
-	plane->bytesperline = round_up(f->fmt.pix_mp.width, WIDTH_ALIGN) * 4;
+	plane->bytesperline = get_bytesperline(ctx);
 	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
 	return 0;
 }
@@ -662,7 +670,7 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
 	*nplanes = 1;
-	sizes[0] = round_up(ctx->frame_width, WIDTH_ALIGN) * 4 * ctx->frame_height; //FIXME 32bpp only
+	sizes[0] = get_bytesperline(ctx) * ctx->frame_height; //FIXME 32bpp only
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_info(&ctx->dev->v4l2_dev,
@@ -834,7 +842,7 @@ static int image_thread(void *data) {
 			continue;
 		}
 
-		vdec_process_image(ctx->dev, vf, dst);
+		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx));
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
 	}
