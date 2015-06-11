@@ -20,6 +20,7 @@ CONFIG_BCMDHD_FW_PATH="/lib/firmware/bcm_ampak/AP6210/fw_bcm40181a2.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/lib/firmware/bcm_ampak/AP6210/nvram_ap6210.txt"
 CONFIG_BCMDHD_CONFIG_PATH=""
 CONFIG_BCMDHD_OOB=y
+CONFIG_RTL8723BS=m
 
 # Config options for Amlogic M8B kernel
 # Tried to copy relevant settings from the vendor kernel, without actually
