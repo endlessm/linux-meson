@@ -170,6 +170,8 @@ static enum drm_connector_status meson_connector_detect(struct drm_connector *co
 
 static int fetch_edid(void)
 {
+	int i;
+
 	/* Turn on the EDID power. */
 	aml_set_reg32_bits(P_HHI_MEM_PD_REG0, 0, 8, 2);
 
@@ -177,9 +179,15 @@ static int fetch_edid(void)
 	hdmi_set_reg_bits(TX_HDCP_EDID_CONFIG, 1, 6, 1);
 
 	/* XXX: Figure out how to turn on the EDID interrupt */
-	msleep(200);
-	if (!(hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4))) {
-		BUG();
+	for (i = 0; i < 5; i++) {
+		msleep(200);
+
+		if (hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4))
+			break;
+	}
+
+	if (hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4)) {
+		WARN(1, "Could not fetch EDID after 1 second\n");
 		return -1;
 	}
 
