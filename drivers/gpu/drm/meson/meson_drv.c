@@ -197,22 +197,41 @@ struct meson_plane {
 	enum meson_interlacing_strategy interlacing_strategy;
 
 	bool fb_changed;
+	bool visible;
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
+
+/* XXX: This is super gross. Figure a better way to do this. */
+static bool try_adjust_cvbs_hack_mode(struct drm_plane_state *state,
+				      struct drm_rect *output,
+				      int w, int h)
+{
+	if (state->crtc_w == CVBS_HACK_MODE_SIZE(w) &&
+	    state->crtc_h == CVBS_HACK_MODE_SIZE(h)) {
+		int hborder = w / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+		int vborder = h / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+
+		output->x1 = hborder;
+		output->x2 = w - hborder;
+		output->y1 = vborder;
+		output->y2 = h - vborder;
+
+		return true;
+	} else {
+		return false;
+	}
+}
 
 static void adjust_cvbs_hack_mode(struct drm_plane_state *state,
 				  struct drm_rect *output)
 {
-	if (state->crtc_w == CVBS_HACK_MODE_SIZE(720) &&
-	    state->crtc_h == CVBS_HACK_MODE_SIZE(480)) {
-		int hborder = 720 / CVBS_HACK_MODE_OVERSCAN_PERCENT;
-		int vborder = 480 / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+	if (!(state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE))
+		return;
 
-		output->x1 = hborder;
-		output->x2 = 720 - hborder;
-		output->y1 = vborder;
-		output->y2 = 480 - vborder;
-	}
+	if (try_adjust_cvbs_hack_mode(state, output, 720, 480))
+		return;
+	if (try_adjust_cvbs_hack_mode(state, output, 720, 576))
+		return;
 }
 
 static bool get_scaler_rects(struct drm_crtc *crtc,
@@ -331,7 +350,6 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 	};
 	struct drm_rect clip = {};
 	bool is_scaling;
-	bool visible;
 	unsigned long flags;
 
 	if (state->fb) {
@@ -355,14 +373,14 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 			dest.y2 /= 2;
 		}
 
-		visible = drm_rect_clip_scaled(&src, &dest, &clip,
-					       DRM_PLANE_HELPER_NO_SCALING,
-					       DRM_PLANE_HELPER_NO_SCALING);
+		meson_plane->visible = drm_rect_clip_scaled(&src, &dest, &clip,
+							    DRM_PLANE_HELPER_NO_SCALING,
+							    DRM_PLANE_HELPER_NO_SCALING);
 	} else {
-		visible = false;
+		meson_plane->visible = false;
 	}
 
-	if (visible) {
+	if (meson_plane->visible) {
 		/* If we're interlacing, then figure out what strategy we're
 		 * going to use. */
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
@@ -896,8 +914,8 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	{
 		struct drm_display_mode *mode = drm_cvt_mode(dev,
+							     CVBS_HACK_MODE_SIZE(720),
 							     CVBS_HACK_MODE_SIZE(576),
-							     CVBS_HACK_MODE_SIZE(480),
 							     50, false, true, false);
 		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode);
@@ -1050,7 +1068,7 @@ static void update_plane_shadow_registers(struct drm_plane *plane)
 	struct meson_plane *meson_plane = to_meson_plane(plane);
 	struct drm_plane_state *state = plane->state;
 
-	if (state && state->fb) {
+	if (meson_plane->visible) {
 		if (meson_plane->fb_changed) {
 			struct drm_gem_cma_object *cma_bo;
 
