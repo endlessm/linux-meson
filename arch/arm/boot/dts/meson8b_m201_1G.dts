@@ -215,7 +215,7 @@
 		};
 	};
 
-	sdhc {
+	/* sdhc {
 		compatible = "amlogic,aml_sdhc";
 		dev_name = "aml_sdhc.0";
 		status = "okay";
@@ -240,7 +240,7 @@
 			gpio_dat3 = "BOOT_3";
 			card_type = <0x1>;
 		};
-	};
+	}; */
 
 	i2c@c8100500{ /* I2C-AO */
 		compatible = "amlogic,aml_i2c";
