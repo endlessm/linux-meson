@@ -1005,6 +1005,9 @@ static void update_scaler(struct drm_crtc *crtc)
 	struct drm_plane_state *state = crtc->primary->state;
 	struct drm_rect input, output;
 
+	if (!meson_plane->visible)
+		return;
+
 	if (!state)
 		return;
 
