@@ -12,8 +12,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
  *
  * Copyright IBM Corporation, 2008
  *
@@ -30,9 +30,10 @@
 #ifndef __LINUX_RCUTREE_H
 #define __LINUX_RCUTREE_H
 
-extern void rcu_init(void);
 extern void rcu_note_context_switch(int cpu);
+#ifndef CONFIG_RCU_NOCB_CPU_ALL
 extern int rcu_needs_cpu(int cpu, unsigned long *delta_jiffies);
+#endif /* #ifndef CONFIG_RCU_NOCB_CPU_ALL */
 extern void rcu_cpu_stall_reset(void);
 
 /*
@@ -75,6 +76,8 @@ static inline void synchronize_rcu_bh_expedited(void)
 extern void rcu_barrier(void);
 extern void rcu_barrier_bh(void);
 extern void rcu_barrier_sched(void);
+unsigned long get_state_synchronize_rcu(void);
+void cond_synchronize_rcu(unsigned long oldstate);
 
 extern unsigned long rcutorture_testseq;
 extern unsigned long rcutorture_vernum;
@@ -86,7 +89,11 @@ extern void rcu_force_quiescent_state(void);
 extern void rcu_bh_force_quiescent_state(void);
 extern void rcu_sched_force_quiescent_state(void);
 
+extern void exit_rcu(void);
+
 extern void rcu_scheduler_starting(void);
 extern int rcu_scheduler_active __read_mostly;
+
+extern bool rcu_is_watching(void);
 
 #endif /* __LINUX_RCUTREE_H */

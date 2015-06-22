@@ -12,8 +12,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
  *
  * Copyright IBM Corporation, 2011
  *
@@ -23,6 +23,7 @@
 #ifndef __LINUX_RCU_H
 #define __LINUX_RCU_H
 
+#include <trace/events/rcu.h>
 #ifdef CONFIG_RCU_TRACE
 #define RCU_TRACE(stmt) stmt
 #else /* #ifdef CONFIG_RCU_TRACE */
@@ -67,12 +68,15 @@
 
 extern struct debug_obj_descr rcuhead_debug_descr;
 
-static inline void debug_rcu_head_queue(struct rcu_head *head)
+static inline int debug_rcu_head_queue(struct rcu_head *head)
 {
-	debug_object_activate(head, &rcuhead_debug_descr);
+	int r1;
+
+	r1 = debug_object_activate(head, &rcuhead_debug_descr);
 	debug_object_active_state(head, &rcuhead_debug_descr,
 				  STATE_RCU_HEAD_READY,
 				  STATE_RCU_HEAD_QUEUED);
+	return r1;
 }
 
 static inline void debug_rcu_head_unqueue(struct rcu_head *head)
@@ -83,8 +87,9 @@ static inline void debug_rcu_head_unqueue(struct rcu_head *head)
 	debug_object_deactivate(head, &rcuhead_debug_descr);
 }
 #else	/* !CONFIG_DEBUG_OBJECTS_RCU_HEAD */
-static inline void debug_rcu_head_queue(struct rcu_head *head)
+static inline int debug_rcu_head_queue(struct rcu_head *head)
 {
+	return 0;
 }
 
 static inline void debug_rcu_head_unqueue(struct rcu_head *head)
@@ -92,24 +97,25 @@ static inline void debug_rcu_head_unqueue(struct rcu_head *head)
 }
 #endif	/* #else !CONFIG_DEBUG_OBJECTS_RCU_HEAD */
 
-extern void kfree(const void *);
+void kfree(const void *);
 
-static inline bool __rcu_reclaim(char *rn, struct rcu_head *head)
+static inline bool __rcu_reclaim(const char *rn, struct rcu_head *head)
 {
 	unsigned long offset = (unsigned long)head->func;
 
+	rcu_lock_acquire(&rcu_callback_map);
 	if (__is_kfree_rcu_offset(offset)) {
 		RCU_TRACE(trace_rcu_invoke_kfree_callback(rn, head, offset));
 		kfree((void *)head - offset);
+		rcu_lock_release(&rcu_callback_map);
 		return 1;
 	} else {
 		RCU_TRACE(trace_rcu_invoke_callback(rn, head));
 		head->func(head);
+		rcu_lock_release(&rcu_callback_map);
 		return 0;
 	}
 }
-
-extern int rcu_expedited;
 
 #ifdef CONFIG_RCU_STALL_COMMON
 
@@ -117,5 +123,12 @@ extern int rcu_cpu_stall_suppress;
 int rcu_jiffies_till_stall_check(void);
 
 #endif /* #ifdef CONFIG_RCU_STALL_COMMON */
+
+/*
+ * Strings used in tracepoints need to be exported via the
+ * tracing system such that tools like perf and trace-cmd can
+ * translate the string address pointers to actual text.
+ */
+#define TPS(x)  tracepoint_string(x)
 
 #endif /* __LINUX_RCU_H */
