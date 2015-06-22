@@ -186,7 +186,7 @@ static int fetch_edid(void)
 			break;
 	}
 
-	if (hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4)) {
+	if (!(hdmi_rd_reg(TX_HDCP_ST_EDID_STATUS) & (1 << 4))) {
 		WARN(1, "Could not fetch EDID after 1 second\n");
 		return -1;
 	}
