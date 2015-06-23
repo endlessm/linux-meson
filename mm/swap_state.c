@@ -117,7 +117,7 @@ int __add_to_swap_cache(struct page *page, swp_entry_t entry)
 	return error;
 }
 
-#define COMPRESS_PREV_USE 1
+#define COMPRESS_PREV_USE 0
 int add_to_swap_cache(struct page *page, swp_entry_t entry, gfp_t gfp_mask)
 {
 	int error;
