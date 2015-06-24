@@ -50,9 +50,18 @@ struct drm_meson_msync {
 	u32 is_cached;
 };
 
+#define DRM_MESON_GEM_DOMAIN_CPU            0x01
+#define DRM_MESON_GEM_DOMAIN_MALI           0x02
+
+struct drm_meson_gem_set_domain {
+	u32 handle;
+	u32 write_domain;
+};
+
 #define DRM_MESON_GEM_CREATE_WITH_UMP    0x00
 #define DRM_MESON_MSYNC                  0x01
-#define DRM_MESON_NUM_IOCTLS             0x02
+#define DRM_MESON_GEM_SET_DOMAIN         0x02
+#define DRM_MESON_NUM_IOCTLS             0x03
 
 /* Use flags */
 #define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT 0x01
@@ -60,5 +69,6 @@ struct drm_meson_msync {
 
 #define DRM_IOCTL_MESON_GEM_CREATE_WITH_UMP  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_CREATE_WITH_UMP, struct drm_meson_gem_create_with_ump)
 #define DRM_IOCTL_MESON_MSYNC  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_MSYNC, struct drm_meson_msync)
+#define DRM_IOCTL_MESON_GEM_SET_DOMAIN  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_SET_DOMAIN, struct drm_meson_gem_set_domain)
 
 #endif
