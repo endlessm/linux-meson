@@ -253,3 +253,44 @@ out:
 	DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Finish\n", args->handle));
 	return PTR_ERR_OR_ZERO(cma_obj);
 }
+
+/* this code was heavily inspired by _ump_ukk_cache_operations_control() in
+ * drivers/amlogic/gpu/ump/common/ump_kernel_api.c */
+int meson_ioctl_cache_operations_control(struct drm_device *dev, void *data, struct drm_file *file)
+{
+	struct drm_meson_cache_operations_control *args = data;
+	struct meson_drm_session_data *session_data = file->driver_priv;
+
+	if (!args || !session_data || args->op >= DRM_MESON_CACHE_OP_COUNT)
+		return -EINVAL;
+
+	mutex_lock(&session_data->mutex);
+
+	switch (args->op) {
+		case DRM_MESON_CACHE_OP_START:
+			session_data->cache_operations_ongoing++;
+			DBG_MSG(4, ("meson_ioctl_cache_operations_control(): Cache ops start, %d cache ops ongoing\n", session_data->cache_operations_ongoing));
+			break;
+		case DRM_MESON_CACHE_OP_FINISH:
+			session_data->cache_operations_ongoing--;
+			DBG_MSG(4, ("meson_ioctl_cache_operations_control(): Cache ops finish, %d cache ops ongoing\n", session_data->cache_operations_ongoing));
+#if 0
+			if (session_data->has_pending_level1_cache_flush) {
+				/* This function will set has_pending_level1_cache_flush=0 */
+				_ump_osk_msync(NULL, NULL, 0, 0, _UMP_UK_MSYNC_FLUSH_L1, session_data);
+			}
+#endif
+
+			/* to be on the safe side: always flush l1 cache when cache operations are done */
+			meson_drm_ump_osk_msync(NULL, NULL, 0, 0, DRM_MESON_MSYNC_FLUSH_L1, session_data);
+			DBG_MSG(4, ("meson_ioctl_cache_operations_control(): Cache ops finish end\n"));
+			break;
+		case DRM_MESON_CACHE_OP_COUNT:
+			/* Avoid warning (-Wswitch) */
+			break;
+	}
+
+	mutex_unlock(&session_data->mutex);
+
+	return 0;
+}

@@ -40,5 +40,6 @@ void meson_drm_set_vmode(vmode_t mode);
 
 int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file);
 int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *file);
+int meson_ioctl_cache_operations_control(struct drm_device *dev, void *data, struct drm_file *file);
 
 #endif
