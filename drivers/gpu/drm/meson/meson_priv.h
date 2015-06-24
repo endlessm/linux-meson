@@ -29,6 +29,9 @@
 #include <drm/drmP.h>
 #include <linux/amlogic/vout/vout_notify.h>
 
+struct meson_drm_session_data {
+};
+
 void meson_drm_set_vmode(vmode_t mode);
 
 #endif
