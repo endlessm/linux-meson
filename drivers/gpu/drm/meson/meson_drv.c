@@ -1212,6 +1212,7 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 
 static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_GEM_CREATE_WITH_UMP, meson_ioctl_create_with_ump, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MESON_MSYNC, meson_ioctl_msync, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 #ifdef CONFIG_DEBUG_FS
