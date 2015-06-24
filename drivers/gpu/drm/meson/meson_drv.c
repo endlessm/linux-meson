@@ -37,6 +37,7 @@
 #include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
+#include "meson_priv.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -968,6 +969,26 @@ static int meson_unload(struct drm_device *dev)
 	return 0;
 }
 
+static int meson_open(struct drm_device *dev, struct drm_file *file)
+{
+	struct meson_drm_session_data *session_data;
+
+	session_data = kzalloc(sizeof(*session_data), GFP_KERNEL);
+	if (!session_data)
+		return -ENOMEM;
+
+	file->driver_priv = session_data;
+
+	return 0;
+}
+
+static void meson_postclose(struct drm_device *dev, struct drm_file *file)
+{
+	struct meson_drm_session_data *session_data = file->driver_priv;
+
+	kfree(session_data);
+}
+
 static void meson_lastclose(struct drm_device *dev)
 {
 #if !NO_FBDEV
@@ -1240,6 +1261,8 @@ static struct drm_driver meson_driver = {
 	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET | DRIVER_IRQ_SHARED,
 	.load               = meson_load,
 	.unload             = meson_unload,
+	.open               = meson_open,
+	.postclose          = meson_postclose,
 	.lastclose          = meson_lastclose,
 	.enable_vblank      = meson_enable_vblank,
 	.disable_vblank     = meson_disable_vblank,
