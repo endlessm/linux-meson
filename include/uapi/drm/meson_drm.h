@@ -33,13 +33,32 @@ struct drm_meson_gem_create_with_ump {
 	uint32_t ump_secure_id;
 };
 
+enum drm_meson_msync_op {
+	DRM_MESON_MSYNC_CLEAN = 0,
+	DRM_MESON_MSYNC_CLEAN_AND_INVALIDATE = 1,
+	DRM_MESON_MSYNC_INVALIDATE = 2,
+	DRM_MESON_MSYNC_FLUSH_L1   = 3,
+	DRM_MESON_MSYNC_READOUT_CACHE_ENABLED = 128,
+};
+
+struct drm_meson_msync {
+	u32 handle;
+	enum drm_meson_msync_op op;
+	void *mapping;
+	void *address;
+	u32 size;
+	u32 is_cached;
+};
+
 #define DRM_MESON_GEM_CREATE_WITH_UMP    0x00
-#define DRM_MESON_NUM_IOCTLS             0x01
+#define DRM_MESON_MSYNC                  0x01
+#define DRM_MESON_NUM_IOCTLS             0x02
 
 /* Use flags */
 #define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT 0x01
 #define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE 0x02
 
 #define DRM_IOCTL_MESON_GEM_CREATE_WITH_UMP  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_CREATE_WITH_UMP, struct drm_meson_gem_create_with_ump)
+#define DRM_IOCTL_MESON_MSYNC  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_MSYNC, struct drm_meson_msync)
 
 #endif
