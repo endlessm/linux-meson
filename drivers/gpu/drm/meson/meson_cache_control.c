@@ -23,6 +23,7 @@
 #include <asm/cacheflush.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/meson_drm.h>
+#include <linux/mutex.h>
 
 #include "meson_priv.h"
 
@@ -182,4 +183,73 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 	meson_drm_ump_osk_msync(cma_obj, virtual, offset, gem_obj->size, args->op, NULL);
 
 	return 0;
+}
+
+/* this code was heavily inspired by _ump_ukk_switch_hw_usage() in
+ * drivers/amlogic/gpu/ump/common/ump_kernel_api.c */
+int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *file)
+{
+	struct drm_gem_object *gem_obj;
+	struct drm_gem_cma_object *cma_obj;
+	struct drm_meson_gem_set_domain *args = data;
+	struct meson_drm_session_data *session_data = file->driver_priv;
+	enum drm_meson_msync_op cache_op = DRM_MESON_MSYNC_CLEAN_AND_INVALIDATE;
+
+	if (!args || !session_data)
+		return -EINVAL;
+
+	gem_obj = drm_gem_object_lookup(dev, file, args->handle);
+	if (NULL == gem_obj) {
+		DBG_MSG(1, ("meson_ioctl_set_domain(): %02u Failed to look up mapping\n", args->handle));
+		return -EFAULT;
+	}
+
+	cma_obj = to_drm_gem_cma_obj(gem_obj);
+	if (NULL == cma_obj) {
+		DBG_MSG(1, ("meson_ioctl_set_domain(): %02u Failed to get gem_cma_obj containing gem_obj\n", args->handle));
+		return -EFAULT;
+	}
+
+	DBG_MSG(3, ("meson_ioctl_set_domain(): %02u %s -> %s\n",
+		    args->handle,
+		    gem_obj->write_domain == DRM_MESON_GEM_DOMAIN_CPU ? "CPU" : "MALI",
+		    args->write_domain == DRM_MESON_GEM_DOMAIN_CPU ? "CPU" : "MALI"));
+
+	/* If the buffer is not cacheable there is no need to do anything */
+	if (!dma_get_attr(DMA_ATTR_NON_CONSISTENT, &cma_obj->dma_attrs)) {
+		DBG_MSG(3, ("meson_ioctl_set_domain(): %02u Changing owner of uncached memory, cache flushing not needed.\n",
+			    args->handle));
+		goto out;
+	}
+
+	if (gem_obj->write_domain == args->write_domain) {
+		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u New_user equal previous, cache flushing not needed\n",
+			    args->handle,));
+		goto out;
+	}
+	if (
+		/* Previous AND new is both different from CPU */
+		(gem_obj->write_domain != DRM_MESON_GEM_DOMAIN_CPU) && (args->write_domain != DRM_MESON_GEM_DOMAIN_CPU)
+	) {
+		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Previous and new user are not CPU, cache flushing not needed\n",
+			    args->handle,));
+		goto out;
+	}
+
+	if ((gem_obj->write_domain != DRM_MESON_GEM_DOMAIN_CPU) && (args->write_domain == DRM_MESON_GEM_DOMAIN_CPU)) {
+		cache_op = DRM_MESON_MSYNC_INVALIDATE;
+		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Cache invalidate\n", args->handle));
+	} else
+		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Cache clean and invalidate\n", args->handle));
+
+	mutex_lock(&session_data->mutex);
+	meson_drm_ump_osk_msync(cma_obj, NULL, 0, gem_obj->size, cache_op, session_data);
+	mutex_unlock(&session_data->mutex);
+
+out:
+	/* We only care about W accesses, which are actually RW */
+	gem_obj->read_domains = gem_obj->write_domain = args->write_domain;
+
+	DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Finish\n", args->handle));
+	return PTR_ERR_OR_ZERO(cma_obj);
 }
