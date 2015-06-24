@@ -22,6 +22,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
@@ -976,6 +977,7 @@ static int meson_open(struct drm_device *dev, struct drm_file *file)
 	session_data = kzalloc(sizeof(*session_data), GFP_KERNEL);
 	if (!session_data)
 		return -ENOMEM;
+	mutex_init(&session_data->mutex);
 
 	file->driver_priv = session_data;
 
@@ -986,6 +988,8 @@ static void meson_postclose(struct drm_device *dev, struct drm_file *file)
 {
 	struct meson_drm_session_data *session_data = file->driver_priv;
 
+	if (session_data)
+		mutex_destroy(&session_data->mutex);
 	kfree(session_data);
 }
 
@@ -1213,6 +1217,7 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_GEM_CREATE_WITH_UMP, meson_ioctl_create_with_ump, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MESON_MSYNC, meson_ioctl_msync, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MESON_GEM_SET_DOMAIN, meson_ioctl_set_domain, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 #ifdef CONFIG_DEBUG_FS
