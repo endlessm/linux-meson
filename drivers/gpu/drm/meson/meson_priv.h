@@ -30,8 +30,12 @@
 #include <linux/amlogic/vout/vout_notify.h>
 
 struct meson_drm_session_data {
+	int cache_operations_ongoing;
+	int has_pending_level1_cache_flush;
 };
 
 void meson_drm_set_vmode(vmode_t mode);
+
+int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file);
 
 #endif
