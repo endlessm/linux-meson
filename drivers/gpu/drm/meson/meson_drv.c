@@ -386,7 +386,7 @@ static void meson_plane_atomic_update(struct drm_plane *plane, struct drm_plane_
 		if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
 			/* If this plane is going to use the vertical scaler, then scan it out as
 			 * progressive, as the scaler will take care of interlacing for us. */
-			if (is_scaling)
+			if (meson_plane->def->uses_scaler && is_scaling)
 				meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_SCALER;
 			else
 				meson_plane->interlacing_strategy = MESON_INTERLACING_STRATEGY_OSD;
