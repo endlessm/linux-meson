@@ -22,6 +22,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
@@ -37,6 +38,7 @@
 #include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
+#include "meson_priv.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -968,6 +970,29 @@ static int meson_unload(struct drm_device *dev)
 	return 0;
 }
 
+static int meson_open(struct drm_device *dev, struct drm_file *file)
+{
+	struct meson_drm_session_data *session_data;
+
+	session_data = kzalloc(sizeof(*session_data), GFP_KERNEL);
+	if (!session_data)
+		return -ENOMEM;
+	mutex_init(&session_data->mutex);
+
+	file->driver_priv = session_data;
+
+	return 0;
+}
+
+static void meson_postclose(struct drm_device *dev, struct drm_file *file)
+{
+	struct meson_drm_session_data *session_data = file->driver_priv;
+
+	if (session_data)
+		mutex_destroy(&session_data->mutex);
+	kfree(session_data);
+}
+
 static void meson_lastclose(struct drm_device *dev)
 {
 #if !NO_FBDEV
@@ -1191,6 +1216,9 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 
 static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_GEM_CREATE_WITH_UMP, meson_ioctl_create_with_ump, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MESON_MSYNC, meson_ioctl_msync, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MESON_GEM_SET_DOMAIN, meson_ioctl_set_domain, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MESON_CACHE_OPERATIONS_CONTROL, meson_ioctl_cache_operations_control, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1240,6 +1268,8 @@ static struct drm_driver meson_driver = {
 	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
 	.load               = meson_load,
 	.unload             = meson_unload,
+	.open               = meson_open,
+	.postclose          = meson_postclose,
 	.lastclose          = meson_lastclose,
 	.enable_vblank      = meson_enable_vblank,
 	.disable_vblank     = meson_disable_vblank,

@@ -33,13 +33,54 @@ struct drm_meson_gem_create_with_ump {
 	uint32_t ump_secure_id;
 };
 
-#define DRM_MESON_GEM_CREATE_WITH_UMP    0x00
-#define DRM_MESON_NUM_IOCTLS             0x01
+enum meson_drm_msync_op {
+	MESON_DRM_MSYNC_CLEAN = 0,
+	MESON_DRM_MSYNC_CLEAN_AND_INVALIDATE = 1,
+	MESON_DRM_MSYNC_INVALIDATE = 2,
+	MESON_DRM_MSYNC_FLUSH_L1   = 3,
+	MESON_DRM_MSYNC_READOUT_CACHE_ENABLED = 128,
+};
+
+struct drm_meson_msync {
+	u32 handle;
+	enum meson_drm_msync_op op;
+	void *mapping;
+	void *address;
+	u32 size;
+	u32 is_cached;
+};
+
+#define DRM_MESON_GEM_DOMAIN_CPU            0x01
+#define DRM_MESON_GEM_DOMAIN_MALI           0x02
+
+struct drm_meson_gem_set_domain {
+	u32 handle;
+	u32 write_domain;
+};
+
+enum meson_drm_cache_op_control {
+	MESON_DRM_CACHE_OP_START,
+	MESON_DRM_CACHE_OP_FINISH,
+	MESON_DRM_CACHE_OP_COUNT,
+};
+
+struct drm_meson_cache_operations_control {
+	enum meson_drm_cache_op_control op;
+};
+
+#define DRM_MESON_GEM_CREATE_WITH_UMP       0x00
+#define DRM_MESON_MSYNC                     0x01
+#define DRM_MESON_GEM_SET_DOMAIN            0x02
+#define DRM_MESON_CACHE_OPERATIONS_CONTROL  0x03
+#define DRM_MESON_NUM_IOCTLS                0x04
 
 /* Use flags */
 #define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT 0x01
 #define DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE 0x02
 
 #define DRM_IOCTL_MESON_GEM_CREATE_WITH_UMP  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_CREATE_WITH_UMP, struct drm_meson_gem_create_with_ump)
+#define DRM_IOCTL_MESON_MSYNC  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_MSYNC, struct drm_meson_msync)
+#define DRM_IOCTL_MESON_GEM_SET_DOMAIN  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_GEM_SET_DOMAIN, struct drm_meson_gem_set_domain)
+#define DRM_IOCTL_MESON_CACHE_OPERATIONS_CONTROL  DRM_IOWR(DRM_COMMAND_BASE + DRM_MESON_CACHE_OPERATIONS_CONTROL, struct drm_meson_cache_operations_control)
 
 #endif
