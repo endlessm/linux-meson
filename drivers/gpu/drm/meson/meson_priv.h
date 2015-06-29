@@ -25,10 +25,21 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 #include <linux/amlogic/vout/vout_notify.h>
 
+struct meson_drm_session_data {
+	struct mutex mutex;
+	int cache_operations_ongoing;
+	int has_pending_level1_cache_flush;
+};
+
 void meson_drm_set_vmode(vmode_t mode);
+
+int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file);
+int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *file);
+int meson_ioctl_cache_operations_control(struct drm_device *dev, void *data, struct drm_file *file);
 
 #endif
