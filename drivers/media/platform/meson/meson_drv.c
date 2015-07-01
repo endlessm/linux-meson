@@ -47,12 +47,6 @@ struct vdec_buf {
 	struct vb2_buffer *buf;
 };
 
-enum hdr_parse_state {
-	HEADER_NOT_PARSED,
-	HEADER_PARSING,
-	HEADER_PARSED,
-};
-
 #define EOS_TAIL_BUF_SIZE 1024
 static const u8 eos_tail_data[] = {
 	0x00, 0x00, 0x00, 0x01, 0x06, 0x05, 0xff, 0xe4, 0xdc, 0x45, 0xe9, 0xbd, 0xe6, 0xd9, 0x48, 0xb7,
@@ -124,7 +118,7 @@ struct vdec_ctx {
 	phys_addr_t eos_tail_buf_phys;
 
 	/* Source and destination queue data */
-	enum hdr_parse_state hdr_parse_state;
+	bool esparser_busy;
 	bool src_streaming;
 	bool dst_streaming;
 	u32 frame_width;
@@ -197,7 +191,30 @@ static void eos_check_idle(unsigned long arg)
 		vb2_set_plane_payload(buf, 0, 0);
 		v4l2_m2m_buf_done(buf, VB2_BUF_STATE_DONE);
 	}
+}
 
+// FIXME locking needed (at call sites)?
+static void parse_next_buffer(struct vdec_ctx *ctx)
+{
+	struct vb2_buffer *buf;
+	dma_addr_t phys_addr;
+	unsigned long size;
+
+	if (ctx->esparser_busy || !ctx->src_streaming)
+		return;
+
+	buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	if (!buf)
+		return;
+
+	phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
+	size = vb2_get_plane_payload(buf, 0);
+
+	v4l2_info(&ctx->dev->v4l2_dev,
+		  "send src buffer %d to parser, phys addr %x size %ld\n",
+		  buf->v4l2_buf.index, phys_addr, size);
+	ctx->esparser_busy = true;
+	esparser_start_search(PARSER_VIDEO, phys_addr, size);
 }
 
 /*
@@ -211,11 +228,10 @@ static void parser_cb(void *data)
 	/* Compressed video has been parsed into the decoder FIFO, so we can
 	 * return this buffer to userspace. */
 	v4l2_info(&ctx->dev->v4l2_dev, "esparser reports completion\n");
+	ctx->esparser_busy = false;
 	src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-	if (src_buf) {
+	if (src_buf)
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
-		v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->m2m_ctx);
-	}
 
 	if (ctx->eos_state == EOS_TAIL_WAITING &&
 	    v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) == 0) {
@@ -223,6 +239,8 @@ static void parser_cb(void *data)
 	} else if (ctx->eos_state == EOS_TAIL_SENT) {
 		ctx->eos_state = EOS_WAIT_IDLE;
 		run_eos_idle_timer(ctx);
+	} else {
+		parse_next_buffer(ctx);
 	}
 }
 
@@ -245,53 +263,27 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height)
 
 	ctx->frame_width = width;
 	ctx->frame_height = height;
-	ctx->hdr_parse_state = HEADER_PARSED;
 	v4l2_event_queue_fh(&ctx->fh, &ev);
 }
 
 /*
  * m2m operations
  */
-static void send_to_parser(struct vdec_ctx *ctx, struct vb2_buffer *buf)
-{
-	dma_addr_t phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
-	unsigned long size = vb2_get_plane_payload(buf, 0);
-
-	v4l2_info(&ctx->dev->v4l2_dev,
-		  "send src buffer %d to parser, phys addr %x size %ld\n",
-		  buf->v4l2_buf.index, phys_addr, size);
-	esparser_start_search(PARSER_VIDEO, phys_addr, size);
-}
-
 static void device_run(void *priv)
 {
-	struct vdec_ctx *ctx = priv;
-
-	v4l2_info(&ctx->dev->v4l2_dev, "device_run\n");
-	send_to_parser(ctx, v4l2_m2m_next_src_buf(ctx->m2m_ctx));
-}
-
-/**
- * job_ready() - check whether an instance is ready to be scheduled to run
- */
-static int job_ready(void *priv)
-{
-	struct vdec_ctx *ctx = priv;
-
-	v4l2_info(&ctx->dev->v4l2_dev, "job_ready\n");
-	if (ctx->hdr_parse_state == HEADER_PARSING)
-		return 0;
-
-	if (ctx->eos_state > EOS_TAIL_WAITING)
-		return 0;
-
-	return 1;
+	/* No-op. This mechanism requires both source and dest queues to be
+	 * active, but in order to parse the header, we need to feed data to
+	 * the device when the source queue is active, before the dest queue
+	 * is set up.
+	 * Instead of using device_run, we feed data to the hardware whenever
+	 * the source queue is active. */
 }
 
 static void job_abort(void *priv)
 {
 	struct vdec_ctx *ctx = priv;
 	v4l2_info(&ctx->dev->v4l2_dev, "job_abort\n");
+	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->m2m_ctx);
 }
 
 static void vdec_lock(void *priv)
@@ -310,7 +302,6 @@ static void vdec_unlock(void *priv)
 
 static struct v4l2_m2m_ops m2m_ops = {
 	.device_run	= device_run,
-	.job_ready	= job_ready,
 	.job_abort	= job_abort,
 	.lock		= vdec_lock,
 	.unlock		= vdec_unlock,
@@ -605,19 +596,11 @@ static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
 
 	v4l2_info(&ctx->dev->v4l2_dev, "src_start_streaming\n");
-
-	/* If we haven't parsed the header yet, we require the header and
-	 * first frame to have been queued before STREAMON. */
-	if (ctx->hdr_parse_state == HEADER_NOT_PARSED) {
-		struct vb2_buffer *buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
-		if (!buf)
-			return -ENOENT;
-
-		ctx->hdr_parse_state = HEADER_PARSING;
-		send_to_parser(ctx, buf);
-	}
-
 	ctx->src_streaming = true;
+
+	/* We stream source buffers regardless of dest queue state. */
+	parse_next_buffer(ctx);
+
 	return 0;
 }
 
@@ -724,6 +707,7 @@ static void vdec_src_buf_queue(struct vb2_buffer *vb)
 
 	v4l2_info(&ctx->dev->v4l2_dev, "src_buf_queue %d\n", vb->v4l2_buf.index);
 	v4l2_m2m_buf_queue(ctx->m2m_ctx, vb);
+	parse_next_buffer(ctx);
 }
 
 static void vdec_dst_buf_queue(struct vb2_buffer *vb)
@@ -911,7 +895,7 @@ static int meson_vdec_open(struct file *file)
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
-	ctx->hdr_parse_state = HEADER_NOT_PARSED;
+	ctx->esparser_busy = false;
 
 	init_timer(&ctx->eos_idle_timer);
 	ctx->eos_idle_timer.function = eos_check_idle;
