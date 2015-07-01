@@ -577,6 +577,7 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 
 	.vidioc_reqbufs		= vidioc_reqbufs,
 	.vidioc_querybuf	= vidioc_querybuf,
+	.vidioc_expbuf		= vb2_ioctl_expbuf,
 
 	.vidioc_qbuf		= vidioc_qbuf,
 	.vidioc_dqbuf		= vidioc_dqbuf,
