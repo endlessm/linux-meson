@@ -376,6 +376,9 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 
 	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
+        if (ctx->frame_width == 0 || ctx->frame_height == 0)
+		return -EINVAL;
+
 	mp->pixelformat = V4L2_PIX_FMT_BGR32;
 	mp->width = ctx->frame_width;
 	mp->height = ctx->frame_height;
