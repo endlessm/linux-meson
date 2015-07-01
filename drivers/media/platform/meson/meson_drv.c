@@ -131,11 +131,11 @@ struct vdec_ctx {
 	u32 frame_height;
 };
 
-static u32 get_bytesperline(struct vdec_ctx *ctx)
+static u32 get_bytesperline(u32 width)
 {
 	/* GE2D can only work with output buffers with an 8-byte aligned
 	 width */
-	return round_up(ctx->frame_width, 8) * 4;
+	return round_up(width, 8) * 4;
 }
 
 static inline struct vdec_ctx *file2ctx(struct file *file)
@@ -390,7 +390,7 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 	mp->height = ctx->frame_height;
 	mp->field = V4L2_FIELD_NONE;
 	mp->num_planes = 1;
-	mp->plane_fmt[0].bytesperline = get_bytesperline(ctx);
+	mp->plane_fmt[0].bytesperline = get_bytesperline(mp->width);
 	mp->plane_fmt[0].sizeimage = mp->plane_fmt[0].bytesperline *
 				     mp->height;
 	return 0;
@@ -414,12 +414,9 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	/* V4L2 specification suggests the driver corrects the format struct
 	 * if any of the dimensions is unsupported */
 	f->fmt.pix.field = field;
-
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_RGB32;
-	f->fmt.pix_mp.width = ctx->frame_width;
-	f->fmt.pix_mp.height = ctx->frame_height;
 	f->fmt.pix_mp.num_planes = 1;
-	plane->bytesperline = get_bytesperline(ctx);
+	plane->bytesperline = get_bytesperline(f->fmt.pix_mp.width);
 	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
 	return 0;
 }
@@ -453,6 +450,9 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		v4l2_err(&ctx->dev->v4l2_dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
+
+	f->fmt.pix_mp.width = ctx->frame_width;
+	f->fmt.pix_mp.height = ctx->frame_height;
 
 	return vidioc_try_fmt_vid_cap(file, priv, f);
 }
@@ -676,7 +676,8 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
 	*nplanes = 1;
-	sizes[0] = get_bytesperline(ctx) * ctx->frame_height; //FIXME 32bpp only
+        //FIXME 32bpp only
+	sizes[0] = get_bytesperline(ctx->frame_width) * ctx->frame_height;
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_info(&ctx->dev->v4l2_dev,
@@ -848,7 +849,7 @@ static int image_thread(void *data) {
 			continue;
 		}
 
-		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx));
+		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx->frame_width));
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
 	}
