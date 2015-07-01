@@ -482,6 +482,15 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	return v4l2_m2m_querybuf(file, ctx->m2m_ctx, buf);
 }
 
+static int vidioc_expbuf(struct file *file, void *priv,
+			   struct v4l2_exportbuffer *buf)
+{
+	struct vdec_ctx *ctx = file2ctx(file);
+	v4l2_info(&ctx->dev->v4l2_dev, "ioc_expbuf %d\n", buf->index);
+
+	return v4l2_m2m_expbuf(file, ctx->m2m_ctx, buf);
+}
+
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
@@ -577,6 +586,7 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 
 	.vidioc_reqbufs		= vidioc_reqbufs,
 	.vidioc_querybuf	= vidioc_querybuf,
+	.vidioc_expbuf		= vidioc_expbuf,
 
 	.vidioc_qbuf		= vidioc_qbuf,
 	.vidioc_dqbuf		= vidioc_dqbuf,
