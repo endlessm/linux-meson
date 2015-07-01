@@ -343,8 +343,8 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
         if (f->index != 0)
 		return -EINVAL;
 
-	snprintf(f->description, sizeof(f->description), "ARGB");
-	f->pixelformat = V4L2_PIX_FMT_RGB32;
+	snprintf(f->description, sizeof(f->description), "BGRA");
+	f->pixelformat = V4L2_PIX_FMT_BGR32;
 	return 0;
 }
 
@@ -385,7 +385,7 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 
 	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
-	mp->pixelformat = V4L2_PIX_FMT_RGB32;
+	mp->pixelformat = V4L2_PIX_FMT_BGR32;
 	mp->width = ctx->frame_width;
 	mp->height = ctx->frame_height;
 	mp->field = V4L2_FIELD_NONE;
@@ -414,7 +414,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	/* V4L2 specification suggests the driver corrects the format struct
 	 * if any of the dimensions is unsupported */
 	f->fmt.pix.field = field;
-	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_RGB32;
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_BGR32;
 	f->fmt.pix_mp.num_planes = 1;
 	plane->bytesperline = get_bytesperline(f->fmt.pix_mp.width);
 	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
