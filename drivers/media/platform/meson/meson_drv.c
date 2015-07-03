@@ -107,6 +107,12 @@ struct vdec_ctx {
 
 	void *buf_vaddr;
 
+	/* Protects concurrent access to:
+	 * eos_state and its relationship with v4l2_m2m source buf queue
+	 * esparser_busy
+	 */
+	spinlock_t data_lock;
+
 	int src_bufs_cnt;
 	int dst_bufs_cnt;
 	struct vdec_buf src_bufs[VDEC_MAX_BUFFERS];
@@ -154,6 +160,8 @@ static inline struct vdec_ctx *file2ctx(struct file *file)
  * 2. Decoder is not paused because it was starved of output buffers
  * 3. No new output buffers were made available during this time
  * 4. No new frames were presented during this time
+ *
+ * The caller should hold data_lock.
  */
 static void send_eos_tail(struct vdec_ctx *ctx)
 {
@@ -193,7 +201,12 @@ static void eos_check_idle(unsigned long arg)
 	}
 }
 
-// FIXME locking needed (at call sites)?
+/* Try to send the next source buffer to the parser.
+ * We first check that there is a source buffer available, and that the
+ * parser is not already busy.
+ *
+ * Caller should hold data_lock.
+ */
 static void parse_next_buffer(struct vdec_ctx *ctx)
 {
 	struct vb2_buffer *buf;
@@ -228,6 +241,8 @@ static void parser_cb(void *data)
 	/* Compressed video has been parsed into the decoder FIFO, so we can
 	 * return this buffer to userspace. */
 	v4l2_info(&ctx->dev->v4l2_dev, "esparser reports completion\n");
+
+	spin_lock(&ctx->data_lock);
 	ctx->esparser_busy = false;
 	src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 	if (src_buf)
@@ -242,6 +257,7 @@ static void parser_cb(void *data)
 	} else {
 		parse_next_buffer(ctx);
 	}
+	spin_unlock(&ctx->data_lock);
 }
 
 // FIXME should be a VF message
@@ -565,11 +581,12 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	memset(ctx->eos_tail_buf, 0, EOS_TAIL_BUF_SIZE);
 	memcpy(ctx->eos_tail_buf, eos_tail_data, sizeof(eos_tail_data));
 
-	// FIXME racy with esparser IRQ handler, need to share a spinlock
+	spin_lock_irq(&ctx->data_lock);
 	if (v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) > 0)
 		ctx->eos_state = EOS_TAIL_WAITING;
 	else
 		send_eos_tail(ctx);
+	spin_unlock_irq(&ctx->data_lock);
 
 	return 0;
 }
@@ -607,12 +624,15 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
+	unsigned long flags;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "src_start_streaming\n");
 	ctx->src_streaming = true;
 
 	/* We stream source buffers regardless of dest queue state. */
+	spin_lock_irqsave(&ctx->data_lock, flags);
 	parse_next_buffer(ctx);
+	spin_unlock_irqrestore(&ctx->data_lock, flags);
 
 	return 0;
 }
@@ -717,10 +737,14 @@ static int vdec_dst_buf_prepare(struct vb2_buffer *vb)
 static void vdec_src_buf_queue(struct vb2_buffer *vb)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	unsigned long flags;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "src_buf_queue %d\n", vb->v4l2_buf.index);
 	v4l2_m2m_buf_queue(ctx->m2m_ctx, vb);
+
+	spin_lock_irqsave(&ctx->data_lock, flags);
 	parse_next_buffer(ctx);
+	spin_unlock_irqrestore(&ctx->data_lock, flags);
 }
 
 static void vdec_dst_buf_queue(struct vb2_buffer *vb)
@@ -909,6 +933,7 @@ static int meson_vdec_open(struct file *file)
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
 	ctx->esparser_busy = false;
+	spin_lock_init(&ctx->data_lock);
 
 	init_timer(&ctx->eos_idle_timer);
 	ctx->eos_idle_timer.function = eos_check_idle;
