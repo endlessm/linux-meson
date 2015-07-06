@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/amlogic/amstream.h>
+#include <linux/amlogic/amports/ptsserv.h>
 #include <linux/amlogic/amports/vformat.h>
 #include <linux/amlogic/amports/vframe_provider.h>
 #include <media/v4l2-ctrls.h>
@@ -125,6 +126,7 @@ struct vdec_ctx {
 
 	/* Source and destination queue data */
 	bool esparser_busy;
+	size_t parsed_len;
 	bool src_streaming;
 	bool dst_streaming;
 	u32 frame_width;
@@ -212,6 +214,7 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 	struct vb2_buffer *buf;
 	dma_addr_t phys_addr;
 	unsigned long size;
+	uint64_t ts;
 
 	if (ctx->esparser_busy || !ctx->src_streaming)
 		return;
@@ -226,7 +229,18 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 	v4l2_info(&ctx->dev->v4l2_dev,
 		  "send src buffer %d to parser, phys addr %x size %ld\n",
 		  buf->v4l2_buf.index, phys_addr, size);
+
 	ctx->esparser_busy = true;
+
+	v4l2_info(&ctx->dev->v4l2_dev, "parsing at pts %li.%lis offset %x\n",
+		buf->v4l2_buf.timestamp.tv_sec, buf->v4l2_buf.timestamp.tv_usec,
+		ctx->parsed_len);
+
+	ts = (uint64_t)buf->v4l2_buf.timestamp.tv_sec * 1000000 +
+		(uint64_t)buf->v4l2_buf.timestamp.tv_usec;
+	ctx->parsed_len += size;
+
+	pts_checkin_offset_us64(PTS_TYPE_VIDEO, ctx->parsed_len, ts);
 	esparser_start_search(PARSER_VIDEO, phys_addr, size);
 }
 
@@ -870,6 +884,13 @@ static int image_thread(void *data) {
 			continue;
 		}
 
+		dst->v4l2_buf.timestamp.tv_sec = (__kernel_time_t)(div64_u64(vf->pts_us64, 1000000));
+		dst->v4l2_buf.timestamp.tv_usec = ( __kernel_suseconds_t)
+			(vf->pts_us64 - (dst->v4l2_buf.timestamp.tv_sec * 1000000));
+
+		v4l2_info(&ctx->dev->v4l2_dev, "got decoded frame at pts %li.%lis\n",
+			dst->v4l2_buf.timestamp.tv_sec, dst->v4l2_buf.timestamp.tv_usec);
+
 		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx->frame_width));
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
@@ -933,6 +954,7 @@ static int meson_vdec_open(struct file *file)
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
 	ctx->esparser_busy = false;
+	ctx->parsed_len = 0;
 	spin_lock_init(&ctx->data_lock);
 
 	init_timer(&ctx->eos_idle_timer);
