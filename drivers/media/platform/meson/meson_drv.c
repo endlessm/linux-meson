@@ -1094,7 +1094,7 @@ static int meson_vdec_probe(struct platform_device *pdev)
 	res.start = dev->decoder_buf_phys;
 	res.end = res.start + VDEC_HW_BUF_SIZE - 1;
 	res.flags = IORESOURCE_MEM;
-	vdec_set_resource(&res, &pdev->dev);
+	vdec_set_resource(res.start, res.end, &pdev->dev);
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret)

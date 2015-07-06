@@ -2717,7 +2717,9 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
     unsigned int audio_N_para = 6272;
     unsigned int audio_N_tolerance = 3;
 //    unsigned int audio_CTS = 30000;
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
     const vinfo_t *vinfo = get_current_vinfo();
+#endif
     hdmi_print(INF, AUD "audio channel num is %d\n", hdmitx_device->cur_audio_param.channel_num);
 
     hdmi_wr_reg(TX_PACKET_CONTROL_2, hdmi_rd_reg(TX_PACKET_CONTROL_2) & (~(1<<3)));
@@ -2907,10 +2909,12 @@ static int hdmitx_set_audmode(struct hdmi_tx_dev_s* hdmitx_device, Hdmi_tx_audio
         default:
             break;
     }
+#ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
     if (strncmp(vinfo->name, "1080p24hz", strlen("1080p24hz")) == 0)
     {
         audio_N_1080p24=audio_N_para;
     }
+#endif
     hdmi_wr_reg(TX_SYS1_ACR_N_0, (audio_N_para&0xff)); // N[7:0]
     hdmi_wr_reg(TX_SYS1_ACR_N_1, (audio_N_para>>8)&0xff); // N[15:8]
     hdmi_wr_reg(TX_SYS1_ACR_N_2, (audio_N_tolerance<<4)|((audio_N_para>>16)&0xf)); // N[19:16]
