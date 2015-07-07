@@ -225,6 +225,17 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 	phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
 	size = vb2_get_plane_payload(buf, 0);
 
+	/* Legacy draining was triggered passing an empty buffer */
+	if (size == 0) {
+		if (ctx->eos_state >= EOS_TAIL_WAITING) {
+			v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_DONE);
+		} else {
+			send_eos_tail(ctx);
+		}
+		return;
+	}
+
 	v4l2_info(&ctx->dev->v4l2_dev,
 		  "send src buffer %d to parser, phys addr %x size %ld\n",
 		  buf->v4l2_buf.index, phys_addr, size);
