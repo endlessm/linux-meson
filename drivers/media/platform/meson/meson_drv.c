@@ -35,9 +35,8 @@
 // FIXME tweak or make dynamic?
 #define VDEC_MAX_BUFFERS		32
 
-/* FIXME: does this need to be so big? an alternate/unused codepath in
- * amstream_probe() sets this to 3mb. */
-#define VDEC_ST_FIFO_SIZE	31719424
+/* This is used to store the encoded data */
+#define VDEC_ST_FIFO_SIZE	(3*1024*1024)
 
 /* FIXME: this is for the decoder, as a general buffer and also for the
  * decoded frame data. Maybe it doesn't have to be contiguous. */
