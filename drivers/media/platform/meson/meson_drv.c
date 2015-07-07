@@ -585,15 +585,6 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	if (ctx->eos_state >= EOS_TAIL_WAITING)
 		return -EINVAL;
 
-	ctx->eos_tail_buf = dma_alloc_coherent(NULL, EOS_TAIL_BUF_SIZE,
-					       &ctx->eos_tail_buf_phys,
-					       GFP_KERNEL);
-	if (!ctx->eos_tail_buf)
-		return -ENOMEM;
-
-	memset(ctx->eos_tail_buf, 0, EOS_TAIL_BUF_SIZE);
-	memcpy(ctx->eos_tail_buf, eos_tail_data, sizeof(eos_tail_data));
-
 	spin_lock_irq(&ctx->data_lock);
 	if (v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) > 0)
 		ctx->eos_state = EOS_TAIL_WAITING;
@@ -967,13 +958,24 @@ static int meson_vdec_open(struct file *file)
 		goto err_free_ctx;
 	}
 
+	ctx->eos_tail_buf = dma_alloc_coherent(NULL, EOS_TAIL_BUF_SIZE,
+					       &ctx->eos_tail_buf_phys,
+					       GFP_KERNEL);
+	if (!ctx->eos_tail_buf) {
+		ret = -ENOMEM;
+		goto err_free_buf;
+	}
+
+	memset(ctx->eos_tail_buf, 0, EOS_TAIL_BUF_SIZE);
+	memcpy(ctx->eos_tail_buf, eos_tail_data, sizeof(eos_tail_data));
+
 	sbuf->buf_size = sbuf->default_buf_size = VDEC_ST_FIFO_SIZE;
 	sbuf->flag = BUF_FLAG_IOMEM;
 
 	ctx->image_thread = kthread_run(image_thread, ctx, DRIVER_NAME);
 	if (IS_ERR(ctx->image_thread)) {
 		ret = PTR_ERR(ctx->image_thread);
-		goto err_free_buf;
+		goto err_free_buf2;
 	}
 
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
@@ -1008,6 +1010,9 @@ err_release_port:
 err_stop_thread:
 	kthread_stop(ctx->image_thread);
 
+err_free_buf2:
+	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
+			  ctx->eos_tail_buf_phys);
 err_free_buf:
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
 			  sbuf->buf_start);
@@ -1035,9 +1040,8 @@ static int meson_vdec_release(struct file *file)
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
 		          sbuf->buf_start);
 
-	if (ctx->eos_tail_buf)
-		dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
-				  ctx->eos_tail_buf_phys);
+	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
+		ctx->eos_tail_buf_phys);
 
 	mutex_unlock(&dev->dev_mutex);
 	kfree(ctx);
