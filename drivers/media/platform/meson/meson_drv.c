@@ -168,6 +168,7 @@ static void send_eos_tail(struct vdec_ctx *ctx)
 {
 	v4l2_info(&ctx->dev->v4l2_dev, "sending EOS tail to esparser\n");
 	ctx->eos_state = EOS_TAIL_SENT;
+	ctx->esparser_busy = true;
 	esparser_start_search(PARSER_VIDEO, ctx->eos_tail_buf_phys,
 			      EOS_TAIL_BUF_SIZE);
 }
