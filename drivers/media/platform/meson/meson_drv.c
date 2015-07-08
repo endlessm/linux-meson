@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/amlogic/amstream.h>
+#include <linux/amlogic/amports/ptsserv.h>
 #include <linux/amlogic/amports/vformat.h>
 #include <linux/amlogic/amports/vframe_provider.h>
 #include <media/v4l2-ctrls.h>
@@ -34,9 +35,8 @@
 // FIXME tweak or make dynamic?
 #define VDEC_MAX_BUFFERS		32
 
-/* FIXME: does this need to be so big? an alternate/unused codepath in
- * amstream_probe() sets this to 3mb. */
-#define VDEC_ST_FIFO_SIZE	31719424
+/* This is used to store the encoded data */
+#define VDEC_ST_FIFO_SIZE	(3*1024*1024)
 
 /* FIXME: this is for the decoder, as a general buffer and also for the
  * decoded frame data. Maybe it doesn't have to be contiguous. */
@@ -125,6 +125,7 @@ struct vdec_ctx {
 
 	/* Source and destination queue data */
 	bool esparser_busy;
+	size_t parsed_len;
 	bool src_streaming;
 	bool dst_streaming;
 	u32 frame_width;
@@ -167,6 +168,7 @@ static void send_eos_tail(struct vdec_ctx *ctx)
 {
 	v4l2_info(&ctx->dev->v4l2_dev, "sending EOS tail to esparser\n");
 	ctx->eos_state = EOS_TAIL_SENT;
+	ctx->esparser_busy = true;
 	esparser_start_search(PARSER_VIDEO, ctx->eos_tail_buf_phys,
 			      EOS_TAIL_BUF_SIZE);
 }
@@ -212,6 +214,7 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 	struct vb2_buffer *buf;
 	dma_addr_t phys_addr;
 	unsigned long size;
+	uint64_t ts;
 
 	if (ctx->esparser_busy || !ctx->src_streaming)
 		return;
@@ -223,10 +226,32 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 	phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
 	size = vb2_get_plane_payload(buf, 0);
 
+	/* Legacy draining was triggered passing an empty buffer */
+	if (size == 0) {
+		if (ctx->eos_state >= EOS_TAIL_WAITING) {
+			v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_DONE);
+		} else {
+			send_eos_tail(ctx);
+		}
+		return;
+	}
+
 	v4l2_info(&ctx->dev->v4l2_dev,
 		  "send src buffer %d to parser, phys addr %x size %ld\n",
 		  buf->v4l2_buf.index, phys_addr, size);
+
 	ctx->esparser_busy = true;
+
+	v4l2_info(&ctx->dev->v4l2_dev, "parsing at pts %li.%lis offset %x\n",
+		buf->v4l2_buf.timestamp.tv_sec, buf->v4l2_buf.timestamp.tv_usec,
+		ctx->parsed_len);
+
+	ts = (uint64_t)buf->v4l2_buf.timestamp.tv_sec * 1000000 +
+		(uint64_t)buf->v4l2_buf.timestamp.tv_usec;
+	ctx->parsed_len += size;
+
+	pts_checkin_offset_us64(PTS_TYPE_VIDEO, ctx->parsed_len, ts);
 	esparser_start_search(PARSER_VIDEO, phys_addr, size);
 }
 
@@ -572,15 +597,6 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	if (ctx->eos_state >= EOS_TAIL_WAITING)
 		return -EINVAL;
 
-	ctx->eos_tail_buf = dma_alloc_coherent(NULL, EOS_TAIL_BUF_SIZE,
-					       &ctx->eos_tail_buf_phys,
-					       GFP_KERNEL);
-	if (!ctx->eos_tail_buf)
-		return -ENOMEM;
-
-	memset(ctx->eos_tail_buf, 0, EOS_TAIL_BUF_SIZE);
-	memcpy(ctx->eos_tail_buf, eos_tail_data, sizeof(eos_tail_data));
-
 	spin_lock_irq(&ctx->data_lock);
 	if (v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) > 0)
 		ctx->eos_state = EOS_TAIL_WAITING;
@@ -870,6 +886,13 @@ static int image_thread(void *data) {
 			continue;
 		}
 
+		dst->v4l2_buf.timestamp.tv_sec = (__kernel_time_t)(div64_u64(vf->pts_us64, 1000000));
+		dst->v4l2_buf.timestamp.tv_usec = ( __kernel_suseconds_t)
+			(vf->pts_us64 - (dst->v4l2_buf.timestamp.tv_sec * 1000000));
+
+		v4l2_info(&ctx->dev->v4l2_dev, "got decoded frame at pts %li.%lis\n",
+			dst->v4l2_buf.timestamp.tv_sec, dst->v4l2_buf.timestamp.tv_usec);
+
 		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx->frame_width));
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
@@ -933,6 +956,7 @@ static int meson_vdec_open(struct file *file)
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
 	ctx->esparser_busy = false;
+	ctx->parsed_len = 0;
 	spin_lock_init(&ctx->data_lock);
 
 	init_timer(&ctx->eos_idle_timer);
@@ -946,13 +970,24 @@ static int meson_vdec_open(struct file *file)
 		goto err_free_ctx;
 	}
 
+	ctx->eos_tail_buf = dma_alloc_coherent(NULL, EOS_TAIL_BUF_SIZE,
+					       &ctx->eos_tail_buf_phys,
+					       GFP_KERNEL);
+	if (!ctx->eos_tail_buf) {
+		ret = -ENOMEM;
+		goto err_free_buf;
+	}
+
+	memset(ctx->eos_tail_buf, 0, EOS_TAIL_BUF_SIZE);
+	memcpy(ctx->eos_tail_buf, eos_tail_data, sizeof(eos_tail_data));
+
 	sbuf->buf_size = sbuf->default_buf_size = VDEC_ST_FIFO_SIZE;
 	sbuf->flag = BUF_FLAG_IOMEM;
 
 	ctx->image_thread = kthread_run(image_thread, ctx, DRIVER_NAME);
 	if (IS_ERR(ctx->image_thread)) {
 		ret = PTR_ERR(ctx->image_thread);
-		goto err_free_buf;
+		goto err_free_buf2;
 	}
 
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
@@ -987,6 +1022,9 @@ err_release_port:
 err_stop_thread:
 	kthread_stop(ctx->image_thread);
 
+err_free_buf2:
+	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
+			  ctx->eos_tail_buf_phys);
 err_free_buf:
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
 			  sbuf->buf_start);
@@ -1014,9 +1052,8 @@ static int meson_vdec_release(struct file *file)
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
 		          sbuf->buf_start);
 
-	if (ctx->eos_tail_buf)
-		dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
-				  ctx->eos_tail_buf_phys);
+	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
+		ctx->eos_tail_buf_phys);
 
 	mutex_unlock(&dev->dev_mutex);
 	kfree(ctx);
