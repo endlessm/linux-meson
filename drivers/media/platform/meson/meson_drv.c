@@ -130,6 +130,7 @@ struct vdec_ctx {
 	bool dst_streaming;
 	u32 frame_width;
 	u32 frame_height;
+	wait_queue_head_t esparser_queue;
 };
 
 static u32 get_bytesperline(u32 width)
@@ -305,6 +306,7 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height)
 	ctx->frame_width = width;
 	ctx->frame_height = height;
 	v4l2_event_queue_fh(&ctx->fh, &ev);
+	wake_up(&ctx->esparser_queue);
 }
 
 /*
@@ -416,6 +418,9 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
 
 	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
+
+	wait_event_interruptible_timeout(ctx->esparser_queue,
+		ctx->frame_width != 0, HZ/5);
 
         if (ctx->frame_width == 0 || ctx->frame_height == 0)
 		return -EINVAL;
@@ -958,6 +963,7 @@ static int meson_vdec_open(struct file *file)
 	ctx->esparser_busy = false;
 	ctx->parsed_len = 0;
 	spin_lock_init(&ctx->data_lock);
+	init_waitqueue_head(&ctx->esparser_queue);
 
 	init_timer(&ctx->eos_idle_timer);
 	ctx->eos_idle_timer.function = eos_check_idle;
