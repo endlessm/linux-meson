@@ -127,10 +127,20 @@ static void meson_connector_destroy(struct drm_connector *connector)
 	kfree(meson_connector);
 }
 
+static bool read_hpd_gpio(void)
+{
+	return !!(aml_read_reg32(P_PREG_PAD_GPIO3_I) & (1 << 19));
+}
+
 static enum drm_connector_status meson_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct meson_connector *meson_connector = to_meson_connector(connector);
-	return meson_connector->enabled ? connector_status_connected : connector_status_disconnected;
+	if (!meson_connector->enabled)
+		return connector_status_disconnected;
+
+	/* use the opposite from HPD -- HDMI connected means composite disconnected,
+	 * HDMI disconnected means composite connected. */
+	return read_hpd_gpio() ? connector_status_disconnected : connector_status_connected;
 }
 
 static int meson_connector_get_modes(struct drm_connector *connector)
