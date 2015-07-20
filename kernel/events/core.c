@@ -4840,7 +4840,7 @@ static void perf_event_mmap_event(struct perf_mmap_event *mmap_event)
 			name = strncpy(tmp, "//enomem", sizeof(tmp));
 			goto got_name;
 		}
-		name = d_path(&file->f_path, buf, PATH_MAX);
+		name = file_path(file, buf, PATH_MAX - sizeof(u64));
 		if (IS_ERR(name)) {
 			name = strncpy(tmp, "//toolong", sizeof(tmp));
 			goto got_name;
