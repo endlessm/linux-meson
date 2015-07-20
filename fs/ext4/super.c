@@ -464,7 +464,7 @@ void ext4_error_file(struct file *file, const char *function,
 	es = EXT4_SB(inode->i_sb)->s_es;
 	es->s_last_error_ino = cpu_to_le32(inode->i_ino);
 	save_error_info(inode->i_sb, function, line);
-	path = d_path(&(file->f_path), pathname, sizeof(pathname));
+	path = file_path(file, pathname, sizeof(pathname));
 	if (IS_ERR(path))
 		path = "(unknown)";
 	va_start(args, fmt);

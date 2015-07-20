@@ -2790,8 +2790,7 @@ buffhds_first_it:
 		if (fsg_lun_is_open(curlun)) {
 			p = "(error)";
 			if (pathbuf) {
-				p = d_path(&curlun->filp->f_path,
-					   pathbuf, PATH_MAX);
+				p = file_path(curlun->filp, pathbuf, PATH_MAX);
 				if (IS_ERR(p))
 					p = "(error)";
 			}
