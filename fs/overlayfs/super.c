@@ -474,12 +474,14 @@ static const struct super_operations ovl_super_operations = {
 enum {
 	OPT_LOWERDIR,
 	OPT_UPPERDIR,
+	OPT_WORKDIR,
 	OPT_ERR,
 };
 
 static const match_table_t ovl_tokens = {
 	{OPT_LOWERDIR,			"lowerdir=%s"},
 	{OPT_UPPERDIR,			"upperdir=%s"},
+	{OPT_WORKDIR,			"workdir=%s"},
 	{OPT_ERR,			NULL}
 };
 
@@ -511,6 +513,9 @@ static int ovl_parse_opt(char *opt, struct ovl_config *config)
 			config->lowerdir = match_strdup(&args[0]);
 			if (!config->lowerdir)
 				return -ENOMEM;
+			break;
+
+		case OPT_WORKDIR:
 			break;
 
 		default:
@@ -665,11 +670,11 @@ static struct dentry *ovl_mount(struct file_system_type *fs_type, int flags,
 
 static struct file_system_type ovl_fs_type = {
 	.owner		= THIS_MODULE,
-	.name		= "overlayfs",
+	.name		= "overlay",
 	.mount		= ovl_mount,
 	.kill_sb	= kill_anon_super,
 };
-MODULE_ALIAS_FS("overlayfs");
+MODULE_ALIAS_FS("overlay");
 
 static int __init ovl_init(void)
 {
