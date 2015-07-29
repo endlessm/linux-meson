@@ -23,6 +23,7 @@ typedef enum mali_mem_type {
 	MALI_MEM_DMA_BUF,
 	MALI_MEM_UMP,
 	MALI_MEM_BLOCK,
+	MALI_MEM_COW,
 	MALI_MEM_TYPE_MAX,
 } mali_mem_type;
 
@@ -33,20 +34,19 @@ typedef struct mali_block_item {
 	unsigned long phy_addr;
 } mali_block_item;
 
+
 typedef enum mali_page_node_type {
 	MALI_PAGE_NODE_OS,
 	MALI_PAGE_NODE_BLOCK,
 } mali_page_node_type;
 
-typedef struct mali_block_node {
-	struct list_head list;
-	mali_block_item *blk_it; /*pointer to block item*/
-	u32 type;
-} mali_block_node;
-
 typedef struct mali_page_node {
 	struct list_head list;
-	struct page *page;
+	union {
+		struct page *page;
+		mali_block_item *blk_it; /*pointer to block item*/
+	};
+	u32 type;
 } mali_page_node;
 
 typedef struct mali_mem_os_mem {
@@ -90,7 +90,7 @@ typedef struct mali_mem_virt_mali_mapping {
 
 typedef struct mali_mem_virt_cpu_mapping {
 	void __user *addr;
-	u32 ref;
+	struct vm_area_struct *vma;
 } mali_mem_virt_cpu_mapping;
 
 #define MALI_MEM_ALLOCATION_VALID_MAGIC 0xdeda110c
@@ -112,21 +112,9 @@ typedef struct mali_vma_node {
 typedef struct mali_mem_allocation {
 	MALI_DEBUG_CODE(u32 magic);
 	mali_mem_type type;                /**< Type of memory */
-	int id;                            /**< ID in the descriptor map for this allocation */
-
-	u32 size;                          /**< Size of the allocation */
 	u32 flags;                         /**< Flags for this allocation */
 
 	struct mali_session_data *session; /**< Pointer to session that owns the allocation */
-
-	/* Union selected by type. */
-	union {
-		mali_mem_os_mem os_mem;       /**< MALI_MEM_OS */
-		mali_mem_external ext_mem;    /**< MALI_MEM_EXTERNAL */
-		mali_mem_dma_buf dma_buf;     /**< MALI_MEM_DMA_BUF */
-		mali_mem_ump ump_mem;         /**< MALI_MEM_UMP */
-		mali_mem_block_mem block_mem; /**< MALI_MEM_BLOCK */
-	};
 
 	mali_mem_virt_cpu_mapping cpu_mapping; /**< CPU mapping */
 	mali_mem_virt_mali_mapping mali_mapping; /**< Mali mapping */
@@ -137,16 +125,19 @@ typedef struct mali_mem_allocation {
 	u32 psize; /* physical backend memory size*/
 	struct list_head list;
 	s32 backend_handle; /* idr for mem_backend */
-	struct kref ref;
+	_mali_osk_atomic_t mem_alloc_refcount;
 } mali_mem_allocation;
-
 
 /* COW backend memory type */
 typedef struct mali_mem_cow {
 	struct list_head pages;  /**< all pages for this cow backend allocation,
                                                                 including new allocated pages for modified range*/
 	u32 count;               /**< number of pages */
+	s32 change_pages_nr;
 } mali_mem_cow;
+
+#define MALI_MEM_BACKEND_FLAG_COWED                   0x1/* COW has happen on this backend */
+#define MALI_MEM_BACKEND_FLAG_COW_CPU_NO_WRITE        0x2/* this is an COW backend, mapped as not allowed cpu to write */
 
 typedef struct mali_mem_backend {
 	mali_mem_type type;                /**< Type of backend memory */
@@ -162,6 +153,10 @@ typedef struct mali_mem_backend {
 		mali_mem_cow cow_mem;
 	};
 	mali_mem_allocation *mali_allocation;
+	struct mutex mutex;
+	mali_mem_type cow_type;
+
+	u32 cow_flag;
 } mali_mem_backend;
 
 #define MALI_MEM_FLAG_MALI_GUARD_PAGE (1 << 0)

@@ -624,7 +624,7 @@ void mali_scheduler_abort_session(struct mali_session_data *session)
 			if (MALI_FALSE == mali_pp_job_has_unstarted_sub_jobs(pp_job)) {
 				if (mali_pp_job_is_complete(pp_job)) {
 					mali_pp_job_list_move(pp_job,
-							&removed_jobs_pp);
+							      &removed_jobs_pp);
 				} else {
 					mali_pp_job_list_remove(pp_job);
 				}
@@ -647,7 +647,7 @@ void mali_scheduler_abort_session(struct mali_session_data *session)
 			if (MALI_FALSE == mali_pp_job_has_unstarted_sub_jobs(pp_job)) {
 				if (mali_pp_job_is_complete(pp_job)) {
 					mali_pp_job_list_move(pp_job,
-							&removed_jobs_pp);
+							      &removed_jobs_pp);
 				} else {
 					mali_pp_job_list_remove(pp_job);
 				}
