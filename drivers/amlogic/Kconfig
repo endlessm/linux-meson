@@ -101,7 +101,6 @@ comment "GPU (ARM Mali)"
 #isource "drivers/amlogic/ump/Kconfig"
 #isource "drivers/amlogic/mali/Kconfig"
 #comment "GPU (ARM Mali (external))"
-source "drivers/amlogic/gpu/ump/Kconfig"
 source "drivers/amlogic/gpu/mali/Kconfig"
 source "drivers/amlogic/ion_dev/Kconfig"
 
