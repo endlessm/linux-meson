@@ -37,28 +37,6 @@ int profiling_add_event_wrapper(struct mali_session_data *session_data, _mali_uk
 	return 0;
 }
 
-int profiling_memory_usage_get_wrapper(struct mali_session_data *session_data, _mali_uk_profiling_memory_usage_get_s __user *uargs)
-{
-	_mali_osk_errcode_t err;
-	_mali_uk_profiling_memory_usage_get_s kargs;
-
-	MALI_CHECK_NON_NULL(uargs, -EINVAL);
-	MALI_CHECK_NON_NULL(session_data, -EINVAL);
-
-	kargs.ctx = (uintptr_t)session_data;
-	err = _mali_ukk_profiling_memory_usage_get(&kargs);
-	if (_MALI_OSK_ERR_OK != err) {
-		return map_errcode(err);
-	}
-
-	kargs.ctx = (uintptr_t)NULL; /* prevent kernel address to be returned to user space */
-	if (0 != copy_to_user(uargs, &kargs, sizeof(_mali_uk_profiling_memory_usage_get_s))) {
-		return -EFAULT;
-	}
-
-	return 0;
-}
-
 int profiling_report_sw_counters_wrapper(struct mali_session_data *session_data, _mali_uk_sw_counters_report_s __user *uargs)
 {
 	_mali_uk_sw_counters_report_s kargs;

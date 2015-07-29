@@ -22,6 +22,7 @@
 #include "mali_l2_cache.h"
 #include "mali_user_settings_db.h"
 #include "mali_executor.h"
+#include "mali_memory_manager.h"
 
 _mali_osk_errcode_t _mali_osk_profiling_init(mali_bool auto_start)
 {
@@ -42,11 +43,6 @@ void _mali_osk_profiling_report_sw_counters(u32 *counters)
 	trace_mali_sw_counters(_mali_osk_get_pid(), _mali_osk_get_tid(), NULL, counters);
 }
 
-void _mali_osk_profiling_memory_usage_get(u32 *memory_usage)
-{
-	*memory_usage = _mali_ukk_report_memory_usage();
-}
-
 _mali_osk_errcode_t _mali_ukk_profiling_add_event(_mali_uk_profiling_add_event_s *args)
 {
 	/* Always add process and thread identificator in the first two data elements for events from user space */
@@ -61,12 +57,6 @@ _mali_osk_errcode_t _mali_ukk_sw_counters_report(_mali_uk_sw_counters_report_s *
 
 	_mali_osk_profiling_report_sw_counters(counters);
 
-	return _MALI_OSK_ERR_OK;
-}
-
-_mali_osk_errcode_t _mali_ukk_profiling_memory_usage_get(_mali_uk_profiling_memory_usage_get_s *args)
-{
-	_mali_osk_profiling_memory_usage_get(&args->memory_usage);
 	return _MALI_OSK_ERR_OK;
 }
 
