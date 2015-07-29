@@ -55,6 +55,8 @@ extern "C" {
 #define MALI_IOC_MEM_FREE                   _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_FREE_MEM, _mali_uk_free_mem_s)
 #define MALI_IOC_MEM_BIND                   _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_BIND_MEM, _mali_uk_bind_mem_s)
 #define MALI_IOC_MEM_UNBIND                 _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_UNBIND_MEM, _mali_uk_unbind_mem_s)
+#define MALI_IOC_MEM_COW                    _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_COW_MEM, _mali_uk_cow_mem_s)
+#define MALI_IOC_MEM_COW_MODIFY_RANGE       _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_COW_MODIFY_RANGE, _mali_uk_cow_modify_range_s)
 #define MALI_IOC_MEM_DMA_BUF_GET_SIZE       _IOR(MALI_IOC_MEMORY_BASE, _MALI_UK_DMA_BUF_GET_SIZE, _mali_uk_dma_buf_get_size_s)
 #define MALI_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE _IOR (MALI_IOC_MEMORY_BASE, _MALI_UK_QUERY_MMU_PAGE_TABLE_DUMP_SIZE, _mali_uk_query_mmu_page_table_dump_size_s)
 #define MALI_IOC_MEM_DUMP_MMU_PAGE_TABLE    _IOWR(MALI_IOC_MEMORY_BASE, _MALI_UK_DUMP_MMU_PAGE_TABLE, _mali_uk_dump_mmu_page_table_s)

@@ -84,10 +84,12 @@ typedef enum {
 
 	/** Memory functions */
 
-	_MALI_UK_ALLOC_MEM                = 0,   /**< _mali_ukk_init_mem() */
-	_MALI_UK_FREE_MEM,                       /**< _mali_ukk_term_mem() */
-	_MALI_UK_BIND_MEM,                       /**< _mali_ukk_mem_mmap() */
-	_MALI_UK_UNBIND_MEM,                     /**< _mali_ukk_mem_munmap() */
+	_MALI_UK_ALLOC_MEM                = 0,   /**< _mali_ukk_alloc_mem() */
+	_MALI_UK_FREE_MEM,                       /**< _mali_ukk_free_mem() */
+	_MALI_UK_BIND_MEM,                       /**< _mali_ukk_mem_bind() */
+	_MALI_UK_UNBIND_MEM,                     /**< _mali_ukk_mem_unbind() */
+	_MALI_UK_COW_MEM,                        /**< _mali_ukk_mem_cow() */
+	_MALI_UK_COW_MODIFY_RANGE,               /**< _mali_ukk_mem_cow_modify_range() */
 	_MALI_UK_QUERY_MMU_PAGE_TABLE_DUMP_SIZE, /**< _mali_ukk_mem_get_mmu_page_table_dump_size() */
 	_MALI_UK_DUMP_MMU_PAGE_TABLE,            /**< _mali_ukk_mem_dump_mmu_page_table() */
 	_MALI_UK_DMA_BUF_GET_SIZE,               /**< _mali_ukk_dma_buf_get_size() */
@@ -709,11 +711,11 @@ typedef struct {
 
 typedef struct {
 	u64 ctx;                                          /**< [in,out] user-kernel context (trashed on output) */
-	u32 gpu_vaddr;                            /**< [in] GPU virtual address */
+	u32 gpu_vaddr;                                    /**< [in] GPU virtual address */
 	u32 vsize;                                        /**< [in] vitrual size of the allocation */
 	u32 psize;                                        /**< [in] physical size of the allocation */
 	u32 flags;
-	u64 backend_handle;          /**< [out] backend handle */
+	u64 backend_handle;                               /**< [out] backend handle */
 	struct {
 		/* buffer types*/
 		/* CPU read/write info*/
@@ -722,8 +724,9 @@ typedef struct {
 
 
 typedef struct {
-	u64 ctx;                                          /**< [in,out] user-kernel context (trashed on output) */
+	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 	u32 gpu_vaddr;                /**< [in] use as handle to free allocation */
+	u32 free_pages_nr;      /** < [out] record the number of free pages */
 } _mali_uk_free_mem_s;
 
 
@@ -747,16 +750,16 @@ typedef struct {
 
 
 typedef struct {
-	u64 ctx;                                          /**< [in,out] user-kernel context (trashed on output) */
-	u32 vaddr;                    /**< [in] mali address to map the physical memory to */
-	u32 size;                                         /**< [in] size */
-	u32 flags;                    /**< [in] see_MALI_MEMORY_BIND_BACKEND_* */
-	u32 padding;                              /** padding for 32/64 struct alignment */
+	u64 ctx;                                        /**< [in,out] user-kernel context (trashed on output) */
+	u32 vaddr;                                      /**< [in] mali address to map the physical memory to */
+	u32 size;                                       /**< [in] size */
+	u32 flags;                                      /**< [in] see_MALI_MEMORY_BIND_BACKEND_* */
+	u32 padding;                                    /** padding for 32/64 struct alignment */
 	union {
 		struct {
-			u32 secure_id;                                  /**< [in] secure id */
-			u32 rights;                                     /**< [in] rights necessary for accessing memory */
-			u32 flags;                                              /**< [in] flags, see \ref _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE */
+			u32 secure_id;                  /**< [in] secure id */
+			u32 rights;                     /**< [in] rights necessary for accessing memory */
+			u32 flags;                      /**< [in] flags, see \ref _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE */
 		} bind_ump;
 		struct {
 			u32 mem_fd;                     /**< [in] Memory descriptor */
@@ -775,19 +778,31 @@ typedef struct {
 } _mali_uk_bind_mem_s;
 
 typedef struct {
-	u64 ctx;                                          /**< [in,out] user-kernel context (trashed on output) */
-	u32 flags;                    /**< [in] see_MALI_MEMORY_BIND_BACKEND_* */
-	u32 vaddr;                   /**<  [in] identifier for mapped memory object in kernel space  */
+	u64 ctx;                                        /**< [in,out] user-kernel context (trashed on output) */
+	u32 flags;                                      /**< [in] see_MALI_MEMORY_BIND_BACKEND_* */
+	u32 vaddr;                                      /**<  [in] identifier for mapped memory object in kernel space  */
 } _mali_uk_unbind_mem_s;
 
 typedef struct {
-	u64 ctx;                                                                /**< [in,out] user-kernel context (trashed on output) */
-	u32 target_handle;                                              /**< [in] handle of allocation need to do COW */
-	u32 range_start;                                                /**< [in] re allocate range start offset, offset from the start of allocation */
-	u32 size;                                                               /**< [in] re allocate size*/
-	u32 vaddr;                                                              /**< [in] mali address for the new allocaiton */
-	u32 backend_handle;                                             /**< [out] backend handle */
+	u64 ctx;                                        /**< [in,out] user-kernel context (trashed on output) */
+	u32 target_handle;                              /**< [in] handle of allocation need to do COW */
+	u32 target_offset;              /**< [in] offset in target allocation to do COW(for support COW  a memory allocated from memory_bank, PAGE_SIZE align)*/
+	u32 target_size;                        /**< [in] size of target allocation to do COW (for support memory bank, PAGE_SIZE align)(in byte) */
+	u32 range_start;                                /**< [in] re allocate range start offset, offset from the start of allocation (PAGE_SIZE align)*/
+	u32 range_size;                                 /**< [in] re allocate size (PAGE_SIZE align)*/
+	u32 vaddr;                                      /**< [in] mali address for the new allocaiton */
+	u32 backend_handle;                             /**< [out] backend handle */
+	u32 flags;
 } _mali_uk_cow_mem_s;
+
+typedef struct {
+	u64 ctx;                                        /**< [in,out] user-kernel context (trashed on output) */
+	u32 range_start;                                /**< [in] re allocate range start offset, offset from the start of allocation */
+	u32 size;                                       /**< [in] re allocate size*/
+	u32 vaddr;                                      /**< [in] mali address for the new allocaiton */
+	s32 change_pages_nr;            /**< [out] record the page number change for cow operation */
+} _mali_uk_cow_modify_range_s;
+
 
 typedef struct {
 	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
@@ -797,22 +812,7 @@ typedef struct {
 
 /** Flag for _mali_uk_map_external_mem_s, _mali_uk_attach_ump_mem_s and _mali_uk_attach_dma_buf_s */
 #define _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE (1<<0)
-#if 0
-typedef struct {
-	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
-	u32 phys_addr;                  /**< [in] physical address */
-	u32 size;                       /**< [in] size */
-	u32 mali_address;               /**< [in] mali address to map the physical memory to */
-	u32 rights;                     /**< [in] rights necessary for accessing memory */
-	u32 flags;                      /**< [in] flags, see \ref _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE */
-	u32 cookie;                     /**< [out] identifier for mapped memory object in kernel space  */
-} _mali_uk_map_external_mem_s;
 
-typedef struct {
-	u64 ctx;                      /**< [in,out] user-kernel context (trashed on output) */
-	u32 cookie;                     /**< [out] identifier for mapped memory object in kernel space  */
-} _mali_uk_unmap_external_mem_s;
-#endif
 
 /**
  * @brief Arguments for _mali_uk[uk]_mem_write_safe()
@@ -908,6 +908,8 @@ typedef struct {
 typedef struct {
 	u64 ctx;                     /**< [in,out] user-kernel context (trashed on output) */
 	u32 memory_usage;              /**< [out] total memory usage */
+	u32 vaddr;                                      /**< [in] mali address for the cow allocaiton */
+	s32 change_pages_nr;            /**< [out] record the page number change for cow operation */
 } _mali_uk_profiling_memory_usage_get_s;
 
 
@@ -945,6 +947,7 @@ typedef struct {
 	void *mapping;                  /**< [out] Returns user-space virtual address for the mapping */
 	u32 size;                       /**< [in] Size of the requested mapping */
 	u32 phys_addr;                  /**< [in] Physical address - could be offset, depending on caller+callee convention */
+	mali_bool writeable;
 } _mali_uk_mem_mmap_s;
 
 /** @brief Arguments to _mali_ukk_mem_munmap()
