@@ -1205,6 +1205,8 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	}
 
 	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
+	if (IS_ERR(cma_obj))
+		return PTR_ERR(cma_obj);
 
 	ump_mem.addr = cma_obj->paddr;
 	ump_mem.size = size;
