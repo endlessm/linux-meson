@@ -242,7 +242,7 @@
 		};
 	};
 
-	i2c@c8100500{ /* I2C-AO */
+/*	i2c@c8100500{ /* I2C-AO *
 		compatible = "amlogic,aml_i2c";
 		dev_name = "i2c-AO";
 		status = "ok";
@@ -254,7 +254,7 @@
 		pinctrl-0=<&ao_i2c_master>;
 		use_pio = <0>;
 		master_i2c_speed = <100000>;
-	};
+	}; */
 
 	i2c@c1108500 { /*I2C-A*/
 		compatible = "amlogic,aml_i2c";
@@ -899,11 +899,11 @@
 			amlogic,pins = "GPIOH_9";
 		};
 
-		ao_i2c_master: ao_i2c {
+		/*ao_i2c_master: ao_i2c {
 			amlogic,setmask = <10 0x60>;
 			amlogic,clrmask = <10 0x1800006>;
 			amlogic,pins = "GPIOAO_4","GPIOAO_5";
-		};
+		};*/
 
 		a_i2c_master: a_i2c {
 			amlogic,setmask = <9 0xC0000000>;

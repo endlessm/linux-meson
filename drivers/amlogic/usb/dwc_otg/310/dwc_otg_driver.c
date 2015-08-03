@@ -1387,8 +1387,14 @@ static int __init dwc_otg_driver_init(void)
 {
 	int retval = 0;
 	int error;
+	int gpio_usb_pwr_en;
 	printk(KERN_INFO "%s: version %s\n", dwc_driver_name,
 	       DWC_DRIVER_VERSION);
+
+	gpio_usb_pwr_en = amlogic_gpio_name_map_num("GPIOAO_5");
+	amlogic_gpio_request_one(gpio_usb_pwr_en, GPIOF_OUT_INIT_LOW, "usb_pwr_en");
+	amlogic_set_value(gpio_usb_pwr_en, 1, "usb_pwr_en");
+
 #ifdef LM_INTERFACE
 	retval = lm_driver_register(&dwc_otg_driver);
 #elif defined(PCI_INTERFACE)
