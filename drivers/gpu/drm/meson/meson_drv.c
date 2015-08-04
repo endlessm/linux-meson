@@ -43,6 +43,7 @@
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <linux/amlogic/vout/vout_notify.h>
+#include <linux/amlogic/aml_gpio_consumer.h>
 
 /* XXX: Move this to a better location. */
 #include "../../../amlogic/gpu/ump/include/ump/ump_kernel_interface_ref_drv.h"
@@ -52,7 +53,7 @@ enum meson_connectors {
 	MESON_CONNECTORS_CVBS_NTSC = 0x2,
 	MESON_CONNECTORS_CVBS_PAL  = 0x4,
 };
-static char enabled_connectors = MESON_CONNECTORS_HDMI;
+static char enabled_connectors = 0;
 module_param(enabled_connectors, byte, S_IRUGO | S_IWUSR);
 
 #define DRIVER_NAME "meson"
@@ -877,6 +878,35 @@ static ssize_t meson_set_underscan_vborder(struct device *dev,
 
 static DEVICE_ATTR(underscan_vborder, S_IRUGO | S_IWUGO, meson_get_underscan_vborder, meson_set_underscan_vborder);
 
+static void read_cvbs_switch_gpio(struct platform_device *pdev)
+{
+	const char *str;
+	int ret;
+	int gpionr;
+
+	ret = of_property_read_string(pdev->dev.of_node, "cvbs_pal_gpio", &str);
+	if (ret == 0) {
+		gpionr = amlogic_gpio_name_map_num(str);
+		amlogic_gpio_request_one(gpionr, GPIOF_IN, "meson-drm pal");
+		amlogic_set_pull_up_down(gpionr, 1, "meson-drm pal");
+		if (amlogic_get_value(gpionr, "meson-drm pal")) {
+			dev_info(&pdev->dev, "Enable CVBS/PAL from switch\n");
+			enabled_connectors |= MESON_CONNECTORS_CVBS_PAL;
+		}
+	}
+
+	ret = of_property_read_string(pdev->dev.of_node, "cvbs_ntsc_gpio", &str);
+	if (ret == 0) {
+		gpionr = amlogic_gpio_name_map_num(str);
+		amlogic_gpio_request_one(gpionr, GPIOF_IN, "meson-drm ntsc");
+		amlogic_set_pull_up_down(gpionr, 1, "meson-drm ntsc");
+		if (amlogic_get_value(gpionr, "meson-drm ntsc")) {
+			dev_info(&pdev->dev, "Enable CVBS/NTSC from switch\n");
+			enabled_connectors |= MESON_CONNECTORS_CVBS_NTSC;
+		}
+	}
+}
+
 static int meson_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -902,6 +932,12 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	dev->mode_config.funcs = &mode_config_funcs;
 
 	priv->crtc = meson_crtc_create(dev);
+
+	if (enabled_connectors == 0) {
+		/* Default: HDMI enabled, CVBS enabled via switch */
+		enabled_connectors = MESON_CONNECTORS_HDMI;
+		read_cvbs_switch_gpio(pdev);
+	}
 
 	meson_hdmi_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_HDMI));
 

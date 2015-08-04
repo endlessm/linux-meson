@@ -957,6 +957,8 @@
 
 	mesondrm {
 		compatible = "amlogic,meson8b-display";
+		cvbs_pal_gpio = "GPIOH_7";
+		cvbs_ntsc_gpio = "GPIOH_8";
 		dev_name = "mesondrm";
 	};
 
