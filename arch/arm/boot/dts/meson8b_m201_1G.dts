@@ -1137,7 +1137,7 @@
 	};
 */
 	mesondrm {
-		compatible = "amlogic,meson8b";
+		compatible = "amlogic,meson8b-display";
 		dev_name = "mesondrm";
 	};
 
