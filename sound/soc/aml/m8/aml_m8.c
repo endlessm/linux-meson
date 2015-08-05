@@ -684,17 +684,16 @@ static struct snd_soc_dai_link aml_codec_dai_link[] = {
     },
 #endif
 
-    {
-        .name = "AML-SPDIF",
-        .stream_name = "SPDIF PCM",
-        .cpu_dai_name = "aml-spdif-dai.0",
-        .codec_dai_name = "dit-hifi",
-        .init = NULL,
-        .platform_name = "aml-i2s.0",
-        .codec_name = "spdif-dit.0",
-        .ops = NULL,      
-    }, 
-
+//    {
+//        .name = "AML-SPDIF",
+//        .stream_name = "SPDIF PCM",
+//        .cpu_dai_name = "aml-spdif-dai.0",
+//        .codec_dai_name = "dit-hifi",
+//        .init = NULL,
+//        .platform_name = "aml-i2s.0",
+//        .codec_name = "spdif-dit.0",
+//        .ops = NULL,
+//    },
 };
 
 static struct snd_soc_card aml_snd_soc_card = {

@@ -57,6 +57,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_PCM3008
 	select SND_SOC_RT5631 if I2C
         select SND_SOC_RT5616 if I2C
+	select SND_SOC_RT5640 if I2C
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
@@ -298,6 +299,9 @@ config SND_SOC_OMAP_HDMI_CODEC
 config SND_SOC_PCM3008
        tristate
 config SND_SOC_RT5616
+	tristate
+
+config SND_SOC_RT5640
 	tristate
 
 config SND_SOC_RT5631
