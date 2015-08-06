@@ -3481,6 +3481,54 @@ static const struct i2c_device_id rt5640_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, rt5640_i2c_id);
 
+static ssize_t regmap_write_store(struct class *cla, struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int reg = 0;
+	unsigned int val = 0;
+
+	ret = sscanf(buf, "%xh %x", &reg, &val);
+	if (ret < 0)
+		return -EINVAL;
+
+	snd_soc_write(rt5640_codec, reg, val);
+	printk(KERN_EMERG "write 0x%04x @ 0x%04x\n", val, reg);
+
+	return count;
+
+}
+
+static ssize_t regmap_read_store(struct class *cla, struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int reg = 0;
+	unsigned int val = 0;
+
+	ret = sscanf(buf, "%xh %x", &reg, &val);
+	if (ret < 0)
+		return -EINVAL;
+
+	val = snd_soc_read(rt5640_codec, reg);
+	printk(KERN_EMERG "read 0x%04x @ 0x%04x\n", val, reg);
+
+	return count;
+}
+static ssize_t regmap_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static struct class_attribute regmap_debug_class_attrs[] = {
+	__ATTR(to_read, S_IRUGO|S_IWUSR|S_IWGRP, regmap_show, regmap_read_store),
+	__ATTR(to_write, S_IRUGO|S_IWUSR|S_IWGRP, regmap_show, regmap_write_store),
+	__ATTR_NULL,
+};
+
+static struct class meson_regmap_debug_class = {
+	.name = "regmap_debug",
+	.class_attrs = regmap_debug_class_attrs,
+};
+
 static int rt5640_i2c_probe(struct i2c_client *i2c,
 		    const struct i2c_device_id *id)
 {
@@ -3497,6 +3545,7 @@ static int rt5640_i2c_probe(struct i2c_client *i2c,
 			rt5640_dai, ARRAY_SIZE(rt5640_dai));
 	if (ret < 0)
 		kfree(rt5640);
+	class_register(&meson_regmap_debug_class);
 
 	return ret;
 }
