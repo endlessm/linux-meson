@@ -535,7 +535,9 @@
 	            "IN2P","micbias1";
 	        aml,audio-routing-rt5640 =
 	            "HP","HPOL",
-	            "HP","HPOR";
+	            "HP","HPOR",
+	            "MAIN MIC", "micbias1",
+	            "IN2P", "MAIN MIC";
 	        aml,audio-routing-amlm8 =
 	            "Ext Spk","LINEOUTL",
 	            "Ext Spk","LINEOUTR",

@@ -1840,8 +1840,8 @@ static const struct snd_soc_dapm_widget rt5640_dapm_widgets[] = {
 	/* micbias */
 	SND_SOC_DAPM_SUPPLY("LDO2", RT5640_PWR_ANLG1,
 			RT5640_PWR_LDO2_BIT, 0, NULL, 0),
-	SND_SOC_DAPM_MICBIAS("micbias1", RT5640_PWR_ANLG2,
-			RT5640_PWR_MB1_BIT, 0),
+	SND_SOC_DAPM_SUPPLY("micbias1", RT5640_PWR_ANLG2,
+			RT5640_PWR_MB1_BIT, 0, 0, 0),
 
 	/* Input Lines */
 	SND_SOC_DAPM_INPUT("DMIC1"),
