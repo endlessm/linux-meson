@@ -197,6 +197,7 @@ static ssize_t efuse_write( struct file *file, const char __user *buf, size_t co
 	if (count > EFUSE_BYTES)
 		return -EFAULT;
 
+#if 0
 	if ((ret = check_if_efused(pos, count))) {
 		printk(KERN_INFO "check if has been efused failed\n");
 		if (ret == 1)
@@ -204,6 +205,7 @@ static ssize_t efuse_write( struct file *file, const char __user *buf, size_t co
 		else if (ret < 0)
 			return ret;
 	}
+#endif
 
 	contents = (unsigned char*)kzalloc(sizeof(unsigned char)*EFUSE_BYTES, GFP_KERNEL);
 	if (!contents) {

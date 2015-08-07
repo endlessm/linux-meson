@@ -863,7 +863,14 @@ int efuse_read_item(char *buf, size_t count, loff_t *ppos)
 	int reverse = 0;
 	unsigned pos = (unsigned)*ppos;
 	efuseinfo_item_t info;	
-		
+
+	if (count > 512)
+		count = 512;
+
+	__efuse_read(buf, count, ppos);	
+	return count;		
+
+#if 0
 	if(efuse_getinfo_byPOS(pos, &info) < 0){
 		printk("not found the position:%d.\n", pos);
 		return -1;
@@ -928,6 +935,7 @@ int efuse_read_item(char *buf, size_t count, loff_t *ppos)
 	if(data_buf)
 		kfree(data_buf);
 	return count;	
+#endif
 }
 
 int efuse_write_item(char *buf, size_t count, loff_t *ppos)
@@ -939,7 +947,11 @@ int efuse_write_item(char *buf, size_t count, loff_t *ppos)
 	unsigned enc_len,data_len, reverse;
 	unsigned pos = (unsigned)*ppos;	
 	efuseinfo_item_t info;
-		
+
+	__efuse_write(buf, count, ppos);
+	return count;
+
+#if 0
 	if(efuse_getinfo_byPOS(pos, &info) < 0){
 		printk("not found the position:%d.\n", pos);
 		return -1;
@@ -959,7 +971,7 @@ int efuse_write_item(char *buf, size_t count, loff_t *ppos)
 		printk("data length: 0 is error!\n");
 		return -1;
 	}	
-		
+
 	enc_buf = (char*)kzalloc(sizeof(char)*EFUSE_BYTES, GFP_KERNEL);
 	if (!enc_buf) {
 		printk(KERN_INFO "memory not enough\n"); 
@@ -1013,6 +1025,7 @@ int efuse_write_item(char *buf, size_t count, loff_t *ppos)
 		kfree(data_buf);
 		
 	return enc_len ;		
+#endif
 }
 
 /* function: efuse_read_intlItem
