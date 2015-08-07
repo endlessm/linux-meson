@@ -157,7 +157,6 @@
 		interrupt_pin = "GPIOX_21";
 		irq_num = <4>;
 		irq_trigger_type = "GPIO_IRQ_HIGH";
-		power_on_pin = "GPIOAO_6";
 		power_on_pin2 = "GPIOX_11";
 		clock_32k_pin = "GPIOX_10";
 	};
@@ -166,7 +165,6 @@
 		compatible = "amlogic,wifi_power";
 		dev_name = "wifi_power";
 		status = "okay";
-		power_gpio = "GPIOAO_6";
 		power_gpio2 = "GPIOX_11";
 	};
 
@@ -932,9 +930,9 @@
 		};
 
 		audio_pins: audio_pin {
-			amlogic,setmask = <10 0x78000008>;
+			amlogic,setmask = <10 0x78000008 1 0x2000>;
 			amlogic,clrmask = <10 0x80002000>;
-			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_13";
+			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_13","GPIOAO_6";
 		};
 
 		aml_spi_nor_pins: aml_spi_nor_pins {
