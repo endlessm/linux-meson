@@ -114,10 +114,10 @@ static struct rt5640_init_reg init_list[] = {
 	/*record*/
 	{RT5640_IN1_IN2		, 0x5080},//IN1 boost 40db and differential mode
 	{RT5640_IN3_IN4		, 0x0500},//IN2 boost 40db and signal ended mode
-	{RT5640_REC_L2_MIXER	, 0x007d},//Mic1 -> RECMIXL
-	{RT5640_REC_R2_MIXER	, 0x007d},//Mic1 -> RECMIXR
-//	{RT5640_REC_L2_MIXER	, 0x006f},//Mic2 -> RECMIXL
-//	{RT5640_REC_R2_MIXER	, 0x006f},//Mic2 -> RECMIXR
+//	{RT5640_REC_L2_MIXER	, 0x007d},//Mic1 -> RECMIXL
+//	{RT5640_REC_R2_MIXER	, 0x007d},//Mic1 -> RECMIXR
+	{RT5640_REC_L2_MIXER	, 0x006f},//Mic2 -> RECMIXL
+	{RT5640_REC_R2_MIXER	, 0x006f},//Mic2 -> RECMIXR
 	{RT5640_STO_ADC_MIXER	, 0x3020},//ADC -> Sto ADC mixer
 	{RT5640_MONO_ADC_MIXER  , 0x3030},
 	{RT5640_ADC_DIG_VOL	, 0xafaf},//mute stereo adc mixer
