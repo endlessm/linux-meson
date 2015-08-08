@@ -34,9 +34,7 @@
 #endif
 
 #include "rt5640.h"
-#if (CONFIG_SND_SOC_RT5642_MODULE | CONFIG_SND_SOC_RT5642)
 #include "rt5640-dsp.h"
-#endif
 
 #define RT5640_REG_RW 1 /* for debug */
 #define RT5640_DET_EXT_MIC 0
@@ -1520,7 +1518,7 @@ static int rt5640_set_dmic2_event(struct snd_soc_dapm_widget *w,
 }
 
 #if USE_ONEBIT_DEPOP
-void hp_amp_power(struct snd_soc_codec *codec, int on)
+static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
 //	printk("one bit hp_amp_power on=%d hp_amp_power_count=%d\n",on,hp_amp_power_count);
@@ -1609,7 +1607,7 @@ static void rt5640_pmd_depop(struct snd_soc_codec *codec)
 }
 
 #else //seq
-void hp_amp_power(struct snd_soc_codec *codec, int on)
+static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
 //	printk("hp_amp_power on=%d hp_amp_power_count=%d\n",on,hp_amp_power_count);
