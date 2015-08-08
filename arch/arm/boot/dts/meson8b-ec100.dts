@@ -157,7 +157,6 @@
 		interrupt_pin = "GPIOX_21";
 		irq_num = <4>;
 		irq_trigger_type = "GPIO_IRQ_HIGH";
-		power_on_pin = "GPIOAO_6";
 		power_on_pin2 = "GPIOX_11";
 		clock_32k_pin = "GPIOX_10";
 	};
@@ -166,7 +165,6 @@
 		compatible = "amlogic,wifi_power";
 		dev_name = "wifi_power";
 		status = "okay";
-		power_gpio = "GPIOAO_6";
 		power_gpio2 = "GPIOX_11";
 	};
 
@@ -240,20 +238,6 @@
 			gpio_dat3 = "BOOT_3";
 			card_type = <0x1>;
 		};
-	};
-
-	i2c@c8100500{ /* I2C-AO */
-		compatible = "amlogic,aml_i2c";
-		dev_name = "i2c-AO";
-		status = "ok";
-		reg = <0xc8100500 0x1d>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		device_id = <0>;
-		pinctrl-names="default";
-		pinctrl-0=<&ao_i2c_master>;
-		use_pio = <0>;
-		master_i2c_speed = <100000>;
 	};
 
 	i2c@c1108500 { /*I2C-A*/
@@ -413,6 +397,7 @@
 			port-config = <0>; /* 0: default */
 			port-dma = <0>; /* 0: default, 1: single, 2: incr, 3: incr4, 4: incr8, 5: incr16, 6: disable*/
 			port-id-mode = <1>; /* 0: hardware, 1: sw_host, 2: sw_slave*/
+			gpio-pwr = "GPIOAO_5";
 			status = "okay";
 		};
 
@@ -488,36 +473,13 @@
 	aml_audio_codec {
 		compatible = "amlogic,audio_codec";
 
-			rt5616:rt5616 {
-			codec_name = "rt5616";
-			i2c_addr = <0x1b>;
-			i2c_bus = "i2c_bus_d";
+		rt5640:rt5640 {
+			codec_name = "rt5640";
+			i2c_addr = <0x1c>;
+			i2c_bus = "i2c_bus_a";
 			id_reg = <0x00>;
-			id_val = <0x21>;
+			id_val = <0x0c>;
 			capless = <0>;
-			status = "disable";
-		};
-
-		rt5631:rt5631 {
-			codec_name = "rt5631";
-			i2c_addr = <0x1a>;
-			i2c_bus = "i2c_bus_b";
-			id_reg = <0x00>;
-			id_val = <0x01>;
-			capless = <0>;
-			status = "disable";
-		};
-
-		wm8960:wm8960 {
-			codec_name = "wm8960";
-			i2c_addr = <0x1a>;
-			i2c_bus = "i2c_bus_b";
-			capless = <1>;
-			status = "disable";
-		};
-
-		dummy:dummy {
-			codec_name = "dummy_codec";
 			status = "okay";
 		};
 	};
@@ -525,24 +487,12 @@
 	aml_m8_sound_card {
 	        compatible = "sound_card, aml_snd_m8";
 	        aml,sound_card = "AML-M8AUDIO";
-	        aml,codec_dai = "AML-M8","rt5616-aif1","rt5631-hifi","wm8960-hifi","dummy_codec";
-	        aml,audio-routing-rt5616 =
-	            "Ext Spk","LOUTL",
-	            "Ext Spk","LOUTR",
+	        aml,codec_dai = "rt5640-aif1";
+	        aml,audio-routing-rt5640 =
 	            "HP","HPOL",
 	            "HP","HPOR",
-	            "micbias1","main mic",
-	            "IN2P","micbias1";
-	        aml,audio-routing-amlm8 =
-	            "Ext Spk","LINEOUTL",
-	            "Ext Spk","LINEOUTR",
-	            "HP","HP_L",
-	            "HP","HP_R",
-	            "MICBIAS","MAIN_MIC",
-	            "LINPUT1","MICBIAS";
-	        aml,audio-routing-dummy=
-	            "Ext Spk","LOUTL",
-	            "Ext Spk","LOUTR";
+	            "MAIN MIC", "micbias1",
+	            "IN2P", "MAIN MIC";
 	        mute_gpio = "GPIO_BSD_EN";
 	        hp_disable;
 	        hp_paraments = <800 300 0 5 1>;
@@ -899,12 +849,6 @@
 			amlogic,pins = "GPIOH_9";
 		};
 
-		ao_i2c_master: ao_i2c {
-			amlogic,setmask = <10 0x60>;
-			amlogic,clrmask = <10 0x1800006>;
-			amlogic,pins = "GPIOAO_4","GPIOAO_5";
-		};
-
 		a_i2c_master: a_i2c {
 			amlogic,setmask = <9 0xC0000000>;
 			amlogic,clrmask = <0 0x3C0300
@@ -927,9 +871,9 @@
 		};
 
 		audio_pins: audio_pin {
-			amlogic,setmask = <10 0x78000008>;
+			amlogic,setmask = <10 0x78000008 1 0x2000>;
 			amlogic,clrmask = <10 0x80002000>;
-			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_13";
+			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_13","GPIOAO_6";
 		};
 
 		aml_spi_nor_pins: aml_spi_nor_pins {
@@ -957,6 +901,8 @@
 
 	mesondrm {
 		compatible = "amlogic,meson8b-display";
+		cvbs_pal_gpio = "GPIOH_7";
+		cvbs_ntsc_gpio = "GPIOH_8";
 		dev_name = "mesondrm";
 	};
 
