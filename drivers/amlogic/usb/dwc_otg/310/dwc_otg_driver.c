@@ -932,6 +932,15 @@ static int dwc_otg_driver_probe(
 		struct device_node	*of_node = _dev->dev.of_node;
 		match = of_lm_match_node(dwc_otg_dt_match, of_node);
 		if(match){
+			gpio_name = of_get_property(of_node, "gpio-pwr", NULL);
+			if (gpio_name) {
+				int nr = amlogic_gpio_name_map_num(gpio_name);
+				amlogic_gpio_request_one(nr,
+							 GPIOF_OUT_INIT_LOW,
+							 "usb_pwr_en");
+				amlogic_set_value(nr, 1, "usb_pwr_en");
+			}
+
 			s_clock_name = of_get_property(of_node, "clock-src", NULL);
 			prop = of_get_property(of_node, "port-id", NULL);
 			if(prop)
