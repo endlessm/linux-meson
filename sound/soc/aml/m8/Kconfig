@@ -10,6 +10,7 @@ config SND_AML_M8
 	select SND_SOC_DUMMY_CODEC
 	select SND_SOC_WM8960
 	select SND_SOC_RT5631
+	select SND_SOC_RT5640
 	select SND_SOC_AMLPMU3 if AML1218
 
 config SND_AML_M8_PCM
