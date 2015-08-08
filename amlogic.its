@@ -27,14 +27,30 @@
 				algo = "crc32";
 			};
 		};
+		fdt@2 {
+			description = "Amlogic EC100 Flattened Device Tree blob";
+			data = /incbin/("arch/arm/boot/dts/meson8b-ec100.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+
 	};
 
 	configurations {
-		default = "conf@1";
-		conf@1 {
+		default = "ec100";
+		m201 {
 			description = "Boot Amlogic M201";
 			kernel = "kernel@1";
 			fdt = "fdt@1";
+		};
+		ec100 {
+			description = "Boot Endless EC100";
+			kernel = "kernel@1";
+			fdt = "fdt@2";
 		};
 	};
 };
