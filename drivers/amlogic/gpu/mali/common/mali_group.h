@@ -96,6 +96,8 @@ struct mali_group *mali_group_create(struct mali_l2_cache_core *core,
 				     struct mali_bcast_unit *bcast,
 				     u32 domain_index);
 
+void mali_group_dump_status(struct mali_group *group);
+
 void mali_group_delete(struct mali_group *group);
 
 _mali_osk_errcode_t mali_group_add_mmu_core(struct mali_group *group,

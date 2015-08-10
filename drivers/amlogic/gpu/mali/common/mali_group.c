@@ -522,6 +522,71 @@ MALI_DEBUG_CODE(static void mali_group_print_virtual(struct mali_group *vgroup)
 	}
 })
 
+static void mali_group_dump_core_status(struct mali_group *group)
+{
+	u32 i;
+
+	MALI_DEBUG_ASSERT_POINTER(group);
+	MALI_DEBUG_ASSERT(NULL != group->gp_core || (NULL != group->pp_core && !mali_group_is_virtual(group)));
+
+	if (NULL != group->gp_core) {
+		MALI_PRINT(("Dump Group %s\n", group->gp_core->hw_core.description));
+
+		for (i = 0; i < 0xA8; i += 0x10) {
+			MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->gp_core->hw_core, i),
+				    mali_hw_core_register_read(&group->gp_core->hw_core, i + 4),
+				    mali_hw_core_register_read(&group->gp_core->hw_core, i + 8),
+				    mali_hw_core_register_read(&group->gp_core->hw_core, i + 12)));
+		}
+
+
+	} else {
+		MALI_PRINT(("Dump Group %s\n", group->pp_core->hw_core.description));
+
+		for (i = 0; i < 0x5c; i += 0x10) {
+			MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->pp_core->hw_core, i),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 4),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 8),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 12)));
+		}
+
+		/* Ignore some minor registers */
+		for (i = 0x1000; i < 0x1068; i += 0x10) {
+			MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->pp_core->hw_core, i),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 4),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 8),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 12)));
+		}
+	}
+
+	MALI_PRINT(("Dump Group MMU\n"));
+	for (i = 0; i < 0x24; i += 0x10) {
+		MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->mmu->hw_core, i),
+			    mali_hw_core_register_read(&group->mmu->hw_core, i + 4),
+			    mali_hw_core_register_read(&group->mmu->hw_core, i + 8),
+			    mali_hw_core_register_read(&group->mmu->hw_core, i + 12)));
+	}
+}
+
+
+/**
+ * @Dump group status
+ */
+void mali_group_dump_status(struct mali_group *group)
+{
+	MALI_DEBUG_ASSERT_POINTER(group);
+
+	if (mali_group_is_virtual(group)) {
+		struct mali_group *group_c;
+		struct mali_group *temp;
+		_MALI_OSK_LIST_FOREACHENTRY(group_c, temp, &group->group_list, struct mali_group, group_list) {
+			mali_group_dump_core_status(group_c);
+		}
+	} else {
+		mali_group_dump_core_status(group);
+	}
+}
+
 /**
  * @brief Add child group to virtual group parent
  */
