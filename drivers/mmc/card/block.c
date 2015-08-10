@@ -2551,7 +2551,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 	if (mmc_add_disk(md))
 		goto out;
 
-    aml_emmc_partition_ops(card, md->disk); // add by gch
+    //aml_emmc_partition_ops(card, md->disk); // add by gch
 
 	list_for_each_entry(part_md, &md->part, part) {
 		if (mmc_add_disk(part_md))
