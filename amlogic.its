@@ -41,7 +41,7 @@
 	};
 
 	configurations {
-		default = "m201";
+		default = "ec100";
 		m201 {
 			description = "Boot Amlogic M201";
 			kernel = "kernel@1";
