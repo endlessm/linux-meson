@@ -131,6 +131,7 @@ static void mali_executor_wq_schedule(void *arg);
 static void mali_executor_send_gp_oom_to_user(struct mali_gp_job *job);
 static void mali_executor_complete_group(struct mali_group *group,
 		mali_bool success,
+		mali_bool release_jobs,
 		struct mali_gp_job **gp_job_done,
 		struct mali_pp_job **pp_job_done);
 static void mali_executor_change_state_pp_physical(struct mali_group *group,
@@ -445,7 +446,8 @@ void mali_executor_zap_all_active(struct mali_session_data *session)
 	if (MALI_FALSE == ret) {
 		struct mali_gp_job *gp_job = NULL;
 
-		mali_executor_complete_group(gp_group, MALI_FALSE, &gp_job, NULL);
+		mali_executor_complete_group(gp_group, MALI_FALSE,
+					     MALI_TRUE, &gp_job, NULL);
 
 		MALI_DEBUG_ASSERT_POINTER(gp_job);
 
@@ -459,7 +461,8 @@ void mali_executor_zap_all_active(struct mali_session_data *session)
 		if (MALI_FALSE == ret) {
 			struct mali_pp_job *pp_job = NULL;
 
-			mali_executor_complete_group(virtual_group, MALI_FALSE, NULL, &pp_job);
+			mali_executor_complete_group(virtual_group, MALI_FALSE,
+						     MALI_TRUE, NULL, &pp_job);
 
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
@@ -477,7 +480,8 @@ void mali_executor_zap_all_active(struct mali_session_data *session)
 			if (MALI_FALSE == ret) {
 				struct mali_pp_job *pp_job = NULL;
 
-				mali_executor_complete_group(group, MALI_FALSE, NULL, &pp_job);
+				mali_executor_complete_group(group, MALI_FALSE,
+							     MALI_TRUE, NULL, &pp_job);
 
 				if (NULL != pp_job) {
 					/* PP job completed, free it */
@@ -612,14 +616,11 @@ _mali_osk_errcode_t mali_executor_interrupt_gp(struct mali_group *group,
 		struct mali_gp_job *job;
 		mali_bool success;
 
-		if (MALI_TRUE == time_out) {
-			mali_group_dump_status(group);
-		}
-
 		success = (int_result != MALI_INTERRUPT_RESULT_ERROR) ?
 			  MALI_TRUE : MALI_FALSE;
 
-		mali_executor_complete_group(group, success, &job, NULL);
+		mali_executor_complete_group(group, success,
+					     MALI_TRUE, &job, NULL);
 
 		mali_executor_unlock();
 
@@ -692,6 +693,9 @@ _mali_osk_errcode_t mali_executor_interrupt_pp(struct mali_group *group,
 	}
 #else
 	MALI_DEBUG_ASSERT(MALI_INTERRUPT_RESULT_NONE != int_result);
+	if (!mali_group_has_timed_out(group)) {
+		MALI_DEBUG_ASSERT(!mali_group_pp_is_active(group));
+	}
 #endif
 
 	/* We should now have a real interrupt to handle */
@@ -713,14 +717,11 @@ _mali_osk_errcode_t mali_executor_interrupt_pp(struct mali_group *group,
 		struct mali_pp_job *job = NULL;
 		mali_bool success;
 
-		if (MALI_TRUE == time_out) {
-			mali_group_dump_status(group);
-		}
-
 		success = (int_result == MALI_INTERRUPT_RESULT_SUCCESS) ?
 			  MALI_TRUE : MALI_FALSE;
 
-		mali_executor_complete_group(group, success, NULL, &job);
+		mali_executor_complete_group(group, success,
+					     MALI_TRUE, NULL, &job);
 
 		mali_executor_unlock();
 
@@ -804,7 +805,8 @@ _mali_osk_errcode_t mali_executor_interrupt_mmu(struct mali_group *group,
 				     mali_mmu_get_rawstat(group->mmu), status));
 #endif
 
-		mali_executor_complete_group(group, MALI_FALSE, &gp_job, &pp_job);
+		mali_executor_complete_group(group, MALI_FALSE,
+					     MALI_TRUE, &gp_job, &pp_job);
 
 		mali_executor_unlock();
 
@@ -980,7 +982,8 @@ void mali_executor_abort_session(struct mali_session_data *session)
 		if (EXEC_STATE_WORKING == gp_group_state) {
 			struct mali_gp_job *gp_job = NULL;
 
-			mali_executor_complete_group(gp_group, MALI_FALSE, &gp_job, NULL);
+			mali_executor_complete_group(gp_group, MALI_FALSE,
+						     MALI_TRUE, &gp_job, NULL);
 
 			MALI_DEBUG_ASSERT_POINTER(gp_job);
 
@@ -998,7 +1001,8 @@ void mali_executor_abort_session(struct mali_session_data *session)
 		    && mali_group_get_session(virtual_group) == session) {
 			struct mali_pp_job *pp_job = NULL;
 
-			mali_executor_complete_group(virtual_group, MALI_FALSE, NULL, &pp_job);
+			mali_executor_complete_group(virtual_group, MALI_FALSE,
+						     MALI_TRUE, NULL, &pp_job);
 
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
@@ -1013,7 +1017,8 @@ void mali_executor_abort_session(struct mali_session_data *session)
 		if (mali_group_get_session(group) == session) {
 			struct mali_pp_job *pp_job = NULL;
 
-			mali_executor_complete_group(group, MALI_FALSE, NULL, &pp_job);
+			mali_executor_complete_group(group, MALI_FALSE,
+						     MALI_TRUE, NULL, &pp_job);
 
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
@@ -1322,7 +1327,8 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
 		/* Correct job is still running */
 		struct mali_gp_job *job_done = NULL;
 
-		mali_executor_complete_group(gp_group, MALI_FALSE, &job_done, NULL);
+		mali_executor_complete_group(gp_group, MALI_FALSE,
+					     MALI_TRUE, &job_done, NULL);
 
 		/* The same job should have completed */
 		MALI_DEBUG_ASSERT(job_done == job);
@@ -1811,7 +1817,8 @@ static void mali_executor_send_gp_oom_to_user(struct mali_gp_job *job)
 				       notification);
 }
 static struct mali_gp_job *mali_executor_complete_gp(struct mali_group *group,
-		mali_bool success)
+		mali_bool success,
+		mali_bool release_jobs)
 {
 	struct mali_gp_job *job;
 
@@ -1825,17 +1832,20 @@ static struct mali_gp_job *mali_executor_complete_gp(struct mali_group *group,
 	/* Core is now ready to go into idle list */
 	gp_group_state = EXEC_STATE_IDLE;
 
-	/* This will potentially queue more GP and PP jobs */
-	mali_timeline_tracker_release(&job->tracker);
+	if (release_jobs) {
+		/* This will potentially queue more GP and PP jobs */
+		mali_timeline_tracker_release(&job->tracker);
 
-	/* Signal PP job */
-	mali_gp_job_signal_pp_tracker(job, success);
+		/* Signal PP job */
+		mali_gp_job_signal_pp_tracker(job, success);
+	}
 
 	return job;
 }
 
 static struct mali_pp_job *mali_executor_complete_pp(struct mali_group *group,
-		mali_bool success)
+		mali_bool success,
+		mali_bool release_jobs)
 {
 	struct mali_pp_job *job;
 	u32 sub_job;
@@ -1864,7 +1874,7 @@ static struct mali_pp_job *mali_executor_complete_pp(struct mali_group *group,
 	mali_pp_job_mark_sub_job_completed(job, success);
 	job_is_done = mali_pp_job_is_complete(job);
 
-	if (job_is_done) {
+	if (job_is_done && release_jobs) {
 		/* This will potentially queue more GP and PP jobs */
 		mali_timeline_tracker_release(&job->tracker);
 	}
@@ -1874,6 +1884,7 @@ static struct mali_pp_job *mali_executor_complete_pp(struct mali_group *group,
 
 static void mali_executor_complete_group(struct mali_group *group,
 		mali_bool success,
+		mali_bool release_jobs,
 		struct mali_gp_job **gp_job_done,
 		struct mali_pp_job **pp_job_done)
 {
@@ -1884,11 +1895,13 @@ static void mali_executor_complete_group(struct mali_group *group,
 	mali_bool pp_job_is_done = MALI_TRUE;
 
 	if (NULL != gp_core) {
-		gp_job = mali_executor_complete_gp(group, success);
+		gp_job = mali_executor_complete_gp(group,
+						   success, release_jobs);
 	} else {
 		MALI_DEBUG_ASSERT_POINTER(pp_core);
 		MALI_IGNORE(pp_core);
-		pp_job = mali_executor_complete_pp(group, success);
+		pp_job = mali_executor_complete_pp(group,
+						   success, release_jobs);
 
 		pp_job_is_done = mali_pp_job_is_complete(pp_job);
 	}

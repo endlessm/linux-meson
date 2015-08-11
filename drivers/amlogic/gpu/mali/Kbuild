@@ -104,8 +104,7 @@ mali-y += linux/mali_memory_block_alloc.o
 mali-y += \
 	linux/mali_memory_manager.o \
 	linux/mali_memory_virtual.o \
-	linux/mali_memory_util.o \
-	linux/mali_memory_cow.o
+	linux/mali_memory_util.o
 
 mali-y += \
 	linux/mali_ukk_mem.o \

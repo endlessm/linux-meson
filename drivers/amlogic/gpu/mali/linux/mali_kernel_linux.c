@@ -784,19 +784,23 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_sw_counters_report_s), sizeof(u64)));
 		err = profiling_report_sw_counters_wrapper(session_data, (_mali_uk_sw_counters_report_s __user *)arg);
 		break;
+
+
+	case MALI_IOC_PROFILING_MEMORY_USAGE_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_memory_usage_get_s), sizeof(u64)));
+		err = profiling_memory_usage_get_wrapper(session_data, (_mali_uk_profiling_memory_usage_get_s __user *)arg);
+		break;
+
 #else
 
 	case MALI_IOC_PROFILING_ADD_EVENT:          /* FALL-THROUGH */
 	case MALI_IOC_PROFILING_REPORT_SW_COUNTERS: /* FALL-THROUGH */
+	case MALI_IOC_PROFILING_MEMORY_USAGE_GET:   /* FALL-THROUGH */
 		MALI_DEBUG_PRINT(2, ("Profiling not supported\n"));
 		err = -ENOTTY;
 		break;
-#endif
 
-	case MALI_IOC_PROFILING_MEMORY_USAGE_GET:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_memory_usage_get_s), sizeof(u64)));
-		err = mem_usage_get_wrapper(session_data, (_mali_uk_profiling_memory_usage_get_s __user *)arg);
-		break;
+#endif
 
 	case MALI_IOC_MEM_ALLOC:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_alloc_mem_s), sizeof(u64)));
@@ -816,16 +820,6 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 	case MALI_IOC_MEM_UNBIND:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_unbind_mem_s), sizeof(u64)));
 		err = mem_unbind_wrapper(session_data, (_mali_uk_unbind_mem_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_COW:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_cow_mem_s), sizeof(u64)));
-		err = mem_cow_wrapper(session_data, (_mali_uk_cow_mem_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_COW_MODIFY_RANGE:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_cow_modify_range_s), sizeof(u64)));
-		err = mem_cow_modify_range_wrapper(session_data, (_mali_uk_cow_modify_range_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_WRITE_SAFE:
