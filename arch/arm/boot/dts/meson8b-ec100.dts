@@ -487,7 +487,7 @@
 	aml_m8_sound_card {
 	        compatible = "sound_card, aml_snd_m8";
 	        aml,sound_card = "AML-M8AUDIO";
-	        aml,codec_dai = "rt5640-aif1";
+	        aml,codec_dai = "AML-M8", "rt5640-aif1";
 	        aml,audio-routing-rt5640 =
 	            "HP","HPOL",
 	            "HP","HPOR",
