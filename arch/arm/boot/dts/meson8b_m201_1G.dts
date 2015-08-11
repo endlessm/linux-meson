@@ -65,7 +65,6 @@
 		aml_reserved_start = <0x06000000>; /**reserved memory start */
 		aml_reserved_end = <0x05000000>;/**reserved memory end : dtb start for uboot*/
 		phys_offset = <0x00200000>;
-		linux,total-memory = <0x3fe00000>;
 	};
 
 	gic:interrupt-controller {
