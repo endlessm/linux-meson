@@ -3293,7 +3293,7 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, RT5640_GEN_CTRL1, 0x0800, 0x0800);
 	}
 	DC_Calibrate(codec);
-	codec->dapm.bias_level = SND_SOC_BIAS_STANDBY;
+	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
 	rt5640->codec = codec;
 
 	snd_soc_add_codec_controls(codec, rt5640_snd_controls,
