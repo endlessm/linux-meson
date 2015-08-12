@@ -387,7 +387,7 @@ static struct dma_buf *export_and_register_object(struct drm_device *dev,
  * @dev: dev to export the buffer from
  * @file_priv: drm file-private structure
  * @handle: buffer handle to export
- * @flags: flags like DRM_CLOEXEC
+ * @flags: flags like DRM_CLOEXEC and DRM_RDWR
  * @prime_fd: pointer to storage for the fd id of the create dma-buf
  *
  * This is the PRIME export function which must be used mandatorily by GEM
@@ -626,7 +626,6 @@ int drm_prime_handle_to_fd_ioctl(struct drm_device *dev, void *data,
 				 struct drm_file *file_priv)
 {
 	struct drm_prime_handle *args = data;
-	uint32_t flags;
 
 	if (!drm_core_check_feature(dev, DRIVER_PRIME))
 		return -EINVAL;
@@ -635,14 +634,11 @@ int drm_prime_handle_to_fd_ioctl(struct drm_device *dev, void *data,
 		return -ENOSYS;
 
 	/* check flags are valid */
-	if (args->flags & ~DRM_CLOEXEC)
+	if (args->flags & ~(DRM_CLOEXEC | DRM_RDWR))
 		return -EINVAL;
 
-	/* we only want to pass DRM_CLOEXEC which is == O_CLOEXEC */
-	flags = args->flags & DRM_CLOEXEC;
-
 	return dev->driver->prime_handle_to_fd(dev, file_priv,
-			args->handle, flags, &args->fd);
+			args->handle, args->flags, &args->fd);
 }
 
 int drm_prime_fd_to_handle_ioctl(struct drm_device *dev, void *data,
