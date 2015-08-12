@@ -93,11 +93,6 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session,
 			u32 size;
 			u32 __user *memory_cookies = (u32 __user *)(uintptr_t)job->uargs.memory_cookies;
 
-			if (num_memory_cookies > session->allocation_mgr.mali_allocation_nr) {
-				MALI_PRINT_ERROR(("Mali PP job: Too many memory cookies specified in job object\n"));
-				goto fail;
-			}
-
 			size = sizeof(*memory_cookies) * num_memory_cookies;
 
 			job->memory_cookies = _mali_osk_malloc(size);
@@ -142,6 +137,10 @@ void mali_pp_job_delete(struct mali_pp_job *job)
 	}
 
 	if (NULL != job->memory_cookies) {
+#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+		/* Unmap buffers attached to job */
+		mali_dma_buf_unmap_job(job);
+#endif
 		_mali_osk_free(job->memory_cookies);
 	}
 

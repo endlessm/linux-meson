@@ -484,13 +484,6 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
  */
 _mali_osk_errcode_t _mali_ukk_profiling_add_event(_mali_uk_profiling_add_event_s *args);
 
-/** @brief Return the total memory usage
- *
- * @param args see _mali_uk_profiling_memory_usage_get_s in "mali_utgard_uk_types.h"
- * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
- */
-_mali_osk_errcode_t _mali_ukk_profiling_memory_usage_get(_mali_uk_profiling_memory_usage_get_s *args);
-
 /** @} */ /* end group _mali_uk_profiling */
 #endif
 

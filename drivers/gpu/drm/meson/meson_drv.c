@@ -45,9 +45,6 @@
 #include <linux/amlogic/vout/vout_notify.h>
 #include <linux/amlogic/aml_gpio_consumer.h>
 
-/* XXX: Move this to a better location. */
-#include "../../../amlogic/gpu/ump/include/ump/ump_kernel_interface_ref_drv.h"
-
 enum meson_connectors {
 	MESON_CONNECTORS_HDMI      = 0x1,
 	MESON_CONNECTORS_CVBS_NTSC = 0x2,
@@ -1205,11 +1202,6 @@ static irqreturn_t meson_irq(int irq, void *arg)
 
 static void meson_gem_free_object(struct drm_gem_object *obj)
 {
-	struct drm_gem_cma_object *cma_obj = to_drm_gem_cma_obj(obj);
-
-	if (cma_obj->ump_handle)
-		ump_dd_reference_release(cma_obj->ump_handle);
-
 	drm_gem_cma_free_object(obj);
 }
 
@@ -1218,7 +1210,6 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 {
 	struct drm_meson_gem_create_with_ump *args = data;
 	struct drm_gem_cma_object *cma_obj;
-	ump_dd_physical_block ump_mem;
 	unsigned int size;
 	DEFINE_DMA_ATTRS(dma_attrs);
 
@@ -1243,11 +1234,6 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
 	if (IS_ERR(cma_obj))
 		return PTR_ERR(cma_obj);
-
-	ump_mem.addr = cma_obj->paddr;
-	ump_mem.size = size;
-	cma_obj->ump_handle = ump_dd_handle_create_from_phys_blocks2(&ump_mem, 1, !!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
-	args->ump_secure_id = ump_dd_secure_id_get(cma_obj->ump_handle);
 
 	return PTR_ERR_OR_ZERO(cma_obj);
 }
