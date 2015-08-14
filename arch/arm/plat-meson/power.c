@@ -24,6 +24,11 @@
 #include <linux/delay.h>
 #include <asm/proc-fns.h>
 #include <mach/system.h>
+#include <linux/delay.h>
+#include <linux/amlogic/aml_gpio_consumer.h>
+
+static int po_gpio;
+
 /*
  * These are system power hooks to implement power down policy
  * pls add rule and policy notes 
@@ -72,7 +77,9 @@ void meson_power_off_prepare(void)
 void meson_power_off(void)
 {
 	printk("meson power off \n");
-	meson_common_restart('h',"charging_reboot");
+	amlogic_set_value(po_gpio, 0, "gpio_poweroff");
+	mdelay(20000);
+	WARN_ON(1);
 }
 
 void meson_power_idle(void)
@@ -82,6 +89,9 @@ void meson_power_idle(void)
 
 static int __init meson_reboot_setup(void)
 {
+	po_gpio = amlogic_gpio_name_map_num("GPIOAO_2");
+	amlogic_gpio_request_one(po_gpio, GPIOF_OUT_INIT_HIGH, "gpio_poweroff");
+
 	pm_power_off_prepare = meson_power_off_prepare;
 	pm_power_off = meson_power_off;
 //	pm_idle = meson_power_idle;

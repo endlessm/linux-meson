@@ -332,7 +332,6 @@ void machine_power_off(void)
 	local_irq_disable();
 	smp_send_stop();
 
-	arm_machine_flush_console();
 	if (pm_power_off)
 		pm_power_off();
 }
