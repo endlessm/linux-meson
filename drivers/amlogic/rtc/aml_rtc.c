@@ -778,6 +778,8 @@ static int aml_rtc_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	priv->rtc->uie_unsupported = 1;
+
 	//ser_access_write(RTC_GPO_COUNTER_ADDR,0x100000);
 	//static_register_write(0x0004);
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6	
