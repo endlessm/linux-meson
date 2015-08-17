@@ -129,6 +129,7 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 	struct drm_gem_cma_object *cma_obj;
 	struct drm_meson_msync *args = data;
 	struct meson_drm_session_data *session_data = file->driver_priv;
+	int ret = 0;
 
 	void *virtual = NULL;
 	u32 size = 0;
@@ -144,6 +145,7 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 	}
 
 	cma_obj = to_drm_gem_cma_obj(gem_obj);
+
 	/* Returns the cache settings back to Userspace */
 	args->is_cached = dma_get_attr(DMA_ATTR_NON_CONSISTENT, &cma_obj->dma_attrs);
 
@@ -152,7 +154,7 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 
 	/* Nothing to do in these cases */
 	if ((DRM_MESON_MSYNC_READOUT_CACHE_ENABLED == args->op) || (!args->is_cached))
-		return 0;
+		goto out;
 
 	if (args->address) {
 		virtual = (void *)((u32)args->address);
@@ -171,13 +173,16 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 
 	if ((offset + size) > gem_obj->size) {
 		DBG_MSG(1, ("meson_ioctl_msync(): %02u Trying to flush more than the entire allocation: offset %u + size %u > %u\n", args->handle, offset, size, gem_obj->size));
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	/* No need to lock here since session_data=NULL */
 	meson_drm_ump_osk_msync(cma_obj, virtual, offset, gem_obj->size, args->op, NULL);
 
-	return 0;
+ out:
+	drm_gem_object_unreference_unlocked(gem_obj);
+	return ret;
 }
 
 /* this code was heavily inspired by _ump_ukk_switch_hw_usage() in
@@ -233,6 +238,8 @@ int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *
 out:
 	/* We only care about W accesses, which are actually RW */
 	gem_obj->read_domains = gem_obj->write_domain = args->write_domain;
+
+	drm_gem_object_unreference_unlocked(gem_obj);
 
 	DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Finish\n", args->handle));
 	return PTR_ERR_OR_ZERO(cma_obj);
