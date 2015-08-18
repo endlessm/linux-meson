@@ -144,11 +144,6 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 	}
 
 	cma_obj = to_drm_gem_cma_obj(gem_obj);
-	if (NULL == cma_obj) {
-		DBG_MSG(1, ("meson_ioctl_msync(): %02u Failed to get gem_cma_obj containing gem_obj\n", args->handle));
-		return -EFAULT;
-	}
-
 	/* Returns the cache settings back to Userspace */
 	args->is_cached = dma_get_attr(DMA_ATTR_NON_CONSISTENT, &cma_obj->dma_attrs);
 
@@ -205,10 +200,6 @@ int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *
 	}
 
 	cma_obj = to_drm_gem_cma_obj(gem_obj);
-	if (NULL == cma_obj) {
-		DBG_MSG(1, ("meson_ioctl_set_domain(): %02u Failed to get gem_cma_obj containing gem_obj\n", args->handle));
-		return -EFAULT;
-	}
 
 	DBG_MSG(3, ("meson_ioctl_set_domain(): %02u %s -> %s\n",
 		    args->handle,
