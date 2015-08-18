@@ -210,19 +210,12 @@ int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *
 	if (!dma_get_attr(DMA_ATTR_NON_CONSISTENT, &cma_obj->dma_attrs)) {
 		DBG_MSG(3, ("meson_ioctl_set_domain(): %02u Changing owner of uncached memory, cache flushing not needed.\n",
 			    args->handle));
+		cma_obj = ERR_PTR(-EINVAL);
 		goto out;
 	}
 
 	if (gem_obj->write_domain == args->write_domain) {
 		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u New_user equal previous, cache flushing not needed\n",
-			    args->handle,));
-		goto out;
-	}
-	if (
-		/* Previous AND new is both different from CPU */
-		(gem_obj->write_domain != DRM_MESON_GEM_DOMAIN_CPU) && (args->write_domain != DRM_MESON_GEM_DOMAIN_CPU)
-	) {
-		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Previous and new user are not CPU, cache flushing not needed\n",
 			    args->handle,));
 		goto out;
 	}
