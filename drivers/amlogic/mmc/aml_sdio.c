@@ -1334,13 +1334,8 @@ static int aml_sdio_probe(struct platform_device *pdev)
         mmc->f_min = pdata->f_min;
         mmc->f_max = pdata->f_max;
 
-        if (aml_card_type_sdio(pdata)) { // if sdio_wifi
-            mmc->host_rescan_disable = true;
-			mmc->rescan_entered = 1; // do NOT run mmc_rescan for the first time
-        } else {
-            mmc->host_rescan_disable = false;
-			mmc->rescan_entered = 0; 
-        }
+        mmc->host_rescan_disable = false;
+        mmc->rescan_entered = 0;
          
         if(pdata->port_init)
             pdata->port_init(pdata);
