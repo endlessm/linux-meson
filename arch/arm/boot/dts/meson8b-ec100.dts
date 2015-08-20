@@ -1,6 +1,6 @@
 /dts-v1/;
 /{
-	compatible = "AMLOGIC,8726_M8B";
+	compatible = "endless,ec100", "AMLOGIC,8726_M8B";
 	model = "AMLOGIC";
 	interrupt-parent = <&gic>;
 	#address-cells = <1>;
