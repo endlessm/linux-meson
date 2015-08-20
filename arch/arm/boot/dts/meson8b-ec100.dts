@@ -1,7 +1,7 @@
 /dts-v1/;
 /{
 	amlogic-dt-id = "m8b_m201_1G";
-	compatible = "AMLOGIC,8726_M8B";
+	compatible = "endless,ec100", "AMLOGIC,8726_M8B";
 	model = "AMLOGIC";
 	interrupt-parent = <&gic>;
 	#address-cells = <1>;
