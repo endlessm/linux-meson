@@ -1089,4 +1089,14 @@
 		compatible = "amlogic,meson8b-codec";
 	};
 
+	gpio_keys {
+		compatible = "endless,ec100-gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pwr@1 {
+			linux,code = <116>; /* KEY_POWER */
+			gpio = "GPIOH_9";
+		};
+	};
+
 }; /* end of / */
