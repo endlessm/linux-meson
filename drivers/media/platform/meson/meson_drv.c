@@ -101,11 +101,29 @@ enum eos_state {
 	EOS_DETECTED,
 };
 
+static struct vdec_fmt {
+	const char *name;
+	u32 pixelformat;
+	int num_planes;
+} formats[] = {
+	{
+		.name = "NV12",
+		.pixelformat = V4L2_PIX_FMT_NV12M,
+		.num_planes = 2,
+	},
+	{
+		.name = "BGRA",
+		.pixelformat = V4L2_PIX_FMT_BGR32,
+		.num_planes = 1,
+	},
+};
+
 struct vdec_ctx {
 	struct v4l2_fh		fh;
 	struct vdec_dev	*dev;
 	struct v4l2_m2m_ctx	*m2m_ctx;
 	struct task_struct *image_thread;
+	struct vdec_fmt *fmt;
 	struct timer_list eos_idle_timer;
 	struct vframe_receiver_s vf_receiver;
 
@@ -137,11 +155,23 @@ struct vdec_ctx {
 	wait_queue_head_t esparser_queue;
 };
 
-static u32 get_bytesperline(u32 width)
+static void get_bytesperline(struct vdec_fmt *fmt, u32 width, unsigned int *plane0stride, unsigned int *plane1stride)
 {
 	/* GE2D can only work with output buffers with an 8-byte aligned
 	 width */
-	return round_up(width, 8) * 4;
+
+	switch (fmt->pixelformat) {
+	case V4L2_PIX_FMT_BGR32:
+		*plane0stride = round_up(width, 8) * 4;
+		*plane1stride = 0;
+		break;
+	case V4L2_PIX_FMT_NV12M:
+		*plane0stride = round_up(width, 8);
+		*plane1stride = *plane0stride / 2;
+		break;
+	default:
+		*plane0stride = *plane1stride = 0;
+	}
 }
 
 static inline struct vdec_ctx *file2ctx(struct file *file)
@@ -380,13 +410,16 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 				   struct v4l2_fmtdesc *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
+	struct vdec_fmt *fmt;
+
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "enum_fmt_vid_cap\n");
 
-        if (f->index != 0)
+	if (f->index >= ARRAY_SIZE(formats))
 		return -EINVAL;
 
-	snprintf(f->description, sizeof(f->description), "BGRA");
-	f->pixelformat = V4L2_PIX_FMT_BGR32;
+	fmt = &formats[f->index];
+	strlcpy(f->description, fmt->name, sizeof(f->description));
+	f->pixelformat = fmt->pixelformat;
 	return 0;
 }
 
@@ -424,6 +457,7 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct vdec_ctx *ctx = file2ctx(file);
 	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
+	unsigned int plane0stride, plane1stride;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
@@ -433,25 +467,37 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
         if (ctx->frame_width == 0 || ctx->frame_height == 0)
 		return -EINVAL;
 
-	mp->pixelformat = V4L2_PIX_FMT_BGR32;
+	mp->pixelformat = ctx->fmt->pixelformat;
 	mp->width = ctx->frame_width;
 	mp->height = ctx->frame_height;
 	mp->field = V4L2_FIELD_NONE;
-	mp->num_planes = 1;
-	mp->plane_fmt[0].bytesperline = get_bytesperline(mp->width);
-	mp->plane_fmt[0].sizeimage = mp->plane_fmt[0].bytesperline *
-				     mp->height;
+	mp->num_planes = ctx->fmt->num_planes;
+	get_bytesperline(ctx->fmt, mp->width, &plane0stride, &plane1stride);
+	mp->plane_fmt[0].bytesperline = plane0stride;
+	mp->plane_fmt[1].bytesperline = plane1stride;
+	mp->plane_fmt[0].sizeimage = plane0stride * mp->height;
+	mp->plane_fmt[1].sizeimage = plane1stride * mp->height;
 	return 0;
 }
 
-static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
-				  struct v4l2_format *f)
+static int try_fmt_vid_cap(struct vdec_ctx *ctx, struct v4l2_format *f,
+			   bool set)
 {
-	struct vdec_ctx *ctx = file2ctx(file);
-	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
+	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
+	struct vdec_fmt *fmt = &formats[0];
+	unsigned int plane0stride, plane1stride;
 	enum v4l2_field field;
+	int i;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
+
+	/* V4L2 specification suggests the driver corrects the format struct
+	* if any of the dimensions is unsupported */
+
+	for (i = 0; i < ARRAY_SIZE(formats); i++) {
+		if (formats[i].pixelformat == f->fmt.pix_mp.pixelformat)
+			fmt = &formats[i];
+	}
 
 	field = f->fmt.pix.field;
 	if (field == V4L2_FIELD_ANY)
@@ -459,14 +505,28 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	else if (V4L2_FIELD_NONE != field)
 		return -EINVAL;
 
-	/* V4L2 specification suggests the driver corrects the format struct
-	 * if any of the dimensions is unsupported */
-	f->fmt.pix.field = field;
-	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_BGR32;
-	f->fmt.pix_mp.num_planes = 1;
-	plane->bytesperline = get_bytesperline(f->fmt.pix_mp.width);
-	plane->sizeimage = plane->bytesperline * f->fmt.pix_mp.height;
+	if (set)
+		ctx->fmt = fmt;
+
+	mp->field = field;
+	mp->pixelformat = fmt->pixelformat;
+	mp->num_planes = fmt->num_planes;
+	get_bytesperline(ctx->fmt, mp->width, &plane0stride, &plane1stride);
+	mp->plane_fmt[0].bytesperline = plane0stride;
+	mp->plane_fmt[1].bytesperline = plane1stride;
+	mp->plane_fmt[0].sizeimage = plane0stride * mp->height;
+	mp->plane_fmt[1].sizeimage = plane1stride * mp->height;
 	return 0;
+}
+
+static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
+				  struct v4l2_format *f)
+{
+	struct vdec_ctx *ctx = file2ctx(file);
+
+	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
+
+	return try_fmt_vid_cap(ctx, f, false);
 }
 
 static int vidioc_try_fmt_vid_out(struct file *file, void *priv,
@@ -503,7 +563,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix_mp.width = ctx->frame_width;
 	f->fmt.pix_mp.height = ctx->frame_height;
 
-	return vidioc_try_fmt_vid_cap(file, priv, f);
+	return try_fmt_vid_cap(ctx, f, true);
 }
 
 static int vidioc_s_fmt_vid_out(struct file *file, void *priv,
@@ -726,10 +786,12 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
-	*nplanes = 1;
-        //FIXME 32bpp only
-	sizes[0] = get_bytesperline(ctx->frame_width) * ctx->frame_height;
+	*nplanes = ctx->fmt->num_planes;
+	get_bytesperline(ctx->fmt, ctx->frame_width, &sizes[0], &sizes[1]);
+	sizes[0] *= ctx->frame_height;
+	sizes[1] *= ctx->frame_height;
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
+	alloc_ctxs[1] = ctx->dev->vb_alloc_ctx;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
 		  "get %d capture buffer(s).\n", *nbuffers);
@@ -878,6 +940,7 @@ static int image_thread(void *data) {
 	struct vdec_ctx *ctx = data;
 	struct vframe_s *vf;
 	struct vb2_buffer *dst;
+	unsigned int plane0stride, plane1stride;
 
 	set_freezable();
 	for (;;) {
@@ -918,7 +981,12 @@ static int image_thread(void *data) {
 			 dst->v4l2_buf.timestamp.tv_sec,
 			 dst->v4l2_buf.timestamp.tv_usec);
 
-		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx->frame_width));
+		get_bytesperline(ctx->fmt, ctx->frame_width,
+				 &plane0stride, &plane1stride);
+		vdec_process_image(ctx->dev, vf, dst, ctx->fmt->pixelformat,
+				   plane0stride);
+		vb2_set_plane_payload(dst, 0, vf->height * plane0stride);
+		vb2_set_plane_payload(dst, 1, vf->height * plane1stride);
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
 	}
@@ -982,6 +1050,7 @@ static int meson_vdec_open(struct file *file)
 	ctx->dev = dev;
 	ctx->esparser_busy = false;
 	ctx->parsed_len = 0;
+	ctx->fmt = &formats[0];
 	spin_lock_init(&ctx->data_lock);
 	init_waitqueue_head(&ctx->esparser_queue);
 
