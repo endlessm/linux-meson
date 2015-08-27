@@ -38,6 +38,7 @@ int vdec_image_init(struct vdec_dev *dev);
 void vdec_image_exit(struct vdec_dev *dev);
 
 int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
-		       struct vb2_buffer *dst, u32 bytesperline);
+		       struct vb2_buffer *dst, u32 pixelformat,
+		       unsigned int plane0size);
 
 #endif
