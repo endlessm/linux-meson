@@ -44,7 +44,7 @@ static void src_config(struct vframe_s *vf, config_para_ex_t *ge2d_config)
 	ge2d_config->src2_para.mem_type = CANVAS_TYPE_INVALID;
 }
 
-static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst_pixel_format, int* src_position, int* dst_paint_position, int* dst_plane_position)
+static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst_pixel_format, int dst_canvas_id, int* src_position, int* dst_paint_position, int* dst_plane_position)
 {
 	ge2d_config->dst_para.mem_type = CANVAS_TYPE_INVALID;
 	ge2d_config->dst_para.fill_color_en = 0;
@@ -59,7 +59,7 @@ static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst
 	ge2d_config->dst_xy_swap = 0;
 
 	ge2d_config->dst_para.format = dst_pixel_format | GE2D_LITTLE_ENDIAN;
-	ge2d_config->dst_para.canvas_index = DST_CANVAS_INDEX;
+	ge2d_config->dst_para.canvas_index = dst_canvas_id;
 
 	if (ge2d_context_config_ex(context, ge2d_config) < 0) {
 		pr_err("Ge2d configing error.\n");
@@ -70,25 +70,54 @@ static int paint(ge2d_context_t *context, config_para_ex_t *ge2d_config, int dst
 	return 0;
 }
 
-static void dst_canvas_config(struct vframe_s *vf, struct vb2_buffer *buf,
-			      u32 bytesperline)
+static int dst_canvas_config(struct vframe_s *vf, struct vb2_buffer *buf,
+			      u32 pixelformat, unsigned int plane0stride)
 {
-	dma_addr_t phys_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
-
-	canvas_config(DST_CANVAS_INDEX, phys_addr, bytesperline, vf->height,
-		      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
+	if (pixelformat == V4L2_PIX_FMT_NV12M) {
+		canvas_config(DST_CANVAS_INDEX,
+			      vb2_dma_contig_plane_dma_addr(buf, 0),
+			      plane0stride, vf->height,
+			      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
+		canvas_config(DST_CANVAS_INDEX + 1,
+			      vb2_dma_contig_plane_dma_addr(buf, 1),
+			      plane0stride, vf->height >> 1,
+			      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
+		return DST_CANVAS_INDEX | ((DST_CANVAS_INDEX + 1) << 8);
+	} else if (pixelformat == V4L2_PIX_FMT_BGR32) {
+		canvas_config(DST_CANVAS_INDEX,
+			      vb2_dma_contig_plane_dma_addr(buf, 0),
+			      plane0stride, vf->height,
+			      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
+		return DST_CANVAS_INDEX;
+	}
+	return 0;
 }
 
 int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
-		       struct vb2_buffer *dst, u32 bytesperline)
+		       struct vb2_buffer *dst, u32 pixelformat,
+		       unsigned int plane0stride)
 {
 	int src_position[4];
 	int dst_paint_position[4];
 	int dst_plane_position[4];
-	int dst_pixel_format = GE2D_FORMAT_S32_ARGB; // FIXME allow fmt selection
+	int dst_pixel_format;
+	int dst_canvas_id;
 
 	dev_dbg(dev->v4l2_dev.dev, "Processing vf %d %p into vb2 buf %d\n",
 		  vf->index, vf, dst->v4l2_buf.index);
+
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_BGR32:
+		dst_pixel_format = GE2D_FORMAT_S32_ARGB;
+		break;
+	case V4L2_PIX_FMT_NV12M:
+		dst_pixel_format = GE2D_FORMAT_M24_NV12;
+		break;
+	default:
+		v4l2_err(&dev->v4l2_dev, "Unrecognised format %x\n",
+			 pixelformat);
+		return -EINVAL;
+	}
 
 	src_position[0] = 0;
 	src_position[1] = 0;
@@ -109,10 +138,12 @@ int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
 	dst_paint_position[3] = dst_plane_position[3];
 
 	src_config(vf, &dev->ge2d_config);
-	dst_canvas_config(vf, dst, bytesperline);
+	dst_canvas_id = dst_canvas_config(vf, dst, pixelformat, plane0stride);
 
-	paint(dev->ge2d_context, &dev->ge2d_config, dst_pixel_format, src_position, dst_paint_position, dst_plane_position);
-	vb2_set_plane_payload(dst, 0, vf->height * vf->width * 4); // FIXME 32bpp
+	paint(dev->ge2d_context, &dev->ge2d_config, dst_pixel_format,
+	      dst_canvas_id, src_position, dst_paint_position,
+	      dst_plane_position);
+
 	return 0;
 }
 
