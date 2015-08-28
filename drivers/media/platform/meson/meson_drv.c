@@ -42,6 +42,10 @@
  * decoded frame data. Maybe it doesn't have to be contiguous. */
 #define VDEC_HW_BUF_SIZE	(64*1024*1024)
 
+static int debug;
+module_param(debug, int, 0644);
+MODULE_PARM_DESC(debug, "debug level (0-1)");
+
 struct vdec_buf {
 	struct list_head list;
 	struct vb2_buffer *buf;
@@ -167,7 +171,8 @@ static inline struct vdec_ctx *file2ctx(struct file *file)
  */
 static void send_eos_tail(struct vdec_ctx *ctx)
 {
-	v4l2_info(&ctx->dev->v4l2_dev, "sending EOS tail to esparser\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "sending EOS tail to esparser\n");
 	ctx->eos_state = EOS_TAIL_SENT;
 	ctx->esparser_busy = true;
 	esparser_start_search(PARSER_VIDEO, ctx->eos_tail_buf_phys,
@@ -196,7 +201,7 @@ static void eos_check_idle(unsigned long arg)
 		return;
 	}
 
-	v4l2_info(&ctx->dev->v4l2_dev, "EOS detected\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "EOS detected\n");
 	ctx->eos_state = EOS_DETECTED;
 	while ((buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 		vb2_set_plane_payload(buf, 0, 0);
@@ -238,15 +243,16 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 		return;
 	}
 
-	v4l2_info(&ctx->dev->v4l2_dev,
-		  "send src buffer %d to parser, phys addr %x size %ld\n",
-		  buf->v4l2_buf.index, phys_addr, size);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "send src buffer %d to parser, phys addr %x size %ld\n",
+		 buf->v4l2_buf.index, phys_addr, size);
 
 	ctx->esparser_busy = true;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "parsing at pts %li.%lis offset %x\n",
-		buf->v4l2_buf.timestamp.tv_sec, buf->v4l2_buf.timestamp.tv_usec,
-		ctx->parsed_len);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "parsing at pts %li.%lis offset %x\n",
+		 buf->v4l2_buf.timestamp.tv_sec,
+		 buf->v4l2_buf.timestamp.tv_usec, ctx->parsed_len);
 
 	ts = (uint64_t)buf->v4l2_buf.timestamp.tv_sec * 1000000 +
 		(uint64_t)buf->v4l2_buf.timestamp.tv_usec;
@@ -266,7 +272,8 @@ static void parser_cb(void *data)
 
 	/* Compressed video has been parsed into the decoder FIFO, so we can
 	 * return this buffer to userspace. */
-	v4l2_info(&ctx->dev->v4l2_dev, "esparser reports completion\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "esparser reports completion\n");
 
 	spin_lock(&ctx->data_lock);
 	ctx->esparser_busy = false;
@@ -295,8 +302,9 @@ static void h264_params_cb(void *data, int status, u32 width, u32 height)
 		.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION,
 	};
 
-	v4l2_info(&ctx->dev->v4l2_dev, "h264_params_cb status=%d w=%d h=%d\n",
-		  status, width, height);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "h264_params_cb status=%d w=%d h=%d\n",
+		 status, width, height);
 
 	if (status) {
 		v4l2_err(&ctx->dev->v4l2_dev, "H264 params error.\n");
@@ -325,7 +333,7 @@ static void device_run(void *priv)
 static void job_abort(void *priv)
 {
 	struct vdec_ctx *ctx = priv;
-	v4l2_info(&ctx->dev->v4l2_dev, "job_abort\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "job_abort\n");
 	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->m2m_ctx);
 }
 
@@ -357,7 +365,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 			   struct v4l2_capability *cap)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_querycap\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_querycap\n");
 
 	strncpy(cap->driver, DRIVER_NAME, sizeof(cap->driver) - 1);
 	strncpy(cap->card, DRIVER_NAME, sizeof(cap->card) - 1);
@@ -372,7 +380,7 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 				   struct v4l2_fmtdesc *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "enum_fmt_vid_cap\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "enum_fmt_vid_cap\n");
 
         if (f->index != 0)
 		return -EINVAL;
@@ -386,7 +394,7 @@ static int vidioc_enum_fmt_vid_out(struct file *file, void *priv,
 				   struct v4l2_fmtdesc *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "enum_fmt_vid_out\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "enum_fmt_vid_out\n");
 
         if (f->index != 0)
 		return -EINVAL;
@@ -400,7 +408,7 @@ static int vidioc_g_fmt_vid_out(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_out\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "g_fmt_vid_out\n");
 
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix_mp.width = f->fmt.pix_mp.height = 0;
@@ -417,7 +425,7 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
 	wait_event_interruptible_timeout(ctx->esparser_queue,
 		ctx->frame_width != 0, HZ/5);
@@ -443,7 +451,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
 	enum v4l2_field field;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
 
 	field = f->fmt.pix.field;
 	if (field == V4L2_FIELD_ANY)
@@ -466,7 +474,7 @@ static int vidioc_try_fmt_vid_out(struct file *file, void *priv,
 {
 	struct vdec_ctx *ctx = file2ctx(file);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_try_fmt_vid_out\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_out\n");
 
 	/* FIXME: set sizeimage too? */
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
@@ -481,7 +489,8 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	struct vb2_queue *vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_s_fmt_vid_cap type=%d\n", f->type);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "ioc_s_fmt_vid_cap type=%d\n", f->type);
 
 	if (!vq)
 		return -EINVAL;
@@ -512,7 +521,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 {
 	struct vdec_ctx *ctx = file2ctx(file);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "reqbufs type %d\n", reqbufs->type);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "reqbufs type %d\n", reqbufs->type);
 
 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		ctx->src_bufs_cnt = 0;
@@ -526,7 +536,8 @@ static int vidioc_querybuf(struct file *file, void *priv,
 			   struct v4l2_buffer *buf)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_querybuf %d\n", buf->index);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "ioc_querybuf %d\n", buf->index);
 
 	return v4l2_m2m_querybuf(file, ctx->m2m_ctx, buf);
 }
@@ -535,7 +546,7 @@ static int vidioc_expbuf(struct file *file, void *priv,
 			   struct v4l2_exportbuffer *buf)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_expbuf %d\n", buf->index);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_expbuf %d\n", buf->index);
 
 	return v4l2_m2m_expbuf(file, ctx->m2m_ctx, buf);
 }
@@ -543,14 +554,16 @@ static int vidioc_expbuf(struct file *file, void *priv,
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_qbuf %d %d\n", buf->index, buf->m.planes[0].bytesused);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "ioc_qbuf %d %d\n", buf->index, buf->m.planes[0].bytesused);
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
 }
 
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "ioc_dqbuf %d\n", buf->index);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "ioc_dqbuf %d\n", buf->index);
 
 	return v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
 }
@@ -559,7 +572,7 @@ static int vidioc_streamon(struct file *file, void *priv,
 			   enum v4l2_buf_type type)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "streamon type=%d\n", type);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "streamon type=%d\n", type);
 
 	return v4l2_m2m_streamon(file, ctx->m2m_ctx, type);
 }
@@ -568,7 +581,7 @@ static int vidioc_streamoff(struct file *file, void *priv,
 			    enum v4l2_buf_type type)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "streamoff type=%d\n", type);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "streamoff type=%d\n", type);
 
 	return v4l2_m2m_streamoff(file, ctx->m2m_ctx, type);
 }
@@ -576,7 +589,8 @@ static int vidioc_streamoff(struct file *file, void *priv,
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
 				  const struct  v4l2_event_subscription *sub)
 {
-	v4l2_info(fh->vdev->v4l2_dev, "subscribe event %d\n", sub->type);
+	v4l2_dbg(1, debug, fh->vdev->v4l2_dev,
+		 "subscribe event %d\n", sub->type);
 
 	switch (sub->type) {
 	case V4L2_EVENT_SOURCE_CHANGE:
@@ -593,7 +607,7 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 {
 	struct vdec_ctx *ctx = file2ctx(file);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "decoder cmd %d\n", cmd->cmd);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "decoder cmd %d\n", cmd->cmd);
 
 	if (cmd->cmd != V4L2_DEC_CMD_STOP)
 		return -EINVAL;
@@ -647,7 +661,7 @@ static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
 	unsigned long flags;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "src_start_streaming\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "src_start_streaming\n");
 	ctx->src_streaming = true;
 
 	/* We stream source buffers regardless of dest queue state. */
@@ -687,7 +701,7 @@ static int vdec_src_queue_setup(struct vb2_queue *vq,
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_output\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "queue_setup_output\n");
 
 	*nplanes = 1;
 
@@ -696,7 +710,7 @@ static int vdec_src_queue_setup(struct vb2_queue *vq,
 
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
-	v4l2_info(&ctx->dev->v4l2_dev,
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
 		  "get %d buffer(s) of size %d each.\n", *nplanes, sizes[0]);
 
 	return 0;
@@ -710,14 +724,14 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "queue_setup_capture\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
 	*nplanes = 1;
         //FIXME 32bpp only
 	sizes[0] = get_bytesperline(ctx->frame_width) * ctx->frame_height;
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
-	v4l2_info(&ctx->dev->v4l2_dev,
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
 		  "get %d capture buffer(s).\n", *nbuffers);
 
 	return 0;
@@ -727,7 +741,7 @@ static int vdec_src_buf_init(struct vb2_buffer *vb)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	int i = vb->v4l2_buf.index;
-	v4l2_info(&ctx->dev->v4l2_dev, "src_buf_init %d\n", i);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "src_buf_init %d\n", i);
 
 	ctx->src_bufs[i].buf = vb;
 	ctx->src_bufs_cnt++;
@@ -738,7 +752,7 @@ static int vdec_dst_buf_init(struct vb2_buffer *vb)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	int i = vb->v4l2_buf.index;
-	v4l2_info(&ctx->dev->v4l2_dev, "dst_buf_init %d\n", i);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "dst_buf_init %d\n", i);
 
 	ctx->dst_bufs[i].buf = vb;
 	ctx->dst_bufs_cnt++;
@@ -750,7 +764,8 @@ static int vdec_dst_buf_prepare(struct vb2_buffer *vb)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "buf_prepare %d\n", vb->v4l2_buf.index);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "buf_prepare %d\n", vb->v4l2_buf.index);
 	return 0;
 }
 
@@ -760,7 +775,8 @@ static void vdec_src_buf_queue(struct vb2_buffer *vb)
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	unsigned long flags;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "src_buf_queue %d\n", vb->v4l2_buf.index);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "src_buf_queue %d\n", vb->v4l2_buf.index);
 	v4l2_m2m_buf_queue(ctx->m2m_ctx, vb);
 
 	spin_lock_irqsave(&ctx->data_lock, flags);
@@ -771,7 +787,8 @@ static void vdec_src_buf_queue(struct vb2_buffer *vb)
 static void vdec_dst_buf_queue(struct vb2_buffer *vb)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
-	v4l2_info(&ctx->dev->v4l2_dev, "dst_buf_queue %d\n", vb->v4l2_buf.index);
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "dst_buf_queue %d\n", vb->v4l2_buf.index);
 
 	if (ctx->eos_state == EOS_DETECTED) {
 		vb2_set_plane_payload(vb, 0, 0);
@@ -826,7 +843,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *ds
 	struct vdec_ctx *ctx = priv;
 	int ret;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "queue_init\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "queue_init\n");
 
 	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	src_vq->io_modes = VB2_MMAP;
@@ -876,7 +893,8 @@ static int image_thread(void *data) {
 		if (!image_buffers_ready(ctx))
 			continue;
 
-		v4l2_info(&ctx->dev->v4l2_dev, "image thread wakeup\n");
+		v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+			 "image thread wakeup\n");
 
 		vf = vf_get(RECEIVER_NAME);
 		if (!vf) {
@@ -895,15 +913,17 @@ static int image_thread(void *data) {
 		dst->v4l2_buf.timestamp.tv_usec = ( __kernel_suseconds_t)
 			(vf->pts_us64 - (dst->v4l2_buf.timestamp.tv_sec * 1000000));
 
-		v4l2_info(&ctx->dev->v4l2_dev, "got decoded frame at pts %li.%lis\n",
-			dst->v4l2_buf.timestamp.tv_sec, dst->v4l2_buf.timestamp.tv_usec);
+		v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+			 "got decoded frame at pts %li.%lis\n",
+			 dst->v4l2_buf.timestamp.tv_sec,
+			 dst->v4l2_buf.timestamp.tv_usec);
 
 		vdec_process_image(ctx->dev, vf, dst, get_bytesperline(ctx->frame_width));
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
 	}
 
-	v4l2_info(&ctx->dev->v4l2_dev, "image thread exit\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "image thread exit\n");
 	return 0;
 }
 
@@ -911,7 +931,7 @@ static int vf_receiver_event(int type, void *data, void *user_data)
 {
 	struct vdec_ctx *ctx = user_data;
 	if (type != VFRAME_EVENT_PROVIDER_QUREY_STATE)
-		v4l2_info(&ctx->dev->v4l2_dev, "vf event %d\n", type);
+		v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "vf event %d\n", type);
 
 	switch (type) {
 	case VFRAME_EVENT_PROVIDER_QUREY_STATE:
@@ -942,7 +962,7 @@ static int meson_vdec_open(struct file *file)
 	stream_port_t *port = amstream_find_port("amstream_vbuf");
 	stream_buf_t *sbuf = get_buf_by_type(BUF_TYPE_VIDEO);
 
-	v4l2_info(&dev->v4l2_dev, "vdec_open\n");
+	v4l2_dbg(1, debug, &dev->v4l2_dev, "vdec_open\n");
 	if (!port)
 		return -ENOENT;
 
@@ -1045,7 +1065,7 @@ static int meson_vdec_release(struct file *file)
 	struct vdec_ctx *ctx = file2ctx(file);
 	stream_buf_t *sbuf = get_buf_by_type(BUF_TYPE_VIDEO);
 
-	v4l2_info(&ctx->dev->v4l2_dev, "vdec_release\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "vdec_release\n");
 
 	del_timer_sync(&ctx->eos_idle_timer);
 	amstream_port_release(amstream_find_port("amstream_vbuf"));
@@ -1071,7 +1091,7 @@ static unsigned int vdec_poll(struct file *file,
 				 struct poll_table_struct *wait)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	v4l2_info(&ctx->dev->v4l2_dev, "vdec_poll\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "vdec_poll\n");
 	return v4l2_m2m_poll(file, ctx->m2m_ctx, wait);
 }
 
@@ -1081,7 +1101,7 @@ static int vdec_mmap(struct file *file, struct vm_area_struct *vma)
 	struct vdec_ctx *ctx = file2ctx(file);
 	int ret;
 
-	v4l2_info(&ctx->dev->v4l2_dev, "vdec_mmap\n");
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "vdec_mmap\n");
 
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
