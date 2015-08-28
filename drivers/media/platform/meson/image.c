@@ -87,7 +87,7 @@ int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
 	int dst_plane_position[4];
 	int dst_pixel_format = GE2D_FORMAT_S32_ARGB; // FIXME allow fmt selection
 
-	v4l2_info(&dev->v4l2_dev, "Processing vf %d %p into vb2 buf %d\n",
+	dev_dbg(dev->v4l2_dev.dev, "Processing vf %d %p into vb2 buf %d\n",
 		  vf->index, vf, dst->v4l2_buf.index);
 
 	src_position[0] = 0;
