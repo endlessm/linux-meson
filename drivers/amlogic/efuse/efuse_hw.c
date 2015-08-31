@@ -203,7 +203,7 @@ static void __efuse_read_dword( unsigned long addr, unsigned long *data )
 	//printk(KERN_INFO "__efuse_read_dword: addr=%ld, data=0x%lx\n", addr, *data);
 }
 
-static ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos )
+ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos )
 {
 	unsigned long* contents = (unsigned long*)kzalloc(sizeof(unsigned long)*EFUSE_DWORDS, GFP_KERNEL);
 	unsigned pos = *ppos;
@@ -274,7 +274,7 @@ static ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos )
 	return count;
 }
 
-static ssize_t __efuse_write(const char *buf, size_t count, loff_t *ppos )
+ssize_t __efuse_write(const char *buf, size_t count, loff_t *ppos )
 {
 	unsigned pos = *ppos;
 	//loff_t *readppos = ppos;

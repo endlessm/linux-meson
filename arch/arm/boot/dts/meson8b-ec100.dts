@@ -548,6 +548,11 @@
 		};
 	};
 
+	efuse-raw {
+		compatible = "amlogic,efuse-raw";
+		status = "okay";
+	};
+
 	efuse {
 		compatible = "amlogic,efuse";
 		dev_name = "efuse";
