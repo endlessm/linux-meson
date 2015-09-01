@@ -76,7 +76,10 @@ void meson_power_off_prepare(void)
 
 void meson_power_off(void)
 {
+	int po7_gpio = amlogic_gpio_name_map_num("GPIOAO_7");
+
 	printk("meson power off \n");
+	gpio_set_value(po7_gpio, 0);
 	amlogic_set_value(po_gpio, 0, "gpio_poweroff");
 	mdelay(20000);
 	WARN_ON(1);
