@@ -632,6 +632,40 @@ static int m8b_set_pullup(unsigned int pin,unsigned int val,unsigned int pullen)
 	return ret;
 }
 
+static ssize_t breathing_store(struct class *class,
+			       struct class_attribute *attr,
+			       const char *buf, size_t len)
+{
+	long val;
+	int status, b_gpio;
+
+	status = strict_strtol(buf, 0, &val);
+	if (status < 0)
+		return status;
+
+	if (val != 0 && val != 1)
+		return -EINVAL;
+
+	b_gpio = amlogic_gpio_name_map_num("GPIOAO_7");
+	amlogic_gpio_request(b_gpio, "gpio_breathing");
+
+	status = amlogic_gpio_direction_output(b_gpio, (int) val, "gpio_breathing");
+	if (status < 0)
+		return -EINVAL;
+
+	return len;
+}
+
+static struct class_attribute meson_gpio_class_attrs[] = {
+	__ATTR(breathing, 0200, NULL, breathing_store),
+	__ATTR_NULL,
+};
+
+static struct class meson_gpio_class = {
+	.name = "meson_gpio",
+	.class_attrs = meson_gpio_class_attrs,
+};
+
 //#define gpio_dump
 //#define pull_dump
 //#define dire_dump
@@ -696,6 +730,8 @@ extern int m8b_pin_map_to_direction(unsigned int pin,unsigned int *reg,unsigned 
 			dbit);
 	}
 #endif
+
+	class_register(&meson_gpio_class);
 	return 0;
 }
 
