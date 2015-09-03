@@ -104,17 +104,14 @@ enum eos_state {
 static struct vdec_fmt {
 	const char *name;
 	u32 pixelformat;
-	int num_planes;
 } formats[] = {
 	{
 		.name = "NV12",
 		.pixelformat = V4L2_PIX_FMT_NV12M,
-		.num_planes = 2,
 	},
 	{
 		.name = "BGRA",
 		.pixelformat = V4L2_PIX_FMT_BGR32,
-		.num_planes = 1,
 	},
 };
 
@@ -155,23 +152,52 @@ struct vdec_ctx {
 	wait_queue_head_t esparser_queue;
 };
 
-static void get_bytesperline(struct vdec_fmt *fmt, u32 width, unsigned int *plane0stride, unsigned int *plane1stride)
+struct buffer_size_info {
+	unsigned int num_planes;
+	unsigned int plane_stride[2];
+	unsigned int buffer_size[2];
+};
+
+static void get_buffer_size_info(struct vdec_fmt *fmt, u32 width, u32 height,
+			struct buffer_size_info *i)
 {
 	/* GE2D can only work with output buffers with an 8-byte aligned
 	 width */
 
 	switch (fmt->pixelformat) {
 	case V4L2_PIX_FMT_BGR32:
-		*plane0stride = round_up(width, 8) * 4;
-		*plane1stride = 0;
+		i->num_planes = 1;
+		i->plane_stride[0] = round_up(width, 8) * 4;
+		i->buffer_size[0] = i->plane_stride[0] * height;
 		break;
 	case V4L2_PIX_FMT_NV12M:
-		*plane0stride = round_up(width, 8);
-		*plane1stride = *plane0stride / 2;
+		i->num_planes = 2;
+		i->plane_stride[0] = i->plane_stride[1] = round_up(width, 8);
+		i->buffer_size[0] = i->plane_stride[0] * height;
+		i->buffer_size[1] = i->plane_stride[1] *
+				    (round_up(height, 2) / 2);
 		break;
 	default:
-		*plane0stride = *plane1stride = 0;
+		memset(i, 0, sizeof(*i));
 	}
+}
+
+static void configure_v4l2_plane_fmt(struct vdec_ctx *ctx,
+				     struct v4l2_pix_format_mplane *mp)
+{
+	struct buffer_size_info buf_info;
+
+	mp->pixelformat = ctx->fmt->pixelformat;
+	mp->width = ctx->frame_width;
+	mp->height = ctx->frame_height;
+	mp->field = V4L2_FIELD_NONE;
+
+	get_buffer_size_info(ctx->fmt, mp->width, mp->height, &buf_info);
+	mp->num_planes = buf_info.num_planes;
+	mp->plane_fmt[0].bytesperline = buf_info.plane_stride[0];
+	mp->plane_fmt[1].bytesperline = buf_info.plane_stride[1];
+	mp->plane_fmt[0].sizeimage = buf_info.buffer_size[0];
+	mp->plane_fmt[1].sizeimage = buf_info.buffer_size[1];
 }
 
 static inline struct vdec_ctx *file2ctx(struct file *file)
@@ -456,8 +482,6 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
 	struct vdec_ctx *ctx = file2ctx(file);
-	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
-	unsigned int plane0stride, plane1stride;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "g_fmt_vid_cap\n");
 
@@ -467,26 +491,14 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
         if (ctx->frame_width == 0 || ctx->frame_height == 0)
 		return -EINVAL;
 
-	mp->pixelformat = ctx->fmt->pixelformat;
-	mp->width = ctx->frame_width;
-	mp->height = ctx->frame_height;
-	mp->field = V4L2_FIELD_NONE;
-	mp->num_planes = ctx->fmt->num_planes;
-	get_bytesperline(ctx->fmt, mp->width, &plane0stride, &plane1stride);
-	mp->plane_fmt[0].bytesperline = plane0stride;
-	mp->plane_fmt[1].bytesperline = plane1stride;
-	mp->plane_fmt[0].sizeimage = plane0stride * mp->height;
-	mp->plane_fmt[1].sizeimage = plane1stride * mp->height;
+	configure_v4l2_plane_fmt(ctx, &f->fmt.pix_mp);
 	return 0;
 }
 
 static int try_fmt_vid_cap(struct vdec_ctx *ctx, struct v4l2_format *f,
 			   bool set)
 {
-	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
 	struct vdec_fmt *fmt = &formats[0];
-	unsigned int plane0stride, plane1stride;
-	enum v4l2_field field;
 	int i;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_cap\n");
@@ -499,23 +511,10 @@ static int try_fmt_vid_cap(struct vdec_ctx *ctx, struct v4l2_format *f,
 			fmt = &formats[i];
 	}
 
-	field = f->fmt.pix.field;
-	if (field == V4L2_FIELD_ANY)
-		field = V4L2_FIELD_NONE;
-	else if (V4L2_FIELD_NONE != field)
-		return -EINVAL;
-
 	if (set)
 		ctx->fmt = fmt;
 
-	mp->field = field;
-	mp->pixelformat = fmt->pixelformat;
-	mp->num_planes = fmt->num_planes;
-	get_bytesperline(ctx->fmt, mp->width, &plane0stride, &plane1stride);
-	mp->plane_fmt[0].bytesperline = plane0stride;
-	mp->plane_fmt[1].bytesperline = plane1stride;
-	mp->plane_fmt[0].sizeimage = plane0stride * mp->height;
-	mp->plane_fmt[1].sizeimage = plane1stride * mp->height;
+	configure_v4l2_plane_fmt(ctx, &f->fmt.pix_mp);
 	return 0;
 }
 
@@ -559,9 +558,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		v4l2_err(&ctx->dev->v4l2_dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
-
-	f->fmt.pix_mp.width = ctx->frame_width;
-	f->fmt.pix_mp.height = ctx->frame_height;
 
 	return try_fmt_vid_cap(ctx, f, true);
 }
@@ -783,13 +779,16 @@ static int vdec_dst_queue_setup(struct vb2_queue *vq,
 				unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
+	struct buffer_size_info buf_info;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "queue_setup_capture\n");
 
-	*nplanes = ctx->fmt->num_planes;
-	get_bytesperline(ctx->fmt, ctx->frame_width, &sizes[0], &sizes[1]);
-	sizes[0] *= ctx->frame_height;
-	sizes[1] *= ctx->frame_height;
+	get_buffer_size_info(ctx->fmt, ctx->frame_width, ctx->frame_height,
+			     &buf_info);
+
+	*nplanes = buf_info.num_planes;
+	sizes[0] = buf_info.buffer_size[0];
+	sizes[1] = buf_info.buffer_size[1];
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 	alloc_ctxs[1] = ctx->dev->vb_alloc_ctx;
 
@@ -940,7 +939,7 @@ static int image_thread(void *data) {
 	struct vdec_ctx *ctx = data;
 	struct vframe_s *vf;
 	struct vb2_buffer *dst;
-	unsigned int plane0stride, plane1stride;
+	struct buffer_size_info buf_info;
 
 	set_freezable();
 	for (;;) {
@@ -981,12 +980,12 @@ static int image_thread(void *data) {
 			 dst->v4l2_buf.timestamp.tv_sec,
 			 dst->v4l2_buf.timestamp.tv_usec);
 
-		get_bytesperline(ctx->fmt, ctx->frame_width,
-				 &plane0stride, &plane1stride);
+		get_buffer_size_info(ctx->fmt, ctx->frame_width,
+				     ctx->frame_height, &buf_info);
 		vdec_process_image(ctx->dev, vf, dst, ctx->fmt->pixelformat,
-				   plane0stride);
-		vb2_set_plane_payload(dst, 0, vf->height * plane0stride);
-		vb2_set_plane_payload(dst, 1, vf->height * plane1stride);
+				   buf_info.plane_stride[0]);
+		vb2_set_plane_payload(dst, 0, buf_info.buffer_size[0]);
+		vb2_set_plane_payload(dst, 1, buf_info.buffer_size[1]);
 		vf_put(vf, RECEIVER_NAME);
 		v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
 	}
