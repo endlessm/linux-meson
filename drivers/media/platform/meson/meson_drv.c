@@ -1037,6 +1037,11 @@ static int meson_vdec_open(struct file *file)
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
 
+	if (dev->open) {
+		ret = -EBUSY;
+		goto open_unlock;
+	}
+
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		ret = -ENOMEM;
@@ -1106,6 +1111,8 @@ static int meson_vdec_open(struct file *file)
 	if (ret)
 		goto err_release_port;
 
+	dev->open = true;
+
 open_unlock:
 	mutex_unlock(&dev->dev_mutex);
 	return ret;
@@ -1150,6 +1157,7 @@ static int meson_vdec_release(struct file *file)
 	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
 		ctx->eos_tail_buf_phys);
 
+	dev->open = false;
 	mutex_unlock(&dev->dev_mutex);
 	kfree(ctx);
 
