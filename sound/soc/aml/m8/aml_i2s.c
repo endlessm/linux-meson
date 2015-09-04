@@ -702,16 +702,20 @@ static int aml_i2s_copy_playback(struct snd_pcm_runtime *runtime, int channel,
     }
     if (access_ok(VERIFY_READ, buf, frames_to_bytes(runtime, count))) {
         if (runtime->format == SNDRV_PCM_FORMAT_S16_LE) {
-	int16_t * tfrom, *to, *left, *right;
+       int16_t * tfrom, *to, *left;
+       int16_t *right = NULL;
+
 	tfrom = (int16_t *) ubuf;
 
 	for (j = 0; j < count; j++) {
 		to = (int16_t *) get_hw_buf_ptr(runtime, pos + j, align);
 		left = to;
-		right = to + align;
+		if (runtime->channels != 1)
+			right = to + align;
 
 		*left = (*tfrom++);
-		*right = (*tfrom++);
+		if (runtime->channels != 1)
+			*right = (*tfrom++);
 	}
         } else if (runtime->format == SNDRV_PCM_FORMAT_S24_LE && I2S_MODE == AIU_I2S_MODE_PCM24) {
             int32_t *tfrom, *to, *left, *right;

@@ -159,8 +159,8 @@ void audio_set_aiubuf(u32 addr, u32 size, unsigned int channel)
     if(channel == 8){
         printk(" %s channel == 8\n",__FUNCTION__);
         WRITE_MPEG_REG(AIU_MEM_I2S_MASKS,       (24 << 16) |    // [31:16] IRQ block.
-                                (0xff << 8) |   // [15: 8] chan_mem_mask. Each bit indicates which channels exist in memory
-                                (0xff << 0));   // [ 7: 0] chan_rd_mask.  Each bit indicates which channels are READ from memory
+                                (((1 << channel) - 1) << 8) |   // [15: 8] chan_mem_mask. Each bit indicates which channels exist in memory
+                                (((1 << channel) - 1) << 0));   // [ 7: 0] chan_rd_mask.  Each bit indicates which channels are READ from memory
         }
     else 
         WRITE_MPEG_REG(AIU_MEM_I2S_MASKS,       (24 << 16) |    // [31:16] IRQ block.
@@ -450,7 +450,7 @@ void audio_set_i2s_mode(u32 mode)
             WRITE_MPEG_REG_BITS(AIU_I2S_SOURCE_DESC, 1, 5, 1);
         }
 
-        WRITE_MPEG_REG_BITS(AIU_MEM_I2S_MASKS, mask[mode], 0, 16);
+//        WRITE_MPEG_REG_BITS(AIU_MEM_I2S_MASKS, mask[mode], 0, 16);
 
         //WRITE_MPEG_REG_BITS(AIU_MEM_I2S_CONTROL, 1, 0, 1);
         //WRITE_MPEG_REG_BITS(AIU_MEM_I2S_CONTROL, 0, 0, 1);
