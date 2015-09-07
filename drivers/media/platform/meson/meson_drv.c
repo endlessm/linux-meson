@@ -204,6 +204,17 @@ static inline struct vdec_ctx *file2ctx(struct file *file)
 	return container_of(file->private_data, struct vdec_ctx, fh);
 }
 
+static void mark_all_dst_done(struct vdec_ctx *ctx)
+{
+	struct vb2_buffer *buf;
+
+	while ((buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
+		vb2_set_plane_payload(buf, 0, 0);
+		vb2_set_plane_payload(buf, 1, 0);
+		v4l2_m2m_buf_done(buf, VB2_BUF_STATE_DONE);
+	}
+}
+
 /*
  * EOS handling
  *
@@ -242,7 +253,6 @@ static void run_eos_idle_timer(struct vdec_ctx *ctx)
 static void eos_check_idle(unsigned long arg)
 {
 	struct vdec_ctx *ctx = (struct vdec_ctx *) arg;
-	struct vb2_buffer *buf;
 
 	/* The VIFIFO level does not reach 0 at the end of playback, it
 	 * always seems to have a small amount of data there which does not
@@ -258,10 +268,7 @@ static void eos_check_idle(unsigned long arg)
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "EOS detected\n");
 	ctx->eos_state = EOS_DETECTED;
-	while ((buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
-		vb2_set_plane_payload(buf, 0, 0);
-		v4l2_m2m_buf_done(buf, VB2_BUF_STATE_DONE);
-	}
+	mark_all_dst_done(ctx);
 }
 
 /* Try to send the next source buffer to the parser.
@@ -714,9 +721,28 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
+	stream_port_t *port = amstream_find_port("amstream_vbuf");
+	stream_buf_t *sbuf = get_buf_by_type(BUF_TYPE_VIDEO);
 	unsigned long flags;
+	int ret;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "src_start_streaming\n");
+
+	amstream_port_open(port);
+	/* enable sync_outside and pts_outside */
+	amstream_dec_info.param = (void *) 0x3;
+
+	port->vformat = VFORMAT_H264;
+	port->flag |= PORT_FLAG_VFORMAT;
+	ret = video_port_init(port, sbuf);
+	if (ret) {
+		amstream_port_release(amstream_find_port("amstream_vbuf"));
+		return ret;
+	}
+
+	ctx->frame_width = ctx->frame_height = 0;
+	ctx->parsed_len = 0;
+	kthread_unpark(ctx->image_thread);
 	ctx->src_streaming = true;
 
 	/* We stream source buffers regardless of dest queue state. */
@@ -730,7 +756,14 @@ static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 static int vdec_src_stop_streaming(struct vb2_queue *vq)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
+	kthread_park(ctx->image_thread);
 	ctx->src_streaming = false;
+	ctx->esparser_busy = false;
+
+	/* FIXME: calls video_port_release internally, which means the API
+	 * is not really symmetrical with the init routines. */
+	amstream_port_release(amstream_find_port("amstream_vbuf"));
+
 	return 0;
 }
 
@@ -745,6 +778,7 @@ static int vdec_dst_stop_streaming(struct vb2_queue *vq)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
 	ctx->dst_streaming = false;
+	mark_all_dst_done(ctx);
 	return 0;
 }
 
@@ -943,13 +977,17 @@ static int image_thread(void *data) {
 	set_freezable();
 	for (;;) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		if (!kthread_should_stop() && !image_buffers_ready(ctx))
+		if (!kthread_should_stop() && !kthread_should_park() &&
+		    !image_buffers_ready(ctx))
 			schedule();
 
 		set_current_state(TASK_RUNNING);
 		try_to_freeze();
 		if (kthread_should_stop())
 			break;
+
+		if (kthread_should_park())
+			kthread_parkme();
 
 		if (!image_buffers_ready(ctx))
 			continue;
@@ -1090,24 +1128,16 @@ static int meson_vdec_open(struct file *file)
 
 	v4l2_fh_add(&ctx->fh);
 
-	amstream_port_open(port);
-	/* enable sync_outside and pts_outside */
-	amstream_dec_info.param = (void *) 0x3;
-
 	vf_receiver_init(&ctx->vf_receiver, RECEIVER_NAME, &vf_receiver, ctx);
 	vf_reg_receiver(&ctx->vf_receiver);
-
-	port->vformat = VFORMAT_H264;
-	port->flag |= PORT_FLAG_VFORMAT;
-	ret = video_port_init(port, sbuf);
-	if (ret)
-		goto err_release_port;
 
 	ctx->image_thread = kthread_run(image_thread, ctx, DRIVER_NAME);
 	if (IS_ERR(ctx->image_thread)) {
 		ret = PTR_ERR(ctx->image_thread);
-		goto err_release_port;
+		goto err_del_fh;
 	}
+
+	kthread_park(ctx->image_thread);
 
 	dev->open = true;
 
@@ -1115,8 +1145,7 @@ open_unlock:
 	mutex_unlock(&dev->dev_mutex);
 	return ret;
 
-err_release_port:
-	amstream_port_release(amstream_find_port("amstream_vbuf"));
+err_del_fh:
 	v4l2_fh_del(&ctx->fh);
 
 err_free_buf2:
@@ -1140,7 +1169,6 @@ static int meson_vdec_release(struct file *file)
 
 	del_timer_sync(&ctx->eos_idle_timer);
 	kthread_stop(ctx->image_thread);
-	amstream_port_release(amstream_find_port("amstream_vbuf"));
 	vf_unreg_receiver(&ctx->vf_receiver);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
