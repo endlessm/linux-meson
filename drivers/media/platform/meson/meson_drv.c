@@ -1037,6 +1037,11 @@ static int meson_vdec_open(struct file *file)
 	if (mutex_lock_interruptible(&dev->dev_mutex))
 		return -ERESTARTSYS;
 
+	if (dev->open) {
+		ret = -EBUSY;
+		goto open_unlock;
+	}
+
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		ret = -ENOMEM;
@@ -1079,16 +1084,10 @@ static int meson_vdec_open(struct file *file)
 	sbuf->buf_size = sbuf->default_buf_size = VDEC_ST_FIFO_SIZE;
 	sbuf->flag = BUF_FLAG_IOMEM;
 
-	ctx->image_thread = kthread_run(image_thread, ctx, DRIVER_NAME);
-	if (IS_ERR(ctx->image_thread)) {
-		ret = PTR_ERR(ctx->image_thread);
-		goto err_free_buf2;
-	}
-
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
 	if (IS_ERR(ctx->m2m_ctx)) {
 		ret = PTR_ERR(ctx->m2m_ctx);
-		goto err_stop_thread;
+		goto err_free_buf2;
 	}
 
 	v4l2_fh_add(&ctx->fh);
@@ -1106,6 +1105,14 @@ static int meson_vdec_open(struct file *file)
 	if (ret)
 		goto err_release_port;
 
+	ctx->image_thread = kthread_run(image_thread, ctx, DRIVER_NAME);
+	if (IS_ERR(ctx->image_thread)) {
+		ret = PTR_ERR(ctx->image_thread);
+		goto err_release_port;
+	}
+
+	dev->open = true;
+
 open_unlock:
 	mutex_unlock(&dev->dev_mutex);
 	return ret;
@@ -1113,9 +1120,6 @@ open_unlock:
 err_release_port:
 	amstream_port_release(amstream_find_port("amstream_vbuf"));
 	v4l2_fh_del(&ctx->fh);
-
-err_stop_thread:
-	kthread_stop(ctx->image_thread);
 
 err_free_buf2:
 	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
@@ -1137,19 +1141,20 @@ static int meson_vdec_release(struct file *file)
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "vdec_release\n");
 
 	del_timer_sync(&ctx->eos_idle_timer);
+	kthread_stop(ctx->image_thread);
 	amstream_port_release(amstream_find_port("amstream_vbuf"));
 	vf_unreg_receiver(&ctx->vf_receiver);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	mutex_lock(&dev->dev_mutex);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
-	kthread_stop(ctx->image_thread);
 	dma_free_coherent(NULL, VDEC_ST_FIFO_SIZE, ctx->buf_vaddr,
 		          sbuf->buf_start);
 
 	dma_free_coherent(NULL, EOS_TAIL_BUF_SIZE, ctx->eos_tail_buf,
 		ctx->eos_tail_buf_phys);
 
+	dev->open = false;
 	mutex_unlock(&dev->dev_mutex);
 	kfree(ctx);
 

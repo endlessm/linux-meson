@@ -21,6 +21,7 @@
 struct vdec_dev {
 	struct v4l2_device	v4l2_dev;
 	struct vframe_receiver_s video_vf_receiver;
+	bool open;
 
 	struct video_device	*vfd;
 	struct v4l2_m2m_dev	*m2m_dev;
