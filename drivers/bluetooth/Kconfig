@@ -2,14 +2,12 @@
 menu "Bluetooth device drivers"
 	depends on BT
 
-config BT_GENERIC
-	bool "Bluetooth generic device drivers"
-	default y
-
 config BT_RTL
 	bool "Bluetooth Realtek device drivers"
-	default n
-	depends on !BT_GENERIC
+
+config BT_GENERIC
+	bool "Bluetooth generic device drivers"
+	depends on !BT_RTL
 
 menu "Bluetooth device drivers"
 	depends on BT_GENERIC
