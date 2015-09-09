@@ -30,6 +30,7 @@
 #define EFUSE_MODULE_NAME   "efuse"
 #define EFUSE_DRIVER_NAME		"efuse"
 #define EFUSE_DEVICE_NAME   "efuse"
+#define EFUSE_RAW_DEVICE_NAME		"efuse_raw"
 #define EFUSE_CLASS_NAME    "efuse"
 
 #define EFUSE_READ_ONLY
@@ -40,6 +41,9 @@ int efuse_read_item(char *buf, size_t count, loff_t *ppos);
 int efuse_write_item(char *buf, size_t count, loff_t *ppos);
 
 void efuse_dump(char *pbuffer);
+
+ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos );
+ssize_t __efuse_write(const char *buf, size_t count, loff_t *ppos );
 
 /* M3 efuse layout: version1
 http://wiki-sh.amlogic.com/index.php/How_To_burn_the_info_into_E-Fuse
@@ -70,8 +74,10 @@ typedef struct efuse_dev_s {
 } efuse_dev_t;
 */
 static efuse_dev_t *efuse_devp;
+static efuse_dev_t *efuse_raw_devp;
 //static struct class *efuse_clsp;
 static dev_t efuse_devno;
+static dev_t efuse_raw_devno;
 
 static int efuse_open(struct inode *inode, struct file *file)
 {
@@ -228,6 +234,49 @@ static ssize_t efuse_write( struct file *file, const char __user *buf, size_t co
 	return count;
 }
 
+static ssize_t efuse_raw_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+{
+	int local_count = 0;
+	char *local_buf;
+
+	local_buf = (char *) kzalloc(sizeof(char) * count, GFP_KERNEL);
+	if (!local_buf)
+		return -ENOMEM;
+
+	local_count = __efuse_read(local_buf, count, ppos);
+	if (local_count < 0)
+		goto error_exit;
+
+	if (copy_to_user((void *) buf, (void *) local_buf, local_count))
+		local_count = -EFAULT;
+
+error_exit:
+	kfree(local_buf);
+
+	return local_count;
+}
+
+static ssize_t efuse_raw_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+{
+	char *local_buf;
+	int local_count;
+
+	local_buf = (char *)kzalloc(sizeof(char) * count, GFP_KERNEL);
+	if (!local_buf)
+		return -ENOMEM;
+
+	if (copy_from_user(local_buf, buf, count)) {
+		local_count = -EFAULT;
+		goto error_exit;
+	}
+
+	local_count = __efuse_write(local_buf, count, ppos);
+
+error_exit:
+	kfree(local_buf);
+
+	return local_count;
+}
 
 static const struct file_operations efuse_fops = {
 	.owner      = THIS_MODULE,
@@ -237,6 +286,13 @@ static const struct file_operations efuse_fops = {
 	.read       = efuse_read,
 	.write      = efuse_write,
 	.unlocked_ioctl      = efuse_unlocked_ioctl,
+};
+
+static const struct file_operations efuse_raw_fops = {
+	.owner      = THIS_MODULE,
+	.llseek     = efuse_llseek,
+	.read       = efuse_raw_read,
+	.write      = efuse_raw_write,
 };
 
 /* Sysfs Files */
@@ -420,6 +476,27 @@ static ssize_t userdata_write(struct class *cla, struct class_attribute *attr, c
 }
 #endif
 
+static ssize_t dump_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+	loff_t pos = 0;
+	ssize_t ret = 0;
+	char pbuf[EFUSE_BYTES];
+	int i, r;
+
+	 r = __efuse_read(pbuf, EFUSE_BYTES, &pos);
+	 if (r < 0)
+		 return r;
+
+	for (i = 0; i < EFUSE_BYTES; i++) {
+		if (!(i % 16))
+			ret += sprintf(buf + ret, "\n%04x: ", i);
+		ret += sprintf(buf + ret, "%02x ", pbuf[i]);
+	}
+	ret += sprintf(buf + ret, "\n");
+
+	return ret;
+}
+
 static struct class_attribute efuse_class_attrs[] = {
 
 	__ATTR_RO(mac),
@@ -435,6 +512,7 @@ static struct class_attribute efuse_class_attrs[] = {
 	__ATTR_RO(userdata),
 
 	#endif
+	__ATTR_RO(dump),
 	__ATTR_NULL
 
 };
@@ -576,14 +654,76 @@ static int efuse_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int efuse_raw_probe(struct platform_device *pdev)
+{
+	 int ret;
+	 struct device *devp;
+
+	ret = alloc_chrdev_region(&efuse_raw_devno, 0, 1, EFUSE_RAW_DEVICE_NAME);
+	if (ret < 0) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	 efuse_raw_devp = kmalloc(sizeof(efuse_dev_t), GFP_KERNEL);
+	 if (!efuse_devp) {
+		 ret = -ENOMEM;
+		 goto error1;
+	 }
+
+	 cdev_init(&efuse_raw_devp->cdev, &efuse_raw_fops);
+	 efuse_raw_devp->cdev.owner = THIS_MODULE;
+
+	 ret = cdev_add(&efuse_raw_devp->cdev, efuse_raw_devno, 1);
+	 if (ret)
+		 goto error2;
+
+	 devp = device_create(&efuse_class, NULL, efuse_raw_devno, NULL, "efuse_raw");
+	 if (IS_ERR(devp)) {
+		 ret = PTR_ERR(devp);
+		 goto error3;
+	 }
+
+	 printk(KERN_EMERG "%s ok\n", __func__);
+
+	 return 0;
+
+ error3:
+	 cdev_del(&efuse_raw_devp->cdev);
+ error2:
+	 kfree(efuse_raw_devp);
+ error1:
+	 unregister_chrdev_region(efuse_raw_devno, 1);
+ out:
+	 printk(KERN_EMERG "%s nope\n", __func__);
+	 return ret;
+}
+
+static int efuse_raw_remove(struct platform_device *pdev)
+{
+	unregister_chrdev_region(efuse_raw_devno, 1);
+	device_destroy(&efuse_class, efuse_raw_devno);
+	cdev_del(&efuse_raw_devp->cdev);
+	kfree(efuse_raw_devp);
+
+	return 0;
+}
+
 #ifdef CONFIG_OF
 static const struct of_device_id amlogic_efuse_dt_match[]={
 	{	.compatible = "amlogic,efuse",
 	},
 	{},
 };
+
+static const struct of_device_id amlogic_efuse_raw_dt_match[]={
+	{ .compatible = "amlogic,efuse-raw", },
+	{ /* sentinel */},
+};
+
 #else
 #define amlogic_efuse_dt_match NULL
+#define amlogic_efuse_raw_dt_match NULL
 #endif
 
 static struct platform_driver efuse_driver = {
@@ -596,6 +736,16 @@ static struct platform_driver efuse_driver = {
 	},
 };
 
+static struct platform_driver efuse_raw_driver = {
+	.probe = efuse_raw_probe,
+	.remove = efuse_raw_remove,
+	.driver = {
+		.name = EFUSE_RAW_DEVICE_NAME,
+		.of_match_table = amlogic_efuse_raw_dt_match,
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init efuse_init(void)
 {
 	int ret = -1;
@@ -604,6 +754,13 @@ static int __init efuse_init(void)
 		printk(KERN_ERR "failed to register efuse driver, error %d\n", ret);
 		return -ENODEV;
 	}
+
+	ret = platform_driver_register(&efuse_raw_driver);
+	if (ret != 0) {
+		printk(KERN_ERR "failed to register efuse_raw driver, error %d\n", ret);
+		return -ENODEV;
+	}
+
 	printk( KERN_INFO "efuse--------------------------------------------\n");
 
 	return ret;
