@@ -4506,7 +4506,7 @@ CONFIG_BATMAN_ADV_NC=y
 ##
 ## file: net/bluetooth/Kconfig
 ##
-CONFIG_BT=m
+CONFIG_BT=y
 
 ##
 ## file: net/bluetooth/bnep/Kconfig
