@@ -3,7 +3,7 @@
 #
 
 obj-$(CONFIG_MMC_BLOCK)			+= mmc_block.o
-mmc_block-objs				:= block.o queue.o emmc_partitions.o
+mmc_block-objs				:= block.o queue.o emmc_partitions.o emmc_mfgdata.o
 obj-$(CONFIG_SECURITYKEY)		+= emmc_key.o
 
 obj-$(CONFIG_EMMC_SECURE_STORAGE)	+= mmc_storage.o
