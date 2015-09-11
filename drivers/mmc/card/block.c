@@ -2518,6 +2518,33 @@ static const struct mmc_fixup blk_fixups[] =
 	END_FIXUP
 };
 
+extern int emmc_mfgdata_parse(struct mmc_card *card, unsigned long capacity);
+static void endless_mfgdata_setup(struct mmc_card *card)
+{
+	struct mmc_blk_data *main_md = mmc_get_drvdata(card);
+	struct mmc_blk_data *part_md;
+
+	list_for_each_entry(part_md, &main_md->part, part)
+		if (part_md->part_type == EXT_CSD_PART_CONFIG_ACC_BOOT0)
+			break;
+
+	if (part_md->part_type != EXT_CSD_PART_CONFIG_ACC_BOOT0) {
+		pr_info("mfgdata: no boot0 partition found\n");
+		return;
+	}
+
+	mmc_claim_host(card->host);
+
+	if (mmc_blk_part_switch(card, part_md)) {
+		pr_info("mfgdata: failed switch to boot partition\n");
+		mmc_release_host(card->host);
+		return;
+	}
+
+	emmc_mfgdata_parse(card, get_capacity(part_md->disk) << 9);
+	mmc_release_host(card->host);
+}
+
 static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
@@ -2552,6 +2579,9 @@ static int mmc_blk_probe(struct mmc_card *card)
 		goto out;
 
     //aml_emmc_partition_ops(card, md->disk); // add by gch
+
+	if (card->host->is_emmc_port)
+		endless_mfgdata_setup(card);
 
 	list_for_each_entry(part_md, &md->part, part) {
 		if (mmc_add_disk(part_md))
