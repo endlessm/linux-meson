@@ -871,8 +871,8 @@
 
 		audio_pins: audio_pin {
 			amlogic,setmask = <10 0x78000008 1 0x2000>;
-			amlogic,clrmask = <10 0x80002000>;
-			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_13","GPIOAO_6";
+			amlogic,clrmask = <10 0x00002000>;
+			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_6";
 		};
 
 		aml_spi_nor_pins: aml_spi_nor_pins {
