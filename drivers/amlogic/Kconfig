@@ -98,6 +98,7 @@ comment "GPU (ARM Mali)"
 #comment "GPU (ARM Mali (external))"
 source "drivers/amlogic/gpu/mali/Kconfig"
 source "drivers/amlogic/ion_dev/Kconfig"
+source "drivers/amlogic/gpu/gator/Kconfig"
 
 #
 # crypto
