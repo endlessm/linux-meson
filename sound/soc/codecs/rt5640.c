@@ -37,7 +37,7 @@
 #include "rt5640-dsp.h"
 
 #define RT5640_REG_RW 1 /* for debug */
-#define RT5640_DET_EXT_MIC 0
+#define RT5640_DET_EXT_MIC 1
 #define USE_ONEBIT_DEPOP 1 /* for one bit depop */
 //#define USE_EQ
 //#define USE_ASRC
@@ -122,11 +122,16 @@ static struct rt5640_init_reg init_list[] = {
 	{RT5640_MONO_ADC_MIXER  , 0x3030},
 	{RT5640_ADC_DIG_VOL	, 0xafaf},//mute stereo adc mixer
 #if RT5640_DET_EXT_MIC
-	{RT5640_MICBIAS		, 0x3800},/* enable MICBIAS short current */
-	{RT5640_GPIO_CTRL1	, 0x8400},/* set GPIO1 to IRQ */
-	{RT5640_GPIO_CTRL3	, 0x0004},/* set GPIO1 output */
-	{RT5640_IRQ_CTRL2	, 0x8000},/*set MICBIAS short current to IRQ */
-					/*( if sticky set regBE : 8800 ) */
+//	{RT5640_GPIO_CTRL1	, 0x8400},
+//	{RT5640_GPIO_CTRL3	, 0x0004},
+//	{RT5640_JD_CTRL		, 0x6003},
+//	{RT5640_IRQ_CTRL1	, 0x8800},
+	{RT5640_GPIO_CTRL1	, 0x8400},
+	{RT5640_GPIO_CTRL3	, 0x0004},
+	{RT5640_JD_CTRL		, 0x0003},
+	{RT5640_IRQ_CTRL1	, 0x0000},
+	{RT5640_GEN_CTRL2	, 0x7503},
+
 #endif
 	{RT5640_DSP_PATH1	, 0xC000},
 	{RT5640_ASRC_1		, 0x4000},
