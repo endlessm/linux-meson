@@ -103,8 +103,6 @@ static const struct snd_pcm_hardware aml_i2s_hardware = {
 static const struct snd_pcm_hardware aml_i2s_capture = {
 	.info			= SNDRV_PCM_INFO_INTERLEAVED|
 							SNDRV_PCM_INFO_BLOCK_TRANSFER|
-							SNDRV_PCM_INFO_MMAP |
-						 	SNDRV_PCM_INFO_MMAP_VALID |
 						  SNDRV_PCM_INFO_PAUSE,
 
 	.formats		= SNDRV_PCM_FMTBIT_S16_LE,
