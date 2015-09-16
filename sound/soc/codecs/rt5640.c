@@ -24,6 +24,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
+#include <linux/amlogic/aml_gpio_consumer.h>
 
 #define RTK_IOCTL
 #ifdef RTK_IOCTL
@@ -42,6 +43,7 @@
 //#define USE_EQ
 //#define USE_ASRC
 #define VERSION "1.0.1 alsa 1.0.25"
+#define CODEC_NAME "rt5640"
 
 struct rt5640_init_reg {
 	u8 reg;
@@ -3248,10 +3250,29 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static irqreturn_t rt5640_irq_isr(int irq, void *dev_id)
+{
+	unsigned int gpio_status;
+	int jack_insert;
+	struct snd_soc_codec *codec = dev_id;
+
+	gpio_status = snd_soc_read(codec, RT5640_INT_IRQ_ST);
+	jack_insert = !(gpio_status & 0x100);
+
+	rt5640_headset_detect(codec, jack_insert);
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t rt5640_hard_irq_isr(int irq, void *dev_id)
+{
+	return IRQ_WAKE_THREAD;
+}
+
 static int rt5640_probe(struct snd_soc_codec *codec)
 {
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
-	int ret;
+	int ret, gpio;
 
 	pr_info("Codec driver version %s\n", VERSION);
 
@@ -3348,6 +3369,24 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 	rt5640_codec = codec;
 	setup_timer( &mclk_check_timer, mclk_check_timer_callback, 0 );
 	INIT_WORK(&mclk_check_work, mclk_check_work_handler);
+
+	gpio = amlogic_gpio_name_map_num("GPIOAO_13");
+	amlogic_gpio_request_one(gpio, GPIOF_IN, CODEC_NAME);
+
+	amlogic_gpio_to_irq(gpio, CODEC_NAME,
+			    AML_GPIO_IRQ(7, FILTER_NUM7, GPIO_IRQ_FALLING));
+	amlogic_gpio_to_irq(gpio, CODEC_NAME,
+			    AML_GPIO_IRQ(4, FILTER_NUM7, GPIO_IRQ_RISING));
+
+	if (request_threaded_irq(INT_GPIO_7, rt5640_hard_irq_isr,
+				 rt5640_irq_isr, IRQF_SHARED, "rt5640_JD2_f", codec) < 0)
+		dev_warn(codec->dev, "Unable to claim irq %d, error %d\n",
+			 INT_GPIO_7, ret);
+
+	if (request_threaded_irq(INT_GPIO_4, rt5640_hard_irq_isr,
+				 rt5640_irq_isr, IRQF_SHARED, "rt5640_JD2_r", codec) < 0)
+		dev_warn(codec->dev, "Unable to claim irq %d, error %d\n",
+			 INT_GPIO_4, ret);
 
 	return 0;
 }
