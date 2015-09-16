@@ -34,6 +34,7 @@
 #include <linux/crc32.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/endless_mfgdata.h>
 
 #include <plat/eth.h>
 #include <plat/regops.h>
@@ -3090,6 +3091,25 @@ eth_cfg_59	0x9b
 		}
 }
 #endif
+
+static int read_mac_from_emmc(void)
+{
+	int res;
+	const unsigned char *p_mac;
+
+	res = endless_mfgdata_read("EMAC", &p_mac);
+	if (res < 0)
+		return res;
+
+	if (res != 6 || !is_valid_ether_addr(p_mac))
+		return -EINVAL;
+
+	memcpy(DEFMAC, p_mac, 6);
+	g_mac_addr_setup++;
+
+	return 0;
+}
+
 /* --------------------------------------------------------------------------*/
 /**
  * @brief ethernet_probe
@@ -3158,6 +3178,10 @@ static int ethernet_probe(struct platform_device *pdev)
 	}
 #endif
 #endif
+	res = read_mac_from_emmc();
+	if (res == -EPROBE_DEFER)
+		goto out;
+
 	printk(DRV_NAME "init(dbg[%p]=%d)\n", (&g_debug), g_debug);
 	switch_mod_gate_by_name("ethernet",1);
 	my_ndev = alloc_etherdev(sizeof(struct am_net_private));
@@ -3183,7 +3207,8 @@ static int ethernet_probe(struct platform_device *pdev)
 	if(np->phydev && savepowermode)
 		np->phydev->drv->suspend(np->phydev);
 
-	return 0;
+out:
+	return res;
 }
 
 /* --------------------------------------------------------------------------*/
