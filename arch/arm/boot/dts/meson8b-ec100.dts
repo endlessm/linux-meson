@@ -870,8 +870,8 @@
 		};
 
 		audio_pins: audio_pin {
-			amlogic,setmask = <10 0x78000008 1 0x2000>;
-			amlogic,clrmask = <10 0x00002000>;
+			amlogic,setmask = <10 0x78000000 1 0x2000>;
+			amlogic,clrmask = <10 0x80002008>;
 			amlogic,pins = "GPIOAO_8","GPIOAO_9","GPIOAO_10","GPIOAO_11","GPIOAO_6";
 		};
 
