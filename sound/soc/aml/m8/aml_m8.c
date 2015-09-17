@@ -157,66 +157,39 @@ static int aml_audio_hp_detect(struct aml_audio_private_data *p_aml_audio)
     return ret; 
 }
 
+#define RT5640_NO_JACK		BIT(0)
+#define RT5640_HEADSET_DET	BIT(1)
+#define RT5640_HEADPHO_DET	BIT(2)
 
+extern int rt5640_jack_type(void);
 static void aml_asoc_work_func(struct work_struct *work)
 {
-    struct aml_audio_private_data *p_aml_audio = NULL;
-    struct snd_soc_card *card = NULL;
-  //  int jack_type = 0;
-    int flag = -1;
-	int status = SND_JACK_HEADPHONE;
-    p_aml_audio = container_of(work, struct aml_audio_private_data, work);
-    card = (struct snd_soc_card *)p_aml_audio->data;
+	struct aml_audio_private_data *p_aml_audio;
+	int flag;
 
-    flag = aml_audio_hp_detect(p_aml_audio);
+	p_aml_audio = container_of(work, struct aml_audio_private_data, work);
+	flag = rt5640_jack_type();
 
-    if(p_aml_audio->detect_flag != flag) {
+	if (p_aml_audio->detect_flag != flag) {
+		p_aml_audio->detect_flag = flag;
 
-        p_aml_audio->detect_flag = flag;
-        
-        if (flag & 0x1) {
-            //amlogic_set_value(p_aml_audio->gpio_mute, 0, "mute_spk");
-            switch_set_state(&p_aml_audio->sdev, 2);  // 1 :have mic ;  2 no mic
-            adac_wr_reg (71, 0x0101); // use board mic
-            printk(KERN_INFO "aml aduio hp pluged 3 jack_type: %d\n", SND_JACK_HEADPHONE);
-            snd_soc_jack_report(&p_aml_audio->jack, status, SND_JACK_HEADPHONE);
+		if (flag & RT5640_NO_JACK) {
+			switch_set_state(&p_aml_audio->sdev, 0);
+			snd_soc_jack_report(&p_aml_audio->jack, 0, SND_JACK_HEADSET);
+		}
 
-           // mic port detect
-           if(p_aml_audio->mic_det){
-               if(flag & 0x8){
-                  switch_set_state(&p_aml_audio->mic_sdev, 1);
-                  adac_wr_reg (71, 0x0005); // use hp mic
-                  printk(KERN_INFO "aml aduio mic pluged jack_type: %d\n", SND_JACK_MICROPHONE);
-                  //snd_soc_jack_report(&p_aml_audio->jack, status, SND_JACK_HEADPHONE);
-              }
-           }
+		if (flag & RT5640_HEADPHO_DET) {
+			switch_set_state(&p_aml_audio->sdev, 2);
+			snd_soc_jack_report(&p_aml_audio->jack, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
+		}
 
-        } else if(flag & 0x2){
-            //amlogic_set_value(p_aml_audio->gpio_mute, 0, "mute_spk");
-            switch_set_state(&p_aml_audio->sdev, 1);  // 1 :have mic ;  2 no mic
-            adac_wr_reg (71, 0x0005); // use hp mic
-            printk(KERN_INFO "aml aduio hp pluged 4 jack_type: %d\n", SND_JACK_HEADSET);
-            snd_soc_jack_report(&p_aml_audio->jack, status, SND_JACK_HEADPHONE);
-        } else {
-            printk(KERN_INFO "aml audio hp unpluged\n");
-            //amlogic_set_value(p_aml_audio->gpio_mute, 1, "mute_spk");
-            adac_wr_reg (71, 0x0101); // use board mic
-            switch_set_state(&p_aml_audio->sdev, 0);
-            snd_soc_jack_report(&p_aml_audio->jack, 0, SND_JACK_HEADPHONE);
+		if (flag & RT5640_HEADSET_DET) {
+			switch_set_state(&p_aml_audio->sdev, 1);
+			snd_soc_jack_report(&p_aml_audio->jack, SND_JACK_HEADSET, SND_JACK_HEADSET);
+		}
+	}
 
-            // mic port detect
-            if(p_aml_audio->mic_det){
-                if(flag & 0x8){
-                   switch_set_state(&p_aml_audio->mic_sdev, 1);
-                   adac_wr_reg (71, 0x0005); // use hp mic
-                   printk(KERN_INFO "aml aduio mic pluged jack_type: %d\n", SND_JACK_MICROPHONE);
-                   //snd_soc_jack_report(&p_aml_audio->jack, status, SND_JACK_HEADPHONE);
-               }
-            }
-        }
-        
-    }
-    p_aml_audio->hp_det_status = true;
+	p_aml_audio->hp_det_status = true;
 }
 
 
@@ -707,19 +680,6 @@ static int aml_asoc_init(struct snd_soc_pcm_runtime *rtd)
         p_aml_audio->mic_det = of_property_read_bool(card->dev->of_node,"mic_det");
 
         printk("entern %s : mic_det=%d \n",__func__,p_aml_audio->mic_det);
-        ret = of_property_read_u32_array(card->dev->of_node, "hp_paraments", &hp_paraments[0], 5);
-        if(ret){
-            printk("falied to get hp detect paraments from dts file\n");
-        }else{
-            p_aml_audio->hp_val_h  = hp_paraments[0];  // hp adc value higher base, hp unplugged
-            p_aml_audio->hp_val_l  = hp_paraments[1];  // hp adc value low base, 3 section hp plugged.
-            p_aml_audio->mic_val   = hp_paraments[2];  // hp adc value mic detect value.
-            p_aml_audio->hp_detal  = hp_paraments[3];  // hp adc value test toerance
-            p_aml_audio->hp_adc_ch = hp_paraments[4];  // get adc value from which adc port for hp detect
-
-            printk("hp detect paraments: h=%d,l=%d,mic=%d,det=%d,ch=%d \n",p_aml_audio->hp_val_h,p_aml_audio->hp_val_l,
-                p_aml_audio->mic_val,p_aml_audio->hp_detal,p_aml_audio->hp_adc_ch);
-        }
         
         init_timer(&p_aml_audio->timer);
         p_aml_audio->timer.function = aml_asoc_timer_func;

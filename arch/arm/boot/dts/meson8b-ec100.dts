@@ -550,8 +550,6 @@
 	            "MAIN MIC", "micbias1",
 	            "IN2P", "MAIN MIC";
 	        mute_gpio = "GPIO_BSD_EN";
-	        hp_disable;
-	        hp_paraments = <800 300 0 5 1>;
 	        pinctrl-names = "aml_snd_m8";
 	        pinctrl-0 = <&audio_pins>;
 	        status = "okay";
