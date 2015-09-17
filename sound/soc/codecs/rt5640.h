@@ -2070,6 +2070,7 @@ enum {
 #define RT5640_HEADPHO_DET	BIT(2)
 
 int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert);
+int rt5640_jack_type(void);
 
 /* System Clock Source */
 enum {

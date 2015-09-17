@@ -54,6 +54,8 @@ static struct snd_soc_codec *rt5640_codec;
 static struct timer_list mclk_check_timer;
 struct work_struct  mclk_check_work;
 
+static int jack_type;
+
 static struct rt5640_init_reg init_list[] = {
 #ifdef USE_ASRC
 	{RT5640_GEN_CTRL1	, 0x3771},//fa[12:13] = 1'b; fa[8~11]=1; fa[0]=1
@@ -575,7 +577,6 @@ void DC_Calibrate(struct snd_soc_codec *codec)
  */
 int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 {
-	int jack_type;
 	int sclk_src = 0;
 	int reg63, reg64;
 
@@ -625,6 +626,12 @@ int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 	return jack_type;
 }
 EXPORT_SYMBOL(rt5640_headset_detect);
+
+int rt5640_jack_type(void)
+{
+	return jack_type;
+}
+EXPORT_SYMBOL(rt5640_jack_type);
 
 static const char *rt5640_dacr2_src[] = { "TxDC_R", "TxDP_R" };
 
