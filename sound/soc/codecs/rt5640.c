@@ -3252,14 +3252,12 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 
 static irqreturn_t rt5640_irq_isr(int irq, void *dev_id)
 {
-	unsigned int gpio_status;
-	int jack_insert;
+	int gpio, gpio_status;
 	struct snd_soc_codec *codec = dev_id;
 
-	gpio_status = snd_soc_read(codec, RT5640_INT_IRQ_ST);
-	jack_insert = !(gpio_status & 0x100);
-
-	rt5640_headset_detect(codec, jack_insert);
+	gpio = amlogic_gpio_name_map_num("GPIOAO_13");
+	gpio_status = amlogic_get_value(gpio, CODEC_NAME);
+	rt5640_headset_detect(codec, gpio_status);
 
 	return IRQ_HANDLED;
 }
