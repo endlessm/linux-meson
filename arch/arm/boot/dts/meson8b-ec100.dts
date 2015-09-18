@@ -546,8 +546,8 @@
 	        aml,sound_card = "AML-M8AUDIO";
 	        aml,codec_dai = "AML-M8", "rt5640-aif1";
 	        aml,audio-routing-rt5640 =
-	            "HP","HPOL",
-	            "HP","HPOR",
+	            "Headphone","HPOL",
+	            "Headphone","HPOR",
 	            "MAIN MIC", "micbias1",
 	            "IN2P", "MAIN MIC";
 	        mute_gpio = "GPIO_BSD_EN";
