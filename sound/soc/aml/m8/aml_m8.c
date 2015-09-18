@@ -518,7 +518,7 @@ static int speaker_events(struct snd_soc_dapm_widget *w,
 
 static const struct snd_soc_dapm_widget aml_asoc_dapm_widgets[] = {
     SND_SOC_DAPM_SPK("Ext Spk", speaker_events),
-    SND_SOC_DAPM_HP("HP", NULL),
+    SND_SOC_DAPM_HP("Headphone", NULL),
     SND_SOC_DAPM_MIC("MAIN MIC", NULL),
     SND_SOC_DAPM_MIC("HEADSET MIC", NULL),
 };
@@ -529,7 +529,7 @@ static const struct snd_kcontrol_new aml_asoc_controls[] = {
 
 static struct snd_soc_jack_pin jack_pins[] = {
     {
-        .pin = "HP",
+        .pin = "Headphone",
         .mask = SND_JACK_HEADPHONE,
     }
 };
