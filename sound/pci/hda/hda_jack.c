@@ -340,7 +340,7 @@ static int __snd_hda_jack_add_kctl(struct hda_codec *codec, hda_nid_t nid,
 		return 0;
 	if (jack->kctl)
 		return 0; /* already created */
-	kctl = snd_kctl_jack_new(name, idx, codec);
+	kctl = snd_kctl_jack_new(name, codec, codec->card);
 	if (!kctl)
 		return -ENOMEM;
 	err = snd_hda_ctl_add(codec, nid, kctl);
@@ -355,7 +355,7 @@ static int __snd_hda_jack_add_kctl(struct hda_codec *codec, hda_nid_t nid,
 	if (!phantom_jack) {
 		jack->type = get_input_jack_type(codec, nid);
 		err = snd_jack_new(codec->bus->card, name, jack->type,
-				   &jack->jack);
+				   &jack->jack, false, false);
 		if (err < 0)
 			return err;
 		jack->jack->private_data = jack;

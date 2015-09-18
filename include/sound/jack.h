@@ -58,6 +58,8 @@ enum snd_jack_types {
 
 struct snd_jack {
 	struct input_dev *input_dev;
+	struct list_head kctl_list;
+	struct snd_card *card;
 	int registered;
 	int type;
 	const char *id;
@@ -70,7 +72,8 @@ struct snd_jack {
 #ifdef CONFIG_SND_JACK
 
 int snd_jack_new(struct snd_card *card, const char *id, int type,
-		 struct snd_jack **jack);
+		 struct snd_jack **jack, bool initial_kctl, bool phantom_jack);
+int snd_jack_add_new_kctl(struct snd_jack *jack, const char * name, int mask);
 void snd_jack_set_parent(struct snd_jack *jack, struct device *parent);
 int snd_jack_set_key(struct snd_jack *jack, enum snd_jack_types type,
 		     int keytype);
@@ -78,9 +81,13 @@ int snd_jack_set_key(struct snd_jack *jack, enum snd_jack_types type,
 void snd_jack_report(struct snd_jack *jack, int status);
 
 #else
-
 static inline int snd_jack_new(struct snd_card *card, const char *id, int type,
-			       struct snd_jack **jack)
+			       struct snd_jack **jack, bool initial_kctl, bool phantom_jack)
+{
+	return 0;
+}
+
+static inline int snd_jack_add_new_kctl(struct snd_jack *jack, const char * name, int mask)
 {
 	return 0;
 }
