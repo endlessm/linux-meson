@@ -74,11 +74,8 @@ static void aml_hw_i2s_init(struct snd_pcm_runtime *runtime)
 	audio_set_i2s_mode(i2s_mode);
 	audio_set_aiubuf(runtime->dma_addr, runtime->dma_bytes,
 			 runtime->channels);
-	ALSA_PRINT("i2s dma %x,phy addr %x,mode %d,ch %d \n",
-		    (unsigned)runtime->dma_area, (unsigned)runtime->dma_addr,
-		    i2s_mode, runtime->channels);
-}
-
+	audio_set_aiubuf(runtime->dma_addr, runtime->dma_bytes,runtime->channels);
+}
 static int aml_dai_i2s_startup(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
@@ -233,7 +230,6 @@ static int aml_dai_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		/* TODO */
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			ALSA_PRINT("aiu i2s playback enable\n\n");
 			audio_out_i2s_enable(1);
 			if (IEC958_mode_codec == 0) {
 				ALSA_PRINT("audio_hw_958_enable  1\n");
@@ -250,7 +246,6 @@ static int aml_dai_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			ALSA_PRINT("aiu i2s playback disable\n\n");
 			audio_out_i2s_enable(0);
 			if (IEC958_mode_codec == 0) {
 				ALSA_PRINT("audio_hw_958_enable  0\n");
