@@ -893,11 +893,11 @@ static int rt5640_vol_rescale_put(struct snd_kcontrol *kcontrol,
 
 static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 	/* Speaker Output Volume */
-	SOC_DOUBLE("Speaker Playback Switch", RT5640_SPK_VOL,
-		RT5640_L_MUTE_SFT, RT5640_R_MUTE_SFT, 1, 1),
-	SOC_DOUBLE_EXT_TLV("Speaker Playback Volume", RT5640_SPK_VOL,
-		RT5640_L_VOL_SFT, RT5640_R_VOL_SFT, RT5640_VOL_RSCL_RANGE, 0,
-		rt5640_vol_rescale_get, rt5640_vol_rescale_put, out_vol_tlv),
+//	SOC_DOUBLE("Speaker Playback Switch", RT5640_SPK_VOL,
+//		RT5640_L_MUTE_SFT, RT5640_R_MUTE_SFT, 1, 1),
+//	SOC_DOUBLE_EXT_TLV("Speaker Playback Volume", RT5640_SPK_VOL,
+//		RT5640_L_VOL_SFT, RT5640_R_VOL_SFT, RT5640_VOL_RSCL_RANGE, 0,
+//		rt5640_vol_rescale_get, rt5640_vol_rescale_put, out_vol_tlv),
 	/* Headphone Output Volume */
 	SOC_DOUBLE("HP Playback Switch", RT5640_HP_VOL,
 		RT5640_L_MUTE_SFT, RT5640_R_MUTE_SFT, 1, 1),
