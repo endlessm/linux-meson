@@ -3237,7 +3237,7 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 	case SND_SOC_BIAS_OFF:
 		snd_soc_write(codec, RT5640_DEPOP_M1, 0x0004);
 		snd_soc_write(codec, RT5640_DEPOP_M2, 0x1100);
-		snd_soc_write(codec, RT5640_GEN_CTRL1, 0x3700);
+		snd_soc_write(codec, RT5640_GEN_CTRL1, 0x3701);
 		snd_soc_write(codec, RT5640_PWR_DIG1, 0x0000);
 		snd_soc_write(codec, RT5640_PWR_DIG2, 0x0000);
 		snd_soc_write(codec, RT5640_PWR_VOL, 0x0000);
