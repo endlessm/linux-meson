@@ -101,7 +101,9 @@ static void meson_encoder_mode_set(struct drm_encoder *encoder,
 	vmode_t vmode;
 	vmode = drm_mode_to_vmode(adjusted_mode, MESON_MODES_HDMI);
 	meson_drm_set_vmode(vmode);
-	meson_set_hdmi_audio();
+
+	if (!hdmi_audio_off_flag)
+		meson_set_hdmi_audio();
 
 	/* Make sure to unblank our display */
 	aml_write_reg32(P_VPU_HDMI_DATA_OVR, 0);
@@ -234,6 +236,8 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 		hdmi_set_reg_bits(TX_VIDEO_DTV_OPTION_L, 0x0, 6, 2);
 		hdmi_set_reg_bits(TX_TMDS_MODE, 0x2, 6, 2);
 	}
+
+	hdmi_audio_off_flag = !drm_detect_monitor_audio(edid);
 
 	drm_mode_connector_update_edid_property(connector, edid);
 	return drm_add_edid_modes(connector, edid);
