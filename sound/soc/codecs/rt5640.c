@@ -54,8 +54,6 @@ static struct snd_soc_codec *rt5640_codec;
 static struct timer_list mclk_check_timer;
 struct work_struct  mclk_check_work;
 
-static int jack_type;
-
 static struct rt5640_init_reg init_list[] = {
 #ifdef USE_ASRC
 	{RT5640_GEN_CTRL1	, 0x3771},//fa[12:13] = 1'b; fa[8~11]=1; fa[0]=1
@@ -569,18 +567,31 @@ void DC_Calibrate(struct snd_soc_codec *codec)
 /**
  * rt5640_headset_detect - Detect headset.
  * @codec: SoC audio codec device.
- * @jack_insert: Jack insert or not.
  *
  * Detect whether is headset or not when jack inserted.
  *
  * Returns detect status.
  */
-int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert)
+int rt5640_headset_detect(struct snd_soc_codec *codec, int flag)
 {
+	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
+	int jack_type;
 	int sclk_src = 0;
 	int reg63, reg64;
+	int jack;
 
-	if(jack_insert) {
+	snd_soc_update_bits(codec, RT5640_GEN_CTRL1 , 0x1, 0x1);
+	msleep(100);
+
+	jack = amlogic_get_value(rt5640->gpio_hp, CODEC_NAME);
+	if (SND_SOC_BIAS_OFF == codec->dapm.bias_level)
+		snd_soc_update_bits(codec, RT5640_GEN_CTRL1 , 0x1, 0x0);
+
+	if (jack == rt5640->jack_insert)
+		return flag;
+	rt5640->jack_insert = jack;
+
+	if(rt5640->jack_insert) {
 		reg63 = snd_soc_read(codec, RT5640_PWR_ANLG1);
 		reg64 = snd_soc_read(codec, RT5640_PWR_ANLG2);
 		if (SND_SOC_BIAS_OFF == codec->dapm.bias_level) {
@@ -626,12 +637,6 @@ int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 	return jack_type;
 }
 EXPORT_SYMBOL(rt5640_headset_detect);
-
-int rt5640_jack_type(void)
-{
-	return jack_type;
-}
-EXPORT_SYMBOL(rt5640_jack_type);
 
 static const char *rt5640_dacr2_src[] = { "TxDC_R", "TxDP_R" };
 
@@ -3257,27 +3262,10 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static irqreturn_t rt5640_irq_isr(int irq, void *dev_id)
-{
-	int gpio, gpio_status;
-	struct snd_soc_codec *codec = dev_id;
-
-	gpio = amlogic_gpio_name_map_num("GPIOAO_13");
-	gpio_status = amlogic_get_value(gpio, CODEC_NAME);
-	rt5640_headset_detect(codec, gpio_status);
-
-	return IRQ_HANDLED;
-}
-
-irqreturn_t rt5640_hard_irq_isr(int irq, void *dev_id)
-{
-	return IRQ_WAKE_THREAD;
-}
-
 static int rt5640_probe(struct snd_soc_codec *codec)
 {
 	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
-	int ret, gpio;
+	int ret;
 
 	pr_info("Codec driver version %s\n", VERSION);
 
@@ -3324,7 +3312,7 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, RT5640_GEN_CTRL1, 0x0800, 0x0800);
 	}
 	DC_Calibrate(codec);
-	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
+	codec->dapm.bias_level = SND_SOC_BIAS_STANDBY;
 	rt5640->codec = codec;
 
 	snd_soc_add_codec_controls(codec, rt5640_snd_controls,
@@ -3375,23 +3363,10 @@ static int rt5640_probe(struct snd_soc_codec *codec)
 	setup_timer( &mclk_check_timer, mclk_check_timer_callback, 0 );
 	INIT_WORK(&mclk_check_work, mclk_check_work_handler);
 
-	gpio = amlogic_gpio_name_map_num("GPIOAO_13");
-	amlogic_gpio_request_one(gpio, GPIOF_IN, CODEC_NAME);
+	rt5640->gpio_hp = amlogic_gpio_name_map_num("GPIOAO_13");
+	amlogic_gpio_request_one(rt5640->gpio_hp, GPIOF_IN, CODEC_NAME);
 
-	amlogic_gpio_to_irq(gpio, CODEC_NAME,
-			    AML_GPIO_IRQ(7, FILTER_NUM7, GPIO_IRQ_FALLING));
-	amlogic_gpio_to_irq(gpio, CODEC_NAME,
-			    AML_GPIO_IRQ(4, FILTER_NUM7, GPIO_IRQ_RISING));
-
-	if (request_threaded_irq(INT_GPIO_7, rt5640_hard_irq_isr,
-				 rt5640_irq_isr, IRQF_SHARED, "rt5640_JD2_f", codec) < 0)
-		dev_warn(codec->dev, "Unable to claim irq %d, error %d\n",
-			 INT_GPIO_7, ret);
-
-	if (request_threaded_irq(INT_GPIO_4, rt5640_hard_irq_isr,
-				 rt5640_irq_isr, IRQF_SHARED, "rt5640_JD2_r", codec) < 0)
-		dev_warn(codec->dev, "Unable to claim irq %d, error %d\n",
-			 INT_GPIO_4, ret);
+	rt5640->jack_insert = -1;
 
 	return 0;
 }
