@@ -2069,8 +2069,7 @@ enum {
 #define RT5640_HEADSET_DET	BIT(1)
 #define RT5640_HEADPHO_DET	BIT(2)
 
-int rt5640_headset_detect(struct snd_soc_codec *codec, int jack_insert);
-int rt5640_jack_type(void);
+int rt5640_headset_detect(struct snd_soc_codec *codec, int flag);
 
 /* System Clock Source */
 enum {
@@ -2144,6 +2143,9 @@ struct rt5640_priv {
 	int v_code;
 	bool dsp_play_pass;
 	bool dsp_rec_pass;
+
+	int gpio_hp;
+	int jack_insert;
 
 	unsigned int adb_reg_addr[0x100];
 	unsigned int adb_reg_value[0x100];

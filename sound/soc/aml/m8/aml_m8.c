@@ -161,14 +161,14 @@ static int aml_audio_hp_detect(struct aml_audio_private_data *p_aml_audio)
 #define RT5640_HEADSET_DET	BIT(1)
 #define RT5640_HEADPHO_DET	BIT(2)
 
-extern int rt5640_jack_type(void);
+extern int rt5640_headset_detect(struct snd_soc_codec *codec_loc, int flag);
 static void aml_asoc_work_func(struct work_struct *work)
 {
 	struct aml_audio_private_data *p_aml_audio;
 	int flag;
 
 	p_aml_audio = container_of(work, struct aml_audio_private_data, work);
-	flag = rt5640_jack_type();
+	flag = rt5640_headset_detect(p_aml_audio->codec, p_aml_audio->detect_flag);
 
 	if (p_aml_audio->detect_flag != flag) {
 		p_aml_audio->detect_flag = flag;
@@ -192,11 +192,10 @@ static void aml_asoc_work_func(struct work_struct *work)
 	p_aml_audio->hp_det_status = true;
 }
 
-
 static void aml_asoc_timer_func(unsigned long data)
 {
     struct aml_audio_private_data *p_aml_audio = (struct aml_audio_private_data *)data;
-    unsigned long delay = msecs_to_jiffies(150);
+    unsigned long delay = msecs_to_jiffies(300);
 
     if(p_aml_audio->hp_det_status){
         schedule_work(&p_aml_audio->work);
@@ -545,6 +544,7 @@ static int aml_asoc_init(struct snd_soc_pcm_runtime *rtd)
 	
     printk(KERN_DEBUG "enter %s \n", __func__);
 	p_aml_audio = snd_soc_card_get_drvdata(card);
+	p_aml_audio->codec = codec;
     ret = snd_soc_add_card_controls(codec->card, aml_m8_controls,
                 ARRAY_SIZE(aml_m8_controls));
     if (ret)

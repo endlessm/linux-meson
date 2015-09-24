@@ -2,6 +2,7 @@
 #define AML_M8_H
 
 struct aml_audio_private_data {
+	struct snd_soc_codec *codec;
     int bias_level;
     int clock_en;
 	int gpio_hp_det;
