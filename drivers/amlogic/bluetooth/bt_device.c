@@ -69,12 +69,12 @@ static void bt_device_deinit(struct bt_dev_data *pdata)
 static void bt_device_on(struct bt_dev_data *pdata)
 {	
 	if(pdata->gpio_reset > 0 )
-	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
+	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
 	if(pdata->gpio_en > 0 )
 	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);	
 	msleep(20);	
 	if(pdata->gpio_reset > 0 )
-	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
+	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
 	if(pdata->gpio_en > 0 )
 	    amlogic_gpio_direction_output(pdata->gpio_en, 1, BT_RFKILL);	
 	msleep(20);
@@ -83,7 +83,7 @@ static void bt_device_on(struct bt_dev_data *pdata)
 static void bt_device_off(struct bt_dev_data *pdata)
 {
     if(pdata->gpio_reset > 0 )
-	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
+	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
 	if(pdata->gpio_en > 0 )
 	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);
 	msleep(20);	
@@ -188,8 +188,6 @@ static int bt_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_rfk_alloc;
 	}
-	/* if not set false, the bt_set_block will call when rfkill class resume */
-    rfkill_init_sw_state(bt_rfk, false);      //we want to reset bt when system resume
 	ret = rfkill_register(bt_rfk);
 	if (ret){
         printk(KERN_ERR "rfkill_register fail\n");
