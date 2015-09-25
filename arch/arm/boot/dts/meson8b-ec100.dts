@@ -160,6 +160,12 @@
 		clock_32k_pin = "GPIOX_10";
 	};
 
+	fiq {
+		compatible = "amlogic,fiq";
+		reg = <0xc1109940 0x14>;
+		interrupts = <0 10 1>;
+	};
+
 	wifi_power {
 		compatible = "amlogic,wifi_power";
 		dev_name = "wifi_power";

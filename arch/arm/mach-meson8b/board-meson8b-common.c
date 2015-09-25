@@ -44,6 +44,7 @@
 #endif
 #include <linux/syscore_ops.h>
 #include <mach/am_regs.h>
+#include <asm/mach/irq.h>
 
 #include <linux/amlogic/vmapi.h>
 
@@ -126,6 +127,7 @@ static __init void meson_init_early(void)
 static void __init meson_init_irq(void)
 {
 	meson_init_gic_irq();
+	init_FIQ(32);
 //	backup_cpu_entry_code();
 }
 static const char *m8_common_board_compat[] __initdata = {
