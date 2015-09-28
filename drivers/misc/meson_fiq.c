@@ -35,6 +35,7 @@ static struct meson_fiq_data *meson_fiq_data;
 extern unsigned char meson_fiq_handler, meson_fiq_handler_end;
 
 #ifdef FIQ
+static u8 fiq_stack[4096];
 static struct fiq_handler meson_fh = {
 	.name	= "meson_fiq_handler"
 };
@@ -57,6 +58,30 @@ static irqreturn_t fiq_handler(int irq, void *dev_id)
 	);
 
 	return IRQ_HANDLED;
+}
+#else
+static void __attribute__((naked)) fiq_vector(void)
+{
+	asm __volatile__("mov pc, r8 ;");
+}
+
+static void __attribute__((naked)) fiq_isr(void)
+{
+	int i;
+	unsigned int fiq;
+
+	asm __volatile__(
+		"mov    ip, sp;\n"
+		"stmfd  sp!, {r0-r12, lr};\n"
+		"sub    sp, sp, #256;\n"
+		"sub    fp, sp, #256;\n");
+
+	printk(KERN_EMERG "---->>>\n");
+
+	asm __volatile__(
+		"add    sp, sp, #256 ;\n"
+		"ldmia  sp!, {r0-r12, lr};\n"
+		"subs   pc, lr, #4;\n");
 }
 #endif
 
@@ -144,27 +169,12 @@ static int meson_fiq_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 #else
-	ret = claim_fiq(&meson_fh);
-	if (ret) {
-		dev_err(&pdev->dev, "Couldn't claim the fiq\n");
-		return ret;
-	}
+	memset(&regs, 0, sizeof(regs));
+	regs.ARM_r8 = (unsigned long)fiq_isr;
+	regs.ARM_sp = (unsigned long)fiq_stack + sizeof(fiq_stack) - 4;
 
-	set_fiq_handler(&meson_fiq_handler,
-			&meson_fiq_handler_end - &meson_fiq_handler);
-
-	regs.ARM_r8 = (long) 0xfe108058;
 	set_fiq_regs(&regs);
-
-//	writel(0xffffffff,P_AO_CPU_IRQ_IN0_INTR_STAT_CLR);
-//	writel(readl(P_AO_CPU_IRQ_IN0_INTR_MASK)|(1<<1),P_AO_CPU_IRQ_IN0_INTR_MASK);
-//	writel(readl(P_AO_CPU_IRQ_IN0_INTR_FIRQ_SEL)|(1<<1),P_AO_CPU_IRQ_IN0_INTR_FIRQ_SEL);
-
-	reg = readl(P_AO_IRQ_MASK_FIQ_SEL);
-	reg |= BIT(30);
-	writel(reg, P_AO_IRQ_MASK_FIQ_SEL);
-
-	enable_fiq(meson_fiq_data->irq);
+	set_fiq_handler(fiq_vector, 8);
 #endif
 
 	return 0;
