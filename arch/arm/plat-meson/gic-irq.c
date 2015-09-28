@@ -42,6 +42,11 @@
 #define MESON_GIC_FIQ_LEVEL 0x0;
 static unsigned irq_level=MESON_GIC_IRQ_LEVEL;
 
+typedef void (*fiq_routine)(void);
+
+#define MAX_FIQ 4
+static fiq_routine fiq_func;
+
 static void meson_gic_unmask(struct irq_data *data)
 {
     /**
@@ -117,22 +122,47 @@ static struct irqaction fake_fiq = {
 
 
 static DEFINE_SPINLOCK(lock);
+extern void gic_set_fiq_fake(unsigned fiq);
+
+void fiq_isr_fake(unsigned int fiq)
+{
+	printk(KERN_EMERG "---> %s\n", __func__);
+}
+
 void request_fiq(unsigned int fiq, void (*isr)(void))
 {
-    ulong flags;
+//    ulong flags;
+//
+//    BUG_ON(fiq >= NR_IRQS) ;
+//    BUG_ON(fiq_isr[fiq]!=NULL);
+//    spin_lock_irqsave(&lock, flags);
+//    irq_level=MESON_GIC_FIQ_LEVEL;
+//    fiq_isr[fiq]=isr;
+//    setup_irq(fiq,&fake_fiq);
+//    irq_level=MESON_GIC_IRQ_LEVEL;
+//#ifdef CONFIG_ARM_GIC
+//    irq_set_affinity(fiq,cpumask_of(1));
+//#else
+//#endif
+//    spin_unlock_irqrestore(&lock, flags);
+//
+	uint32_t dist_base;
+	unsigned int mask;
 
-    BUG_ON(fiq >= NR_IRQS) ;
-    BUG_ON(fiq_isr[fiq]!=NULL);
-    spin_lock_irqsave(&lock, flags);
-    irq_level=MESON_GIC_FIQ_LEVEL;
-    fiq_isr[fiq]=isr;
-    setup_irq(fiq,&fake_fiq);
-    irq_level=MESON_GIC_IRQ_LEVEL;
-#ifdef CONFIG_ARM_GIC
-    irq_set_affinity(fiq,cpumask_of(1));
-#else
-#endif
-    spin_unlock_irqrestore(&lock, flags);
+	fiq_func = isr;
+
+	gic_set_fiq_fake(fiq);
+	dist_base =  (uint32_t)(IO_PERIPH_BASE+0x1000);
+	mask = aml_read_reg32(dist_base+GIC_DIST_GROUP + (fiq / 32) * 4);
+	mask &= (~(1 << (fiq % 32)) & 0xffffffff);
+	aml_write_reg32(dist_base + GIC_DIST_GROUP + (fiq / 32) * 4, mask);
+
+	aml_set_reg32_bits(dist_base+GIC_DIST_CONFIG + (fiq/16)*4,3,(fiq%16)*2,2);
+	aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (fiq  / 4)* 4,0,(fiq%4)*8,8);
+
+	dsb();
+	mask = (1<<(fiq%32));
+	aml_write_reg32(dist_base + GIC_DIST_ENABLE_SET+(fiq/32)*4, mask);
 }
 EXPORT_SYMBOL(request_fiq);
 void free_fiq(unsigned int fiq, void (*isr)(void))

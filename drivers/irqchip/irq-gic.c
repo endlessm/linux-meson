@@ -345,6 +345,23 @@ static struct irq_chip gic_chip = {
 #endif
 	.irq_set_wake		= gic_set_wake,
 };
+extern void fiq_isr_fake(unsigned int fiq);
+void handle_fasteoi_irq_fake(unsigned int irq, struct irq_desc *desc)
+{
+	raw_spin_lock(&desc->lock);
+	fiq_isr_fake(irq);
+	desc->irq_data.chip->irq_eoi(&desc->irq_data);
+	raw_spin_unlock(&desc->lock);
+
+	return;
+}
+
+void  gic_set_fiq_fake(unsigned fiq)
+{
+	if((fiq>=32) && (fiq<=1020)){
+		irq_set_chip_and_handler(fiq, &gic_chip, handle_fasteoi_irq_fake);
+	}
+}
 
 void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
 {

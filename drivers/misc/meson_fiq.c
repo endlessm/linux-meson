@@ -76,7 +76,7 @@ static void __attribute__((naked)) fiq_isr(void)
 		"sub    sp, sp, #256;\n"
 		"sub    fp, sp, #256;\n");
 
-	printk(KERN_EMERG "---->>>\n");
+	printk(KERN_EMERG "---->>> %s\n", __func__);
 
 	asm __volatile__(
 		"add    sp, sp, #256 ;\n"
@@ -175,6 +175,8 @@ static int meson_fiq_probe(struct platform_device *pdev)
 
 	set_fiq_regs(&regs);
 	set_fiq_handler(fiq_vector, 8);
+
+	request_fiq(meson_fiq_data->irq, NULL);
 #endif
 
 	return 0;
