@@ -953,21 +953,29 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	meson_hdmi_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_HDMI));
 
 	{
-		struct drm_display_mode *mode = drm_cvt_mode(dev,
-							     CVBS_HACK_MODE_SIZE(720),
-							     CVBS_HACK_MODE_SIZE(480),
-							     60, false, true, false);
-		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_NTSC), mode);
+		struct drm_display_mode *mode[2];
+
+		mode[0] = drm_cvt_mode(dev, CVBS_HACK_MODE_SIZE(720), CVBS_HACK_MODE_SIZE(480),
+				       60, false, true, false);
+		mode[0]->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+
+		mode[1] = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
+		mode[1]->type |= DRM_MODE_TYPE_DRIVER;
+
+		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_NTSC), mode, 2);
 	}
 
 	{
-		struct drm_display_mode *mode = drm_cvt_mode(dev,
-							     CVBS_HACK_MODE_SIZE(720),
-							     CVBS_HACK_MODE_SIZE(576),
-							     50, false, true, false);
-		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode);
+		struct drm_display_mode *mode[2];
+
+		mode[0] = drm_cvt_mode(dev, CVBS_HACK_MODE_SIZE(720), CVBS_HACK_MODE_SIZE(576),
+				       50, false, true, false);
+		mode[0]->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+
+		mode[1] = drm_cvt_mode(dev, 720, 576, 50, false, true, false);
+		mode[1]->type |= DRM_MODE_TYPE_DRIVER;
+
+		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode, 2);
 	}
 
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
