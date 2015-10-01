@@ -48,6 +48,7 @@ static void meson_gic_unmask(struct irq_data *data)
      * Set irq to edge rising and proi to low
      */
     uint32_t dist_base=(uint32_t)(IO_PERIPH_BASE+0x1000);
+    unsigned int prio = irq_level;
     int edge = 0x3;//edge
 
     int irq=data->irq;
@@ -60,8 +61,11 @@ static void meson_gic_unmask(struct irq_data *data)
     if(data->state_use_accessors & IRQ_TYPE_LEVEL_MASK)
 	edge = 0x1;//level
 
-     if((irq == 62)||(irq == 63))    
-	 edge = 0x1;//level
+    /* Custom config for USB HC interrupts */
+    if((irq == 62)||(irq == 63)) {
+        edge = 0x1;//level
+        prio = MESON_GIC_FIQ_LEVEL; // highest priority
+    }
 
     /**
      * set irq to edge rising .
@@ -71,7 +75,7 @@ static void meson_gic_unmask(struct irq_data *data)
      * Set prority
      */
 
-    aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0xff,(irq%4)*8,irq_level);
+    aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0xff,(irq%4)*8,prio);
 
 }
 #ifdef CONFIG_OF
