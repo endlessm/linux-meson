@@ -48,19 +48,20 @@ static void meson_gic_unmask(struct irq_data *data)
      * Set irq to edge rising and proi to low
      */
     uint32_t dist_base=(uint32_t)(IO_PERIPH_BASE+0x1000);
-    int edge = 0x3;//edge
-
-    int irq=data->irq;
+    int edge = 0x3;//edge    
+    int irq=data->irq;        
     if(irq<32)
         return;
 
+	if(irq >= FIQ_START)
+		irq -= FIQ_START;
     /**
       * Deal with IRQ type: IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH
       */
     if(data->state_use_accessors & IRQ_TYPE_LEVEL_MASK)
 	edge = 0x1;//level
 
-     if((irq == 62)||(irq == 63))    
+     if((irq == 62)||(irq == 63))         
 	 edge = 0x1;//level
 
     /**
@@ -70,10 +71,15 @@ static void meson_gic_unmask(struct irq_data *data)
     /**
      * Set prority
      */
-
     aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0xff,(irq%4)*8,irq_level);
 
+	if(data->irq == 63)
+		aml_set_reg32_bits(dist_base + GIC_DIST_IGROUP + (irq / 32) * 4, 0, (irq%32), 1);	
+	else
+		aml_set_reg32_bits(dist_base + GIC_DIST_IGROUP + (irq / 32) * 4, 1, (irq%32), 1);
+
 }
+
 #ifdef CONFIG_OF
 static const struct of_device_id mesnon_dt_irq_match[] __initconst = {
 	{ .compatible = "arm,cortex-a9-gic", .data = gic_of_init },
@@ -92,9 +98,8 @@ void __init meson_init_gic_irq(void)
 
     aml_write_reg32(IO_PERIPH_BASE+0x100 +GIC_CPU_PRIMASK,0xff);
 
-#ifdef CONFIG_MESON_ARM_GIC_FIQ
-extern void init_fiq(void)	;
-	init_fiq();
+#ifdef CONFIG_MESON_GIC_FIQ
+	init_FIQ(FIQ_START);
 #endif
 }
 

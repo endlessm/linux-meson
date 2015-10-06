@@ -454,7 +454,7 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 		goto out;
 	}
 
-	if (desc->istate & IRQS_ONESHOT)
+	if ((irq!=63) && (desc->istate & IRQS_ONESHOT))
 		mask_irq(desc);
 
 	preflow_handler(desc);
