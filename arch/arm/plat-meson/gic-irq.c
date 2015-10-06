@@ -31,6 +31,7 @@
 #include <asm/mach/time.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+#include <asm/fiq.h>
 #include <plat/io.h>
 #include <mach/io.h>
 #ifdef CONFIG_OF
@@ -73,7 +74,7 @@ static void meson_gic_unmask(struct irq_data *data)
      */
     aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0xff,(irq%4)*8,irq_level);
 
-	if(data->irq == 63)
+	if(data->irq == get_fiq_index())
 		aml_set_reg32_bits(dist_base + GIC_DIST_IGROUP + (irq / 32) * 4, 0, (irq%32), 1);	
 	else
 		aml_set_reg32_bits(dist_base + GIC_DIST_IGROUP + (irq / 32) * 4, 1, (irq%32), 1);
