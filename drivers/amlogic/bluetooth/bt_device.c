@@ -52,6 +52,11 @@ static void bt_device_init(struct bt_dev_data *pdata)
         amlogic_gpio_direction_output(pdata->gpio_wake, 1, BT_RFKILL);
     }
 
+    if(pdata->gpio_reset > 0 ) {
+	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
+	    msleep(50);
+	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
+    }
 }
 
 static void bt_device_deinit(struct bt_dev_data *pdata)
@@ -68,13 +73,9 @@ static void bt_device_deinit(struct bt_dev_data *pdata)
 
 static void bt_device_on(struct bt_dev_data *pdata)
 {	
-	if(pdata->gpio_reset > 0 )
-	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
 	if(pdata->gpio_en > 0 )
 	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);	
 	msleep(20);	
-	if(pdata->gpio_reset > 0 )
-	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
 	if(pdata->gpio_en > 0 )
 	    amlogic_gpio_direction_output(pdata->gpio_en, 1, BT_RFKILL);	
 	msleep(20);
@@ -82,8 +83,6 @@ static void bt_device_on(struct bt_dev_data *pdata)
 
 static void bt_device_off(struct bt_dev_data *pdata)
 {
-    if(pdata->gpio_reset > 0 )
-	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
 	if(pdata->gpio_en > 0 )
 	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);
 	msleep(20);	
