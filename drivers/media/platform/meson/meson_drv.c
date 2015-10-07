@@ -318,9 +318,9 @@ static void parse_next_buffer(struct vdec_ctx *ctx)
 
 	ts = (uint64_t)buf->v4l2_buf.timestamp.tv_sec * 1000000 +
 		(uint64_t)buf->v4l2_buf.timestamp.tv_usec;
-	ctx->parsed_len += size;
 
 	pts_checkin_offset_us64(PTS_TYPE_VIDEO, ctx->parsed_len, ts);
+	ctx->parsed_len += size;
 	esparser_start_search(PARSER_VIDEO, phys_addr, size);
 }
 
