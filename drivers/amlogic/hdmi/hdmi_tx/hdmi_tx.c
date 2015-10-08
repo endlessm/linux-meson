@@ -739,6 +739,7 @@ static ssize_t store_debug(struct device * dev, struct device_attribute *attr, c
 
 // support format lists
 const char* disp_mode_t[]={
+    "640x480p60hz",
     "480i",
     "480i_rpt",
     "480p",
@@ -758,6 +759,20 @@ const char* disp_mode_t[]={
     "4k2k25hz",
     "4k2k24hz",
     "4k2ksmpte",
+    // VESA modes
+    "800x480p60hz",
+    "800x600p60hz",
+    "1024x600p60hz",
+    "1024x768p60hz",
+    "1280x800p60hz",
+    "1280x1024p60hz",
+    "1360x768p60hz",
+    "1366x768p60hz",
+    "1440x900p60hz",
+    "1600x900p60hz",
+    "1600x1200p60hz",
+    "1680x1050p60hz",
+    "1920x1200p60hz",
     NULL
 };
 
