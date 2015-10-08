@@ -39,6 +39,7 @@
 #include <mach/clock.h>
 #include <linux/amlogic/vout/vinfo.h>
 #include <linux/amlogic/vout/enc_clk_config.h>
+#include <linux/amlogic/vout/vout_notify.h>
 #include <mach/io.h>
 #include <mach/register.h>
 #ifdef CONFIG_PANEL_IT6681
