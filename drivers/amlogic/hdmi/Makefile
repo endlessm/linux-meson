@@ -4,3 +4,8 @@ obj-$(CONFIG_AML_HDMI_TX_20)  +=  hdmi_tx_2/
 ifdef CONFIG_AML_HDMI_TX_20
 obj-y	+= hdmi_common/
 endif
+obj-$(CONFIG_AML_HDMI_TX_20)  +=  hdmi_tx_2/
+
+ifdef CONFIG_AML_HDMI_TX_20
+obj-y	+= hdmi_common/
+endif

@@ -512,7 +512,7 @@ int tvoutc_setmode(tvmode_t mode)
     }else{
 	aml_write_reg32(P_PERIPHS_PIN_MUX_0,aml_read_reg32(P_PERIPHS_PIN_MUX_0)&(~(3<<20)));
     }
-
+printk("%s[%d] mode is %d\n", __func__, __LINE__, mode);
 #if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
 	// for hdmi mode, leave the hpll setting to be done by hdmi module.
 	if( (mode==TVMODE_480CVBS) || (mode==TVMODE_576CVBS) )
