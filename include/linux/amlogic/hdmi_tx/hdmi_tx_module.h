@@ -375,5 +375,10 @@ extern void hdmi_print(int level, const char *fmt, ...);
 #error delete debug information
 #endif
 
+#define dd()
+#ifndef dd
+#error delete debug information
+#endif
+
 #endif
 

@@ -2151,7 +2151,7 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
     hdmi_hw_reset(hdmitx_device, param);    
 	// move hdmitx_set_pll() to the end of this function.
     // hdmitx_set_pll(param);
-    hdmitx_set_phy(hdmitx_device);
+
     if((param->VIC==HDMI_720p60)||(param->VIC==HDMI_720p50)||
         (param->VIC==HDMI_1080i60)||(param->VIC==HDMI_1080i50)){
         aml_write_reg32(P_ENCP_VIDEO_HAVON_BEGIN,  aml_read_reg32(P_ENCP_VIDEO_HAVON_BEGIN)-1);     
@@ -2449,6 +2449,18 @@ static unsigned int get_cts(unsigned int clk)
     return 0;
 }
 
+static unsigned int get_n(unsigned int clk)
+{
+    int i;
+
+    for(i = 0; i < ARRAY_SIZE(cts_table_192k); i++) {
+        if(clk == cts_table_192k[i].tmds_clk)
+            return cts_table_192k[i].fixed_n;
+    }
+
+    return 0;
+}
+
 static Vic_attr_map vic_attr_map_table[] = {
     {HDMI_640x480p60,       27000 },
     {HDMI_480p60,           27000 },
@@ -2528,6 +2540,7 @@ static unsigned int vic_map_clk(HDMI_Video_Codes_t vic)
 static void hdmitx_set_aud_cts(audio_type_t type, Hdmi_tx_audio_cts_t cts_mode, HDMI_Video_Codes_t vic)
 {
     unsigned int cts_val = 0;
+    unsigned int n_val = 0;
 
     switch(type) {
     case CT_MAT:
@@ -2535,8 +2548,12 @@ static void hdmitx_set_aud_cts(audio_type_t type, Hdmi_tx_audio_cts_t cts_mode, 
             unsigned int clk = vic_map_clk(vic);
             if(clk) {
                 cts_val = get_cts(clk);
+                n_val = get_n(clk);
+                printk("get cts = %d   get n = %d\n", cts_val, n_val);
                 if(!cts_val)
                     hdmi_print(ERR, AUD "not find cts\n");
+                if(!n_val)
+                    hdmi_print(ERR, AUD "not find n\n");
             }
             else {
                 hdmi_print(ERR, AUD "not find tmds clk\n");
@@ -2558,6 +2575,9 @@ static void hdmitx_set_aud_cts(audio_type_t type, Hdmi_tx_audio_cts_t cts_mode, 
         hdmi_wr_reg(TX_SYS0_ACR_CTS_1, (cts_val >> 8) & 0xff);
         hdmi_wr_reg(TX_SYS0_ACR_CTS_2, ((cts_val >> 16) & 0xff) | (1 << 4));
         hdmi_print(IMP, AUD "type: %d  CTS Mode: %d  VIC: %d  CTS: %d\n", type, cts_mode, vic, cts_val);
+        hdmi_wr_reg(TX_SYS1_ACR_N_0, (n_val&0xff)); // N[7:0]
+        hdmi_wr_reg(TX_SYS1_ACR_N_1, (n_val>>8)&0xff); // N[15:8]
+        hdmi_set_reg_bits(TX_SYS1_ACR_N_2, ((n_val >> 16)&0xf), 0, 4);
     }
 }
 
