@@ -15,23 +15,8 @@
 #ifndef __TVIN_H
 #define __TVIN_H
 
-#include <plat/io.h>
-#include <linux/amlogic/amports/cm.h>
-
-#define R_CBUS_REG(reg) aml_read_reg32(CBUS_REG_ADDR(reg))
-#define W_CBUS_REG(reg, val) aml_write_reg32(CBUS_REG_ADDR(reg), val)
-#define R_CBUS_BIT(reg, start, len) \
-	aml_get_reg32_bits(CBUS_REG_ADDR(reg), start, len)
-#define W_CBUS_BIT(reg, val, start, len) \
-	aml_set_reg32_bits(CBUS_REG_ADDR(reg), val, start, len)
-
-#define R_APB_REG(reg) aml_read_reg32(APB_REG_ADDR(reg))
-#define W_APB_REG(reg, val) aml_write_reg32(APB_REG_ADDR(reg), val)
-#define R_APB_BIT(reg, start, len) \
-	aml_get_reg32_bits(APB_REG_ADDR(reg), start, len)
-#define W_APB_BIT(reg, val, start, len) \
-	aml_set_reg32_bits(APB_REG_ADDR(reg), val, start, len)
-
+#include <linux/amlogic/cm.h>
+#include <mach/am_regs.h>
 
 enum {
     MEMP_VDIN_WITHOUT_3D = 0,
@@ -422,6 +407,16 @@ typedef enum tvin_color_fmt_e {
         TVIN_COLOR_FMT_MAX,
 }tvin_color_fmt_t;
 
+typedef enum tvin_color_fmt_range_e {
+        TVIN_FMT_RANGE_NULL = 0,  //depend on vedio fromat
+        TVIN_RGB_FULL,  //1
+        TVIN_RGB_LIMIT, // 2
+        TVIN_YUV_FULL,  // 3
+        TVIN_YUV_LIMIT, //4
+        TVIN_COLOR_FMT_RANGE_MAX,
+}tvin_color_fmt_range_t;
+
+
 const char *tvin_color_fmt_str(enum tvin_color_fmt_e color_fmt);
 typedef enum tvin_scan_mode_e {
         TVIN_SCAN_MODE_NULL = 0,
@@ -562,6 +557,12 @@ typedef enum tvafe_cvbs_video_e {
 // for pin selection
 typedef enum tvafe_adc_pin_e {
         TVAFE_ADC_PIN_NULL = 0,
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESONG9TV)
+	TVAFE_CVBS_IN0		= 1,
+	TVAFE_CVBS_IN1		= 2,
+	TVAFE_CVBS_IN2		= 3,
+	TVAFE_CVBS_IN3		= 4,//as atvdemod to tvafe
+#else
 	TVAFE_ADC_PIN_A_PGA_0	= 1,
 	TVAFE_ADC_PIN_A_PGA_1	= 2,
 	TVAFE_ADC_PIN_A_PGA_2	= 3,
@@ -610,10 +611,17 @@ typedef enum tvafe_adc_pin_e {
 	TVAFE_ADC_PIN_SOG_5	= 46,
 	TVAFE_ADC_PIN_SOG_6	= 47,
 	TVAFE_ADC_PIN_SOG_7	= 48,
+#endif
 	TVAFE_ADC_PIN_MAX,
 } tvafe_adc_pin_t;
 
 typedef enum tvafe_src_sig_e {
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESONG9TV)
+	CVBS_IN0 = 0,
+	CVBS_IN1,
+	CVBS_IN2,
+	CVBS_IN3,
+#else
         CVBS0_Y = 0,
         CVBS0_SOG,
         CVBS1_Y,
@@ -750,6 +758,7 @@ typedef enum tvafe_src_sig_e {
         SCART7_B,
         SCART7_R,
         SCART7_CVBS,
+#endif
         TVAFE_SRC_SIG_MAX_NUM,
 } tvafe_src_sig_t;
 

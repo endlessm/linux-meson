@@ -117,8 +117,9 @@ extern struct mtd_info * nand_secure_mtd;
 	}	
 	printk("///////////////////////////////////////save secure success//////////////////////////////////\n");
 	return;
+#endif
 	
-#elif CONFIG_SPI_NOR_SECURE_STORAGE
+#ifdef CONFIG_SPI_NOR_SECURE_STORAGE
 extern 	int secure_storage_spi_write(u8 *buf,u32 len);
 	unsigned char * secure_ptr = psrc;
 	int error = 0;
@@ -153,7 +154,7 @@ static int secure_writer_monitor(void *arg)
 {
 	struct secure_monitor_arg *parg = (struct secure_monitor_arg*)arg;
 	unsigned char *pfbuf = parg->pfbuf;	
-	unsigned long flags;
+	//unsigned long flags;
 	
 	NS_SHARE_MEM_HEAD *pshead = (NS_SHARE_MEM_HEAD*)(parg->psbuf+SHARE_MEM_HEAD_OFFSET);
 	unsigned char *psdata = parg->psbuf + SHARE_MEM_DATA_OFFSET;
@@ -201,7 +202,6 @@ static int __init secure_monitor_init(void)
 
 static void __exit secure_monitor_exit(void)
 {
-	int ret=0;
 	printk("**************flash_secure_remove start!\n");
 	if(secure_task){
 		kthread_stop(secure_task);
@@ -217,7 +217,7 @@ static void __exit secure_monitor_exit(void)
 	secure_monitor_buf.pfbuf = NULL;
 
 	printk("**************flash_secure_remove end!\n");
-	return ret;
+	return;
 }
 
 module_init(secure_monitor_init);

@@ -143,7 +143,7 @@ static int hpdmode = 1; /*
                             1, unmux hpd when unplug;
                             2, unmux hpd when unplug  or off;
                         */
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
 static int force_vout_index = 0;
 #endif
 static int hdmi_prbs_mode = 0xffff; /* 0xffff=disable; 0=PRBS 11; 1=PRBS 15; 2=PRBS 7; 3=PRBS 31*/
@@ -190,7 +190,7 @@ return value: 1, vout; 2, vout2;
 */
 {
     int vout_index = 1;
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
     if(force_vout_index){
         vout_index = force_vout_index;
     }
@@ -214,7 +214,7 @@ return value: 1, vout; 2, vout2;
 const vinfo_t * hdmi_get_current_vinfo(void)
 {
     const vinfo_t *info;
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
     if(get_cur_vout_index() == 2){
         info = get_current_vinfo2();
         if(info == NULL){ //add to fix problem when dual display is not enabled in UI
@@ -977,6 +977,12 @@ static int hdmitx_notify_callback_v(struct notifier_block *block, unsigned long 
     else {
         hdmi_print(IMP, VID "get current mode: %s\n", info->name);
     }
+    if ( ((vic_ready == HDMI_1080p24) && (info->mode == VMODE_1080P_23HZ)) ||
+        ((vic_ready == HDMI_1080p24) && (info->mode == VMODE_1080P_24HZ)) ) {
+        if (hdmitx_device.HWOp.SetAudN) {
+            hdmitx_device.HWOp.SetAudN();
+        }
+    }
 	if( is_similar_hdmi_vic(vic_ready, info->mode) )
 		return 0;
 #endif
@@ -994,7 +1000,7 @@ static int hdmitx_notify_callback_v(struct notifier_block *block, unsigned long 
     return 0;
 }
 
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
 static int hdmitx_notify_callback_v2(struct notifier_block *block, unsigned long cmd , void *para)
 {
     if(get_cur_vout_index()!=2)
@@ -1022,7 +1028,7 @@ static struct notifier_block hdmitx_notifier_nb_v = {
     .notifier_call    = hdmitx_notify_callback_v,
 };
 
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
 static struct notifier_block hdmitx_notifier_nb_v2 = {
     .notifier_call    = hdmitx_notify_callback_v2,
 };
@@ -1131,7 +1137,7 @@ static int hdmitx_notify_callback_a(struct notifier_block *block, unsigned long 
     audio_fs_t n_rate = aud_samp_rate_map(substream->runtime->rate);
     audio_sample_size_t n_size = aud_size_map(substream->runtime->sample_bits);
 
-    hdmitx_device.audio_param_update_flag = 1;
+    hdmitx_device.audio_param_update_flag = 0;
     hdmitx_device.audio_notify_flag = 0;
 
     if(audio_param->sample_rate != n_rate) {
@@ -1599,7 +1605,7 @@ static int amhdmitx_probe(struct platform_device *pdev)
         return r;
     }
     vout_register_client(&hdmitx_notifier_nb_v);
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
     vout2_register_client(&hdmitx_notifier_nb_v2);
 #endif
     aout_register_client(&hdmitx_notifier_nb_a);
@@ -1701,7 +1707,7 @@ static int amhdmitx_remove(struct platform_device *pdev)
     kthread_stop(hdmitx_device.task);
 
     vout_unregister_client(&hdmitx_notifier_nb_v);
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
     vout2_unregister_client(&hdmitx_notifier_nb_v2);
 #endif
     aout_unregister_client(&hdmitx_notifier_nb_a);
@@ -1735,6 +1741,9 @@ static int amhdmitx_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int amhdmitx_suspend(struct platform_device *pdev,pm_message_t state)
 {
+    if (PM_EVENT_FREEZE != state.event
+            && PM_EVENT_QUIESCE != state.event)
+        hdmitx_device.HWOp.CntlMisc(&hdmitx_device,MISC_HPLL_OP,HPLL_DISABLE);
 #if 0
     pr_info("amhdmitx: hdmirx_suspend\n");
     hdmitx_pre_display_init();
@@ -1955,7 +1964,7 @@ static  int __init hdmitx_boot_para_setup(char *s)
 
 __setup("hdmitx=",hdmitx_boot_para_setup);
 
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
 MODULE_PARM_DESC(force_vout_index, "\n force_vout_index\n");
 module_param(force_vout_index, uint, 0664);
 #endif

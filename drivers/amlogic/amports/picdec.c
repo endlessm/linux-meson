@@ -260,11 +260,23 @@ static int render_frame(ge2d_context_t *context,config_para_ex_t* ge2d_config)
 		//return -1;
 		index = fill_ptr;
 	}
+	if (picdec_device.p2p_mode) {
+		picdec_device.target_width  = picdec_device.disp_width;
+		picdec_device.target_height = picdec_device.disp_height;
+	} else {
+		if ((picdec_input.frame_width < picdec_device.disp_width) && (picdec_input.frame_height < picdec_device.disp_width)) {
+			picdec_device.target_width  = picdec_input.frame_width;
+			picdec_device.target_height = picdec_input.frame_height;
+		}else{
+			picdec_device.target_width  = picdec_device.disp_width;
+			picdec_device.target_height = picdec_device.disp_height;
+		}
+	}
 	//printk("render buffer index is %d!!!!!\n", index);	
 	new_vf = &vfpool[fill_ptr];
 	new_vf->canvas0Addr =new_vf->canvas1Addr = index2canvas(index);
-	new_vf->width = picdec_device.disp_width;
-	new_vf->height = picdec_device.disp_height;
+	new_vf->width = picdec_device.target_width;
+	new_vf->height = picdec_device.target_height;
 	new_vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD | VIDTYPE_VIU_NV21;
 	new_vf->duration_pulldown = 0;
 	new_vf->index = index;
@@ -303,8 +315,21 @@ static int render_frame_block(void)
 	//printk("render buffer index is %d$$$$$$$$$$$$$$$\n", index);		
 	new_vf = &vfpool[fill_ptr];
 	new_vf->canvas0Addr =new_vf->canvas1Addr = index2canvas(index);
-	new_vf->width = picdec_device.disp_width;
-	new_vf->height = picdec_device.disp_height;
+	if (picdec_device.p2p_mode) {
+		picdec_device.target_width  = picdec_device.disp_width;
+		picdec_device.target_height = picdec_device.disp_height;
+	} else {
+		if ((picdec_input.frame_width < picdec_device.disp_width) && (picdec_input.frame_height < picdec_device.disp_width)) {
+			picdec_device.target_width  = picdec_input.frame_width;
+			picdec_device.target_height = picdec_input.frame_height;
+		} else {
+			picdec_device.target_width  = picdec_device.disp_width;
+			picdec_device.target_height = picdec_device.disp_height;
+		}
+	}
+
+	new_vf->width = picdec_device.target_width;
+	new_vf->height = picdec_device.target_height;
 	new_vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD | VIDTYPE_VIU_NV21;
 	new_vf->duration_pulldown = 0;
 	new_vf->index = index;
@@ -629,8 +654,8 @@ int fill_color(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* ge2d_conf
 	ge2d_config->dst_para.color = 0;
 	ge2d_config->dst_para.top = 0;
 	ge2d_config->dst_para.left = 0;
-	ge2d_config->dst_para.width = picdec_device.disp_width;
-	ge2d_config->dst_para.height = picdec_device.disp_height;	
+	ge2d_config->dst_para.width = picdec_device.target_width;
+	ge2d_config->dst_para.height = picdec_device.target_height;
 
 	if(ge2d_context_config_ex(context,ge2d_config)<0) {
 		printk("++ge2d configing error.\n");
@@ -638,8 +663,8 @@ int fill_color(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* ge2d_conf
 	}
 	dst_top = 0;
 	dst_left = 0 ;
-	dst_width =  picdec_device.disp_width ;
-	dst_height = picdec_device.disp_height ;
+	dst_width =  picdec_device.target_width ;
+	dst_height = picdec_device.target_height ;
 
 	stretchblt_noalpha(context,0 ,0 ,640, 480,dst_left,dst_top,dst_width,dst_height);	
 	io_mapping_unmap_atomic( buffer_start );
@@ -889,14 +914,21 @@ int picdec_fill_buffer(vframe_t* vf, ge2d_context_t *context,config_para_ex_t* g
 	}
 	dst_top = 0;
 	dst_left = 0 ;
-	dst_width =  picdec_device.disp_width ;
-	dst_height = picdec_device.disp_height ;
+	dst_width =  picdec_device.target_width ;
+	dst_height = picdec_device.target_height ;
 	
 	rotate_adjust(frame_width ,frame_height,&dst_width ,&dst_height,picdec_input.rotate);
-	
-	dst_left = (picdec_device.disp_width -dst_width) >>1;	
-
-	dst_top = (picdec_device.disp_height -dst_height) >>1;
+	dst_width  = (dst_width +0x1) & ~0x1;
+	dst_height = (dst_height +0x1) & ~0x1;
+	if (picdec_device.p2p_mode) {
+		dst_left = (picdec_device.disp_width -dst_width) >>1;
+		dst_top = (picdec_device.disp_height -dst_height) >>1;
+	} else {
+		dst_left = 0;
+		dst_top = 0;
+		vf->width  = dst_width;
+		vf->height = dst_height;
+	}
 
 	stretchblt_noalpha(context,0 ,0 ,frame_width, frame_height,dst_left,dst_top,dst_width,dst_height);	
 	return 0;
@@ -1354,7 +1386,7 @@ struct class* init_picdec_cls(void) {
 	ret = class_register(&picdec_class);
 	if(ret < 0)
 	{
-		amlog_level(LOG_LEVEL_HIGH,"error create picdec class\r\n");
+		amlog_level(LOG_LEVEL_HIGH,"error create picdec class\n");
 		return NULL;
 	}
 	return &picdec_class;
@@ -1370,12 +1402,12 @@ int init_picdec_device(void)
 	ret=register_chrdev(0,picdec_device.name,&picdec_fops);
 	if(ret <=0)
 	{
-		amlog_level(LOG_LEVEL_HIGH,"register picdec device error\r\n");
+		amlog_level(LOG_LEVEL_HIGH,"register picdec device error\n");
 		return  ret ;
 	}
 	picdec_device.major=ret;
 	picdec_device.dbg_enable=0;
-	amlog_level(LOG_LEVEL_LOW,"picdec_dev major:%d\r\n",ret);
+	amlog_level(LOG_LEVEL_LOW,"picdec_dev major:%d\n",ret);
 
 	picdec_device.cla = init_picdec_cls();
 	if(picdec_device.cla == NULL)
@@ -1487,6 +1519,7 @@ static int picdec_driver_probe(struct platform_device *pdev)
 
 	set_picdec_buf_info((resource_size_t)buf_start,buf_size);
 	picdec_device.mapping = 0; 
+	picdec_device.p2p_mode = 0;
 	picdec_device.pdev = pdev;
 	init_picdec_device();
 	return 0;

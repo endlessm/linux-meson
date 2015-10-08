@@ -298,6 +298,12 @@ void root_func(){
 		status = "okay";
 	};
 
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
+
 /// ***************************************************************************************
 ///	-	RTC
 //$$ MODULE="RTC"
@@ -1323,8 +1329,8 @@ void root_func(){
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
         trip_point=<70 1488001 1488001 511 511 3 2
-                    80 1200001 1200001 435 435 2 2
-                    90  800001  800001 328 328 1 1
+                    80 1206001 1206001 435 435 2 2
+                    90  804001  804001 328 328 1 1
                     260 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;

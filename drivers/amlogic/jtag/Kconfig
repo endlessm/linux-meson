@@ -1,0 +1,19 @@
+menu "Amlogic JTAG Support"
+
+
+config AMLOGIC_JTAG
+	bool "Amlogic JTAG Support"
+	default n
+	help
+		Amlogic JTAG support.
+
+if AMLOGIC_JTAG
+config AML_JTAG_CONTROL
+	bool "jtag control support"
+	default n
+	help
+		Amlogic jtag control module.
+
+endif
+
+endmenu

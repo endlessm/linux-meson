@@ -308,6 +308,18 @@ void root_func(){
 		status = "okay";
 	};
 
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
+
+	tvout2 {
+		compatible = "amlogic,tvout2";
+		dev_name = "tvout2";
+		status = "okay";
+	};
+
 /// ***************************************************************************************
 ///	-	RTC
 //$$ MODULE="RTC"
@@ -654,9 +666,9 @@ sdio{
                  600000         860000      860000
                  720000         865000      8650000
                  816000         885000      885000
-                1008000         955000      955000
-                1200000         985000      985000
-                1416000        1035000     1035000
+                1008000        1130000     1130000
+                1200000        1130000     1130000
+                1416000        1130000     1130000
                 1608000        1130000     1130000
                 1800000        1135000     1135000
                 1992000        1160000     1160000
@@ -1370,49 +1382,36 @@ lcd_LD070WX4:lcd_LD070WX4{
 
 //******************************************************************************
 //lcd extern
-//Notice: only one dev support
 //******************************************************************************
-//$$ DEVICE = "lcd_extern_i2c_tc101"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "type"
-//$$ L2 PROP_STR = "i2c_bus"
-	lcd_extern_i2c_tc101{
-		compatible = "amlogic,lcd_i2c_tc101";
-		dev_name ="lcd_i2c_tc101";
-		status = "disabled";
+lcd_extern{
+		compatible = "amlogic,lcd_extern";
+		dev_name = "lcd_extern";
+		status = "okay";
 
-		type = <0>;	/** lcd_extern_driver type: 0=i2c, 1=spi, 2=mipi */
-		i2c_address = <0x7e>; /** i2c address */
-		i2c_bus = "i2c_bus_a";
-	};
-
-//$$ DEVICE = "lcd_extern_spi_LD070WS2"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "type"
-//$$ L2 PROP_U32 = "gpio_spi_cs"
-//$$ L2 PROP_U32 = "gpio_spi_clk"
-//$$ L2 PROP_U32 = "gpio_spi_data"
-	lcd_extern_spi_LD070WS2{
-		compatible = "amlogic,lcd_spi_LD070WS2";
-		dev_name ="lcd_spi_LD070WS2";
-		status = "disabled";
-
-		type = <1>;	/** lcd_extern_driver type: 0=i2c, 1=spi, 2=mipi */
-		gpio_spi_cs="GPIODV_1";
-		gpio_spi_clk="GPIODV_16";
-		gpio_spi_data="GPIODV_17";
-	};
-
-//$$ DEVICE = "lcd_extern_mipi_N070ICN"
-//$$ L2 PROP_STR = "status"
-//$$ L2 PROP_U32 = "type"
-	lcd_extern_mipi_N070ICN{
-		compatible = "amlogic,lcd_mipi_N070ICN";
-		dev_name ="lcd_mipi_N070ICN";
-		status = "disabled";
-
-		type = <2>;	/** lcd_extern_driver type: 0=i2c, 1=spi, 2=mipi */
-	};
+		extern_0{
+			index = <0>;
+			extern_name = "i2c_tc101";
+			status = "disabled";
+			type = <0>; /** lcd_extern_driver type: 0=i2c, 1=spi, 2=mipi */
+			i2c_address = <0x7e>; /** 7bit i2c address */
+			i2c_bus = "i2c_bus_a";
+		};
+		extern_1{
+			index = <1>;
+			extern_name = "spi_LD070WS2";
+			status = "disabled";
+			type = <1>; /** lcd_extern_driver type: 0=i2c, 1=spi, 2=mipi */
+			gpio_spi_cs="GPIODV_1";
+			gpio_spi_clk="GPIODV_16";
+			gpio_spi_data="GPIODV_17";
+		};
+		extern_2{
+			index = <2>;
+			extern_name = "_mipi_N070ICN";
+			status = "disabled";
+			type = <2>; /** lcd_extern_driver type: 0=i2c, 1=spi, 2=mipi */
+		};
+};
 
 /// ***************************************************************************************
 ///     -       Sensors
@@ -1830,8 +1829,8 @@ lcd_LD070WX4:lcd_LD070WX4{
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
         trip_point=<70 1608001 1608001 511 511 3 5 
-                    80 1200001 1200001 435 435 2 4
-                    90  800001 800001  328 328 2 3
+                    80 1206001 1206001 435 435 2 4
+                    90  804001 804001  328 328 2 3
                     260 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
@@ -2024,6 +2023,8 @@ lcd_LD070WX4:lcd_LD070WX4{
     cpufreq-meson{
         compatible = "amlogic,cpufreq-meson";
         status = "okay";
+        syspll_fixed;
+        fixpll_target = <1608000>;
     };
 
 /// **************************************************************************************

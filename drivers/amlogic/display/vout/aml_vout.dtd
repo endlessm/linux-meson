@@ -1,4 +1,4 @@
-#ifdef CONFIG_AM_TV_OUTPUT
+#ifdef CONFIG_AMLOGIC_VOUT
 //$$ DEVICE = "mesonvout"
 //$$ L2 PROP_STR = "status"
 	mesonvout{

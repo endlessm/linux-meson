@@ -431,7 +431,19 @@
 		dev_name = "mesonvout2";
 		/*reg = <0 0>;*/
 	};
-	
+
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
+
+	tvout2 {
+		compatible = "amlogic,tvout2";
+		dev_name = "tvout2";
+		status = "okay";
+	};
+
 	backlight{
 		compatible = "amlogic,backlight";
 		dev_name = "backlight";

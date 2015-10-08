@@ -305,6 +305,9 @@ static irqreturn_t vvc1_isr(int irq, void *dev_id)
             }
         }
 #endif
+        if ((picture_type == B_PICTURE) && avi_flag) {
+            pts_valid = 0;
+        }
 
         if ((pts_valid) && (frm.state != RATE_MEASURE_DONE)) {
             if (frm.state == RATE_MEASURE_START_PTS) {
@@ -823,7 +826,7 @@ static void vvc1_put_timer_func(unsigned long arg)
 
 static s32 vvc1_init(void)
 {
-    printk("vvc1_init\n");
+    printk("vvc1_init, format %d\n", vvc1_amstream_dec_info.format);
     init_timer(&recycle_timer);
 
     stat |= STAT_TIMER_INIT;
@@ -898,18 +901,20 @@ static s32 vvc1_init(void)
 
 static int amvdec_vc1_probe(struct platform_device *pdev)
 {
-    struct resource *mem;
+    struct vdec_dev_reg_s *pdata = (struct vdec_dev_reg_s *)pdev->dev.platform_data;
 
-    if (!(mem = platform_get_resource(pdev, IORESOURCE_MEM, 0))) {
+    if (pdata == NULL) {
         printk("amvdec_vc1 memory resource undefined.\n");
         return -EFAULT;
     }
 
-    buf_start = mem->start;
-    buf_size = mem->end - mem->start + 1;
+    buf_start = pdata->mem_start;
+    buf_size = pdata->mem_end - pdata->mem_start + 1;
     buf_offset = buf_start - ORI_BUFFER_START_ADDR;
 
-    memcpy(&vvc1_amstream_dec_info, (void *)mem[1].start, sizeof(vvc1_amstream_dec_info));
+    if (pdata->sys_info) {
+        vvc1_amstream_dec_info = *pdata->sys_info;
+    }
 
     if (vvc1_init() < 0) {
         printk("amvdec_vc1 init failed.\n");

@@ -8,55 +8,55 @@ config AMLOGIC_BACKLIGHT
 	help
 		Say Y here if you want to use the Amlogic backlight management.
 
+config AML_BACKLIGHT_EXTERN
+	boolean "AML backlight extern driver IC support"
+	default y
+	depends on AMLOGIC_BACKLIGHT
+	help
+		AML backlight extern driver IC support
+
+if  AML_BACKLIGHT_EXTERN
+source "drivers/amlogic/display/backlight/aml_bl_extern/Kconfig"
+endif
+
+config AMLOGIC_TV_BACKLIGHT
+	bool "Amlogic TV backlight support"
+	select BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+		Amlogic TV backlight management.
+
 config AML_BL_LATCH_ON_VSYNC
 	bool "Backlight latch on vsync"
-	depends on AMLOGIC_BACKLIGHT
+	depends on AMLOGIC_TV_BACKLIGHT
 	default n
 	help
 	  Say Y if you want to enable the Amlogic backlight latch on vsync.
 
 config AML_BL_PWM_ATTR
 	bool "Backlight sys class attr"
+	depends on AMLOGIC_TV_BACKLIGHT
 	default n
 	help
 	  Say Y if you want to enable the Amlogic backlight sys pwm attr.
 
-choice
-	prompt "Backlight control mode"
-	depends on AMLOGIC_BACKLIGHT
-	default AML_BL_CTL_GPIO
-	help
-	  Backlight control mode, by GPIO or PWM.
-
-config AML_BL_CTL_GPIO
-	bool "GPIO"
-
-config AML_BL_CTL_PWM
-	bool "PWM"
-
-endchoice
-
-config AML_LCD_BACKLIGHT_SUPPORT
-	tristate "AML lcd backlight support"
-	default y
-	depends on AMLOGIC_BACKLIGHT
-	help
-		AML lcd backlight support
-
 config AML_LOCAL_DIMMING
 	bool "Amlogic Local Dimming"
+	depends on AMLOGIC_TV_BACKLIGHT
 	default n
 	help
 	  Amlogic local dimming support.
 
 config IW7023_BACKLIGHT
 	bool "iW7023 Backlight"
+	depends on AMLOGIC_TV_BACKLIGHT
 	default n
 	help
 	  iW7023 LED Driver for LCD Panel Backlight.
 
 config IW7023_USE_EEPROM
 	bool "iW7023 use eeprom to backup data"
+	depends on AMLOGIC_TV_BACKLIGHT
 	default n
 	help
 	  Say Y if you use eeprom to backup data of iw7023.

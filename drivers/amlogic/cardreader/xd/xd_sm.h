@@ -245,5 +245,5 @@ int xd_sm_init(XD_Card_Info_t * card_info);
 //XD/SM Power on/off
 void xd_sm_power_on(void);
 void xd_sm_power_off(void);
-
+
 #endif				//_H_XD_SM

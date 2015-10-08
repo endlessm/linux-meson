@@ -1,12 +1,16 @@
-obj-y 	+=display.o
-display-objs=vout_notify.o  vout_serve.o
-display-objs-$(CONFIG_AM_LCD_OUTPUT)  += vdac_switch.o
+obj-y += vout_notify.o  vout_serve.o vinfo.o
 
+obj-$(CONFIG_AML_VDAC_HW_SWITCH)	+= vdac_switch.o
 
-obj-$(CONFIG_AM_TV_OUTPUT)  += am_tvout.o
-am_tvout-objs :=   tvoutc.o  tvconf.o enc_clk_config.o
-
-obj-$(CONFIG_AM_LCD_OUTPUT)  += lcdoutc.o
-obj-$(CONFIG_AM_LCD_OUTPUT)  += lcd_extern/
+obj-$(CONFIG_AML_TVOUT)				+= tvout.o
+tvout-objs := tvoutc.o tvconf.o
+ifeq ($(CONFIG_ARCH_MESONG9TV),y)
+else
+ifeq ($(CONFIG_ARCH_MESONG9BB),y)
+else
+tvout-objs += enc_clk_config.o
+endif
+endif
+obj-$(CONFIG_AML_LCD_TABLET)		+= lcdoutc.o
 
 #EXTRA_CFLAGS += -DCONFIG_PM

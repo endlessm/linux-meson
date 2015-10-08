@@ -1,0 +1,42 @@
+#
+# LED drivers configuration
+#
+
+menuconfig AMLOGIC_LED
+	tristate "Amlogic LED Support"
+	default n
+	help
+	  Say Y here to get to see options for led drivers.
+	  This option alone does not add any kernel code.
+
+	  If you say N, all options in this submenu will be
+	  skipped and disabled.
+
+
+if AMLOGIC_LED
+
+config AML_LED_SYS
+	tristate "common sys led module support"
+	depends on LEDS_CLASS
+	default n
+	help
+	  This option enables support for system led drivers.
+
+	  Enable this option to allow the userspace to control
+	  the system led.
+
+config AML_TV_LED
+	tristate "tv led module support"
+	default n
+	help
+		Amlogic TV LED management.
+
+config AMLOGIC_SYS_LED
+	bool "old sys led module support"
+	select SETIO_CLASS_DEVICE
+	default y
+	help
+	  Say Y here if you want to use the amlogic system led management.
+
+
+endif

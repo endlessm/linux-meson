@@ -70,7 +70,7 @@ osd_info_t  osd_info={
 
 MODULE_AMLOG(AMLOG_DEFAULT_LEVEL, 0x0, LOG_LEVEL_DESC, LOG_MASK_DESC);
 
-static myfb_dev_t  *gp_fbdev_list[OSD_COUNT]={NULL,NULL};
+myfb_dev_t  *gp_fbdev_list[OSD_COUNT]={NULL,NULL};
 
 static DEFINE_MUTEX(dbg_mutex);
 static char request2XScaleValue[32];
@@ -494,8 +494,7 @@ static int osd_open(struct fb_info *info, int arg)
 }
 
 
-static int
-osd_blank(int blank_mode, struct fb_info *info)
+int osd_blank(int blank_mode, struct fb_info *info)
 {
  	osddev_enable((blank_mode != 0) ? 0 : 1,info->node);
 
@@ -1003,10 +1002,14 @@ static ssize_t show_freescale_mode(struct device *device, struct device_attribut
 {
 	struct fb_info *fb_info = dev_get_drvdata(device);
 	unsigned int free_scale_mode=0;
+	char *help_info = "free scale mode:\n"\
+						"    0: VPU free scaler\n" \
+						"    1: OSD free scaler\n" \
+						"    2: OSD super scaler\n";
 
 	osddev_get_free_scale_mode(fb_info->node, &free_scale_mode);
 
-	return snprintf(buf, PAGE_SIZE, "free_scale_mode:%s\n",free_scale_mode?"new":"default");
+	return snprintf(buf, PAGE_SIZE, "%scurrent free_scale_mode:%d\n", help_info, free_scale_mode);
 }
 
 static ssize_t store_scale(struct device *device, struct device_attribute *attr,
@@ -1330,6 +1333,24 @@ static ssize_t store_antiflicker(struct device *device, struct device_attribute 
 	return count;
 }
 
+ static ssize_t show_update_freescale(struct device *device, struct device_attribute *attr,
+     char *buf)
+{
+  struct fb_info *fb_info = dev_get_drvdata(device);
+  unsigned int update_state = 0;
+  osddev_get_update_state(fb_info->node, &update_state);
+  return snprintf(buf, PAGE_SIZE, "update_state:[%s]\n", update_state?"TRUE":"FALSE");
+}
+
+static ssize_t store_update_freescale(struct device *device, struct device_attribute *attr,
+  const char *buf, size_t count)
+{
+  struct fb_info *fb_info = dev_get_drvdata(device);
+  unsigned int update_state = 0;
+  update_state = simple_strtoul(buf, NULL, 0);
+  osddev_set_update_state(fb_info->node, update_state);
+  return count;
+}
 static ssize_t show_ver_angle(struct device *device, struct device_attribute *attr,
                         char *buf)
 {
@@ -1520,6 +1541,7 @@ static struct device_attribute osd_attrs[] = {
 	__ATTR(osd_reverse, S_IRUGO|S_IWUSR, show_osd_reverse, store_osd_reverse),
 	__ATTR(prot_state, S_IRUGO|S_IWUSR, show_prot_state, NULL),
 	__ATTR(osd_antiflicker, S_IRUGO|S_IWUSR, show_antiflicker, store_antiflicker),
+	__ATTR(update_freescale, S_IRUGO|S_IWUSR, show_update_freescale, store_update_freescale),
 	__ATTR(ver_angle, S_IRUGO|S_IWUSR, show_ver_angle, store_ver_angle),
 	__ATTR(ver_clone, S_IRUGO|S_IWUSR, show_ver_clone, store_ver_clone),
 	__ATTR(ver_update_pan, S_IRUGO|S_IWUSR, NULL, store_ver_update_pan),
@@ -1553,6 +1575,33 @@ static int osd_resume(struct platform_device * dev)
        return 0;
 }
 #endif 
+
+#ifdef CONFIG_HIBERNATION
+extern void osddev_freeze(void);
+extern void osddev_thaw(void);
+extern void osddev_restore(void);
+
+static int osd_freeze(struct device *dev)
+{
+    printk("**** %s ****\n", __FUNCTION__);
+    osddev_freeze();
+    return 0;
+}
+
+static int osd_thaw(struct device *dev)
+{
+    printk("**** %s ****\n", __FUNCTION__);
+    osddev_thaw();
+    return 0;
+}
+
+static int osd_restore(struct device *dev)
+{
+    printk("**** %s ****\n", __FUNCTION__);
+    osddev_restore();
+    return 0;
+}
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void osd_early_suspend(struct early_suspend *h)
@@ -1948,6 +1997,14 @@ static const struct of_device_id meson_fb_dt_match[]={
 	{},
 };
 
+#ifdef CONFIG_HIBERNATION
+struct dev_pm_ops osd_pm = {
+	.freeze		= osd_freeze,
+	.thaw		= osd_thaw,
+	.restore	= osd_restore,
+};
+#endif
+
 static struct platform_driver
 osd_driver = {
     .probe      = osd_probe,
@@ -1959,6 +2016,9 @@ osd_driver = {
     .driver     = {
         .name   = "mesonfb",
         .of_match_table=meson_fb_dt_match,
+#ifdef CONFIG_HIBERNATION
+        .pm     = &osd_pm,
+#endif
     }
 };
 

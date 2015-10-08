@@ -240,7 +240,8 @@ int tvoutc_setclk(tvmode_t mode)
 			  }
 			  break;
 		default:
-			printk(KERN_ERR "unsupport tv mode,video clk is not set!!\n");
+			//printk(KERN_ERR "unsupport tv mode,video clk is not set!!\n");
+            break;
 	}
 
 	return 0 ;
@@ -288,7 +289,7 @@ static int uboot_display_already(tvmode_t mode)
     */
 }
 
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
 static unsigned int vdac_cfg_valid = 0, vdac_cfg_value = 0;
 static unsigned int cvbs_get_trimming_version(unsigned int flag)
 {
@@ -386,9 +387,30 @@ static void cvbs_performance_enhancement(tvmode_t mode)
 
 static DEFINE_MUTEX(setmode_mutex);
 
+static const reg_t * tvregs_setting_mode(tvmode_t mode)
+{
+    int i = 0;
+    for(i = 0; i < ARRAY_SIZE(tvregsTab); i++) {
+        if(mode == tvregsTab[i].tvmode)
+            return tvregsTab[i].reg_setting;
+    }
+    return NULL;
+}
+
+const static tvinfo_t * tvinfo_mode(tvmode_t mode)
+{
+    int i = 0;
+    for(i = 0; i < ARRAY_SIZE(tvinfoTab); i++) {
+        if(mode == tvinfoTab[i].tvmode)
+            return &tvinfoTab[i];
+    }
+    return NULL;
+}
+
 int tvoutc_setmode(tvmode_t mode)
 {
     const  reg_t *s;
+    const tvinfo_t * tvinfo;
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
     static int uboot_display_flag = 1;
 #else
@@ -403,7 +425,13 @@ int tvoutc_setmode(tvmode_t mode)
 //TODO
 //    switch_mod_gate_by_name("venc", 1);
 #endif
-    printk("TV mode %s selected.\n", tvinfoTab[mode].id);
+    tvinfo = tvinfo_mode(mode);
+    if(!tvinfo) {
+        printk(KERN_ERR "tvinfo %d not find\n", mode);
+        mutex_unlock(&setmode_mutex);
+        return 0;
+    }
+    printk("TV mode %s selected.\n", tvinfo->id);
 
 #ifdef CONFIG_ARCH_MESON8B
 	if( (mode!=TVMODE_480CVBS) && (mode!=TVMODE_576CVBS) )
@@ -419,8 +447,13 @@ int tvoutc_setmode(tvmode_t mode)
 		CLK_GATE_OFF(VCLK2_VENCI1);
 	}
 #endif
-
-    s = tvregsTab[mode];
+    s = tvregs_setting_mode(mode);
+    if(!s) {
+        printk("display mode %d regs setting failed\n", mode);
+        mutex_lock(&setmode_mutex);
+        return 0;
+    }
+    //s = tvregsTab[mode];
 
     if(uboot_display_flag) {
         uboot_display_flag = 0;
@@ -431,7 +464,7 @@ int tvoutc_setmode(tvmode_t mode)
         }
     }
 
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
 	// for hdmi mode, disable HPLL as soon as possible
 	if( (mode==TVMODE_480I) || (mode==TVMODE_480P) ||
 		(mode==TVMODE_576I) || (mode==TVMODE_576P) ||
@@ -439,13 +472,26 @@ int tvoutc_setmode(tvmode_t mode)
 		(mode==TVMODE_1080I) || (mode==TVMODE_1080I_50HZ) ||
 		(mode==TVMODE_1080P) || (mode==TVMODE_1080P_50HZ) ||
 		(mode==TVMODE_1080P_24HZ) || (mode==TVMODE_4K2K_24HZ) ||
-		(mode==TVMODE_4K2K_25HZ) || (mode==TVMODE_4K2K_30HZ) ||
-		(mode==TVMODE_4K2K_SMPTE) )
+		(mode==TVMODE_4K2K_25HZ) || (mode==TVMODE_4K2K_30HZ) || (mode==TVMODE_4K2K_FAKE_5G) ||
+		(mode==TVMODE_4K2K_SMPTE) || (mode==TVMODE_4K2K_60HZ) )
 	{
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESONG9TV
+    // NOTE: for G9TV, DO NOT TURN OFF HPLL
+#else
 		WRITE_CBUS_REG_BITS(HHI_VID_PLL_CNTL, 0x0, 30, 1);
+#endif
 	}
 
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESONG9TV) || (MESON_CPU_TYPE == MESON_CPU_TYPE_MESONG9BB)
+// for g9tv tv project, don't close vdac for they may have atv source passthrough
+// to vdac to output cvbs directly.
+// for g9tv other projects, it need not to close vdac every times for hdmi resolutions.
+    if ((mode == TVMODE_480CVBS) || (mode == TVMODE_576CVBS))
+#endif
+{
     cvbs_cntl_output(0);
+}
+
 #endif
     while (MREG_END_MARKER != s->reg)
         setreg(s++);
@@ -474,7 +520,7 @@ int tvoutc_setmode(tvmode_t mode)
     printk("%s[%d]\n", __func__, __LINE__);
     enable_vsync_interrupt();
 #endif
-#ifdef CONFIG_AM_TV_OUTPUT2
+#ifdef CONFIG_AMLOGIC_VOUT2
 	switch(mode)
 	{
 		case TVMODE_480I:
@@ -523,16 +569,23 @@ int tvoutc_setmode(tvmode_t mode)
 		case TVMODE_4K2K_23HZ:
 #endif
         case TVMODE_4K2K_SMPTE:
+        case TVMODE_4K2K_FAKE_5G:
+        case TVMODE_4K2K_60HZ:
+		case TVMODE_VGA:
+		case TVMODE_SVGA:
+		case TVMODE_XGA:
+		case TVMODE_SXGA:
+		case TVMODE_WSXGA:
+		case TVMODE_FHDVGA:
+        default:
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 2, 0, 2); //reg0x271a, select ENCP to VIU1
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 2, 4, 4); //reg0x271a, Select encP clock to VDIN
         aml_set_reg32_bits(P_VPU_VIU_VENC_MUX_CTRL, 2, 8, 4); //reg0x271a,Enable VIU of ENC_P domain to VDIN;
         break;
-		default:
-			printk(KERN_ERR "unsupport tv mode,video clk is not set!!\n");
 	}
 #endif
 
-    aml_write_reg32(P_VPP_POSTBLEND_H_SIZE, tvinfoTab[mode].xres);
+    aml_write_reg32(P_VPP_POSTBLEND_H_SIZE, tvinfo->xres);
 
 #ifdef CONFIG_ARCH_MESON3
 printk(" clk_util_clk_msr 6 = %d\n", clk_util_clk_msr(6));
@@ -563,7 +616,7 @@ printk(" clk_util_clk_msr 29 = %d\n", clk_util_clk_msr(29));
 	}
 #endif
 
-#if ((defined CONFIG_ARCH_MESON8) || (defined CONFIG_ARCH_MESON8B))
+#if (MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8)
     if( (mode==TVMODE_480CVBS) || (mode==TVMODE_576CVBS) )
     {
         msleep(1000);

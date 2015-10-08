@@ -1,0 +1,31 @@
+// if you use tvled, add the tvled node to your project dtd.
+tvled {
+	compatible = "amlogic,tv_led";
+	dev_name = "aml_led";
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&aml_tv_led_pins>;
+
+	/* 0: pinmux as other pin 1: use as gpio */
+	led_use_gpio = <1>;
+	led_gpio_name = "GPIOAO_11";
+	led_gpio_low = <1>;
+	/* 0: none 1: use gpio pullup */
+	led_use_gpio_pullup = <1>;
+	led_gpio_pullup_low = <0>;
+	/* 0: no jtag pin 1: has jtag pin */
+	led_has_jtag = <1>;
+	/* 0: disable      1: from ao cpu    */
+	/* 2: from sys cpu 3: from audio cpu */
+	led_jtag_select = <0>;
+};
+
+// if you use common sys led, add the sysled node to your project dtd.
+sysled {
+	compatible = "amlogic, sysled";
+	dev_name = "sysled";
+	status = "okay";
+	led_gpio = "GPIOAO_11";
+	led_active_low = <1>;
+};

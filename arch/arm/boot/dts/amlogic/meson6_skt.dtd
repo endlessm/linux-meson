@@ -342,7 +342,12 @@
 		dev_name = "mesonvout";
 		/*reg = <0 0>;*/
 	};
-	
+
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
 
     vdacswitch{
         compatible = "amlogic,vdacswitch";

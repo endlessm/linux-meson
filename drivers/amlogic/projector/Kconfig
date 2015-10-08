@@ -1,0 +1,15 @@
+#
+# Input core configuration
+#
+
+
+
+config AML_PROJECTOR
+	tristate "Amlogic Projector driver"
+	depends on I2C_AML
+	default n
+	help
+	  Say Y here if you want to use the amlogic ADC sim card detect.
+
+
+

@@ -52,9 +52,62 @@
 #include <linux/delay.h>
 extern struct arm_delay_ops arm_delay_ops;
 
+#ifdef CONFIG_FIX_SYSPLL
+#include <linux/hrtimer.h>
+static int swing_inteval = 25000;
+extern unsigned int fixpll_target;
+extern int fix_syspll;
+extern int fixpll_freq_verify(unsigned long rate);
+struct virtual_clock {
+	unsigned long cur_rate;
+	struct hrtimer virtual_clock_timer;
+};
+static struct virtual_clock fixpll_clock;
+
+DEFINE_SPINLOCK(pll_changing);
+static int in_virtual_clock = 0;
+static enum hrtimer_restart virtual_clock_work(struct hrtimer *timer)
+{
+	static unsigned long cnt = 0;
+	static unsigned int bitmap[][4] = {
+		{1, 0, 1, 1},
+		{0, 1, 0, 1},
+		{0, 1, 0, 0}
+	};
+	struct virtual_clock *clk = container_of(timer, struct virtual_clock, virtual_clock_timer);
+	unsigned long flag;
+	unsigned int tmp = (fixpll_target * 3 / 4);
+
+	if (tmp == clk->cur_rate) {
+		tmp = 1;
+	} else if (tmp < clk->cur_rate) {
+		tmp = 2;
+	} else {
+		tmp = 0;
+	}
+	if (!spin_trylock_irqsave(&pll_changing, flag)) {
+		return HRTIMER_NORESTART;
+	}
+	cnt++;
+		/* swing ext od */
+	if (aml_get_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 2, 1) != bitmap[tmp][cnt & 0x03]) {
+		aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 0, 7, 1);
+		udelay(100);
+		aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, bitmap[tmp][cnt & 0x03], 2, 2);
+		udelay(100);
+		aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 1, 7, 1);
+		udelay(100);
+	}
+	hrtimer_start(&fixpll_clock.virtual_clock_timer, ktime_set(0, swing_inteval * 1000), HRTIMER_MODE_REL);
+	spin_unlock_irqrestore(&pll_changing, flag);
+	return HRTIMER_NORESTART;
+}
+#endif
+
 
 static DEFINE_SPINLOCK(clockfw_lock);
 static DEFINE_MUTEX(clock_ops_lock);
+static int measure_cpu_clock = 0;
 
 /**************** SYS PLL**************************/
 #define SYS_PLL_TABLE_MIN	 24000000
@@ -326,13 +379,16 @@ int    clk_measure(char  index )
 long clk_round_rate_sys(struct clk *clk, unsigned long rate)
 {
 	int idx,dst;
+#ifdef CONFIG_FIX_SYSPLL
+	unsigned int div, rem;
+#endif
 	if (clk == NULL || IS_ERR(clk))
 		return -EINVAL;
 	
 	dst = rate;
-	if (rate < SYS_PLL_TABLE_MIN) 
+	if (rate < SYS_PLL_TABLE_MIN)
 		dst = SYS_PLL_TABLE_MIN;
-	else if (rate > SYS_PLL_TABLE_MAX) 
+	else if (rate > SYS_PLL_TABLE_MAX)
 		dst = SYS_PLL_TABLE_MAX;
 
 	if(dst < setup_a9_clk_min)
@@ -340,8 +396,22 @@ long clk_round_rate_sys(struct clk *clk, unsigned long rate)
 	else if(dst > setup_a9_clk_max)
 		dst = setup_a9_clk_max;
  	 
+#ifdef CONFIG_FIX_SYSPLL
+	if (fix_syspll) {
+		if (rate == 0) {
+			return 24000000;
+		}
+		div = (fixpll_target * 1000) / rate;
+		rem = (fixpll_target * 1000) - (div * rate);
+		if (!rem) {		// divider of fix pll
+			return rate;
+		} else if (fixpll_freq_verify(rate)) {
+			return rate;
+		}
+	}
+#endif
 	idx = ((dst - SYS_PLL_TABLE_MIN) / 1000000) / 24;
-	//printk("sys round rate: %d -- %d\n",rate,sys_pll_settings[idx][0]);
+	//printk("sys round rate: %ld -- %d\n",rate,sys_pll_settings[idx][0]);
 	rate = sys_pll_settings[idx][0] * 1000000;
 	
 	return rate;
@@ -707,6 +777,11 @@ static unsigned long clk_get_rate_xtal(struct clk * clkdev)
 static unsigned long clk_get_rate_sys(struct clk * clkdev)
 {
 	unsigned long clk;
+#ifdef CONFIG_FIX_SYSPLL
+	if (in_virtual_clock && fix_syspll) {
+		return clkdev->rate;
+	}
+#endif
 	if (clkdev && clkdev->rate)
 		clk = clkdev->rate;
 	else {
@@ -729,6 +804,12 @@ static unsigned long clk_get_rate_a9(struct clk * clkdev)
 {
 	unsigned long clk = 0;
 	unsigned int sysclk_cntl;
+
+#ifdef CONFIG_FIX_SYSPLL
+	if (in_virtual_clock && fix_syspll) {
+		return clkdev->rate;
+	}
+#endif
 
 	if (clkdev && clkdev->rate)
 		return clkdev->rate;
@@ -791,11 +872,34 @@ static int _clk_set_rate_cpu(struct clk *clk, unsigned long cpu, unsigned long g
 	unsigned long parent = 0;
 	unsigned long oldcpu = clk_get_rate_a9(clk);
 	unsigned int cpu_clk_cntl = aml_read_reg32(P_HHI_SYS_CPU_CLK_CNTL);
+	int test_n = 0;
+#ifdef CONFIG_FIX_SYSPLL
+	unsigned long flag = 0, cnt = 0;
+	int ret;
+#endif
 	
 //	if ((cpu_clk_cntl & 3) == 1) {
 	{
+		unsigned long real_cpu;
 		parent = clk_get_rate_sys(clk->parent);
 		// CPU switch to xtal 
+	#ifdef CONFIG_FIX_SYSPLL
+		if (fix_syspll) {
+			while (cnt < 10) {
+				ret = hrtimer_try_to_cancel(&fixpll_clock.virtual_clock_timer);
+				if (ret >= 0)
+					break;
+				else
+					cnt++;
+			}
+			if (cnt >= 10) {
+				printk(KERN_ERR "ignore pll change\n");
+				return -1;
+			}
+			spin_lock_irqsave(&pll_changing, flag);
+			in_virtual_clock = 0;
+		}
+	#endif
 		aml_write_reg32(P_HHI_SYS_CPU_CLK_CNTL, cpu_clk_cntl & ~(1 << 7));
 		if (oldcpu <= cpu) {
 			// when increasing frequency, lpj has already been adjusted
@@ -817,6 +921,16 @@ static int _clk_set_rate_cpu(struct clk *clk, unsigned long cpu, unsigned long g
 			udelay_scaled(100, oldcpu / 1000000, cpu / 1000000);
 		}
 
+		if (measure_cpu_clock) {
+			while (test_n < 5) {
+				real_cpu = clk_util_clk_msr(18) << 4;
+				if ((real_cpu < cpu && (cpu - real_cpu) > 48000000) ||
+					(real_cpu > cpu && (real_cpu - cpu) > 48000000)) {
+					pr_info("hope to set cpu clk as %ld, real value is %ld, time %d\n", cpu, real_cpu, test_n);
+				}
+				test_n++;
+			}
+		}
 		// CPU switch to sys pll
 		//cpu_clk_cntl = aml_read_reg32(P_HHI_SYS_CPU_CLK_CNTL);
 		//aml_set_reg32_mask(P_HHI_SYS_CPU_CLK_CNTL, (1 << 7));
@@ -828,6 +942,12 @@ static int _clk_set_rate_cpu(struct clk *clk, unsigned long cpu, unsigned long g
 	pr_debug("(CTS_CPU_CLK) CPU %ld.%ldMHz\n", clk_get_rate_a9(clk) / 1000000, clk_get_rate_a9(clk)%1000000);
 #endif /* CONFIG_CPU_FREQ_DEBUG */
 
+#ifdef CONFIG_FIX_SYSPLL
+	if (fix_syspll) {
+		spin_unlock_irqrestore(&pll_changing, flag);
+		in_virtual_clock = 0;
+	}
+#endif
 	return 0;
 }
 
@@ -885,12 +1005,15 @@ void meson_set_cpu_power_ctrl(uint32_t cpu,int is_power_on)
 
 void meson_set_cpu_ctrl_reg(int cpu,int is_on)
 {
-	spin_lock(&clockfw_lock);
-
 #ifdef CONFIG_MESON_TRUSTZONE
 	uint32_t value = 0;
+#else
+	spin_lock(&clockfw_lock);
+#endif
+
+#ifdef CONFIG_MESON_TRUSTZONE
 	value = meson_read_corectrl();
-	value = value & ~(1U << cpu) | (is_on << cpu);
+	value = (value & ~(1U << cpu)) | (is_on << cpu);
 	value |= 1;
 	meson_modify_corectrl(value);
 #else
@@ -898,12 +1021,16 @@ void meson_set_cpu_ctrl_reg(int cpu,int is_on)
 	aml_set_reg32_bits(MESON_CPU_CONTROL_REG,1,0,1);
 #endif
 
+#ifndef CONFIG_MESON_TRUSTZONE
 	spin_unlock(&clockfw_lock);
+#endif
 }
 
 void meson_set_cpu_ctrl_addr(uint32_t cpu, const uint32_t addr)
 {
+#ifndef CONFIG_MESON_TRUSTZONE
 	spin_lock(&clockfw_lock);
+#endif
 
 #ifdef CONFIG_MESON_TRUSTZONE
 	meson_auxcoreboot_addr(cpu, addr);
@@ -911,13 +1038,16 @@ void meson_set_cpu_ctrl_addr(uint32_t cpu, const uint32_t addr)
 	aml_write_reg32((MESON_CPU1_CONTROL_ADDR_REG + ((cpu-1) << 2)), addr);
 #endif
 
-	spin_unlock(&clockfw_lock);	
+#ifndef CONFIG_MESON_TRUSTZONE
+	spin_unlock(&clockfw_lock);
+#endif
 }
 
 int meson_get_cpu_ctrl_addr(int cpu)
 {
 
 #ifdef CONFIG_MESON_TRUSTZONE
+	return 0;
 //	meson_auxcoreboot_addr(cpu, addr);
 #else
 //printk("sram=0x%x addr=0x%x\n",(MESON_CPU1_CONTROL_ADDR_REG + ((cpu-1) << 2)),addr);
@@ -1143,18 +1273,54 @@ static int set_sys_pll(struct clk *clk,  unsigned long dst)
 	unsigned int cpu_clk_cntl = 0;
 	unsigned int cntl;
 	latency_data_t latency;
+#ifdef CONFIG_FIX_SYSPLL
+	unsigned int div = 0, ext_div = 0, rem, virtual = 0;
+#endif
 
 	if (dst < SYS_PLL_TABLE_MIN) dst = SYS_PLL_TABLE_MIN;
 	if (dst > SYS_PLL_TABLE_MAX) dst = SYS_PLL_TABLE_MAX;
  
+#ifdef CONFIG_FIX_SYSPLL
+	if (fix_syspll) {
+		if (fixpll_freq_verify(dst)) {
+			virtual = 1;
+		}
+		div = fixpll_target / (dst / 1000);
+		rem = (fixpll_target * 1000) - (div * dst);
+		if (!rem || virtual) {
+			idx = (((fixpll_target * 1000)- SYS_PLL_TABLE_MIN) / 1000000) / 24;
+		} else {
+			idx = ((dst - SYS_PLL_TABLE_MIN) / 1000000) / 24;
+		}
+	} else {
+		idx = ((dst - SYS_PLL_TABLE_MIN) / 1000000) / 24;
+	}
+#else
 	idx = ((dst - SYS_PLL_TABLE_MIN) / 1000000) / 24;
+#endif
 	cpu_clk_cntl = sys_pll_settings[idx][1];
 	latency.d32 =  sys_pll_settings[idx][2];
 
-	/*printk(KERN_DEBUG"CTS_CPU_CLK %4ld --> %4ld (MHz)\n",
-									clk->rate / 1000000, dst / 1000000);*/
-	pr_debug("CTS_CPU_CLK old_cntl=0x%x new_cntl=0x%x, latency: %x\n", 
-									curr_cntl, cpu_clk_cntl, latency.d32);
+#ifdef CONFIG_FIX_SYSPLL
+	if (fix_syspll) {
+		if (div > 8) {
+			ext_div = div / 8;
+			div = 4;
+		}
+		if (div == 8) {
+			ext_div = 2;
+			div = 2;
+		}
+		cpu_clk_cntl &= ~(0x03 << 16);
+		cpu_clk_cntl |= ((div / 2) << 16);
+		if (ext_div) {
+			latency.b.ext_div_n = (ext_div - 1);
+		}
+		//printk("ext_div:%u, div:%u, rem:%d, idx:%d\n", ext_div, div, rem, idx);
+	}
+#endif
+
+	printk(KERN_DEBUG"CTS_CPU_CLK %4ld --> %4ld (MHz)\n", clk->rate / 1000000, dst / 1000000);
 
 	if (cpu_clk_cntl != curr_cntl) {
 SETPLL:
@@ -1163,7 +1329,9 @@ SETPLL:
 			aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 3, 2, 2);
 		else
 			aml_set_reg32_bits(P_HHI_SYS_CPU_CLK_CNTL, 0, 2, 2);
-		aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl | (1 << 29));
+		if ((cpu_clk_cntl & 0x3fff) != (curr_cntl & 0x3fff)) {
+			aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl | (1 << 29));
+		}
 		if(only_once == 99){
 			only_once = 1;
 			aml_write_reg32(P_HHI_SYS_PLL_CNTL2, M8_SYS_PLL_CNTL_2);
@@ -1176,7 +1344,7 @@ SETPLL:
 
 		aml_write_reg32(P_HHI_SYS_PLL_CNTL,  cpu_clk_cntl);
 
-		udelay_scaled(100, dst / 1000000, 24 /*clk_get_rate_xtal*/);
+		udelay_scaled(500, dst / 1000000, 24 /*clk_get_rate_xtal*/);
 
 		cntl = aml_read_reg32(P_HHI_SYS_PLL_CNTL);
 		if((cntl & (1<<31)) == 0){
@@ -1207,12 +1375,30 @@ SETPLL:
 			goto SETPLL;
 		};
 
-	}else {
+	} else {
 		//printk(KERN_INFO "(CTS_CPU_CLK) No Change (0x%x)\n", cpu_clk_cntl);
 	}
 
+#ifdef CONFIG_FIX_SYSPLL
+	if (fix_syspll) {
+		if (clk && !virtual)
+			clk->rate =	((idx * 24000000) + SYS_PLL_TABLE_MIN) / ((ext_div ? ext_div : 1) * (div ? div : 1));
+		else if (clk && virtual) {
+			clk->rate = dst;
+		}
+		if (virtual) {
+			in_virtual_clock = 1;
+			fixpll_clock.cur_rate = dst / 1000;
+			hrtimer_start(&fixpll_clock.virtual_clock_timer, ktime_set(0, swing_inteval * 1000), HRTIMER_MODE_REL);
+		}
+	} else {
+		if (clk)
+			clk->rate = (idx * 24000000) + SYS_PLL_TABLE_MIN;
+	}
+#else
 	if (clk)
 		clk->rate = (idx * 24000000) + SYS_PLL_TABLE_MIN;
+#endif
 
 	return idx;
 }
@@ -1674,9 +1860,46 @@ static ssize_t freq_limit_show(struct class *cla, struct class_attribute *attr, 
 	return sprintf(buf, "%d\n", freq_limit);
 }
 
+static ssize_t check_clock_store(struct class *cla, struct class_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	measure_cpu_clock = input;
+	return count;
+}
+static ssize_t check_clock_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+	printk("%u\n", measure_cpu_clock);
+	return sprintf(buf, "%d\n", measure_cpu_clock);
+}
+
+#ifdef CONFIG_FIX_SYSPLL
+static ssize_t swing_inteval_store(struct class *cla, struct class_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret < 0 || ret > 100 * 1000)
+		return -EINVAL;
+	swing_inteval = input;
+	printk("set swing inteval to %d us\n", swing_inteval);
+	return count;
+}
+static ssize_t swing_inteval_show(struct class *cla, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d us\n", swing_inteval);
+}
+#endif
 
 static struct class_attribute freq_limit_class_attrs[] = {
 	__ATTR(limit, S_IRUGO|S_IWUSR|S_IWGRP, freq_limit_show, freq_limit_store),
+	__ATTR(check_clock, S_IRUGO|S_IWUSR|S_IWGRP, check_clock_show, check_clock_store),
+#ifdef CONFIG_FIX_SYSPLL
+	__ATTR(swing_inteval, S_IRUGO|S_IWUSR|S_IWGRP, swing_inteval_show, swing_inteval_store),
+#endif
 	__ATTR_NULL,
 };
 
@@ -1786,6 +2009,11 @@ static int __init meson_clock_init(void)
 	class_register(&meson_clktree_class);
 #endif
 	class_register(&meson_freq_limit_class);
+#endif
+#ifdef CONFIG_FIX_SYSPLL
+	hrtimer_init(&fixpll_clock.virtual_clock_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	fixpll_clock.virtual_clock_timer.function = virtual_clock_work;
+	printk("hrtimer for fix pll ok\n");
 #endif
 	return 0;
 }

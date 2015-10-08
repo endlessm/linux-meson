@@ -291,6 +291,14 @@ RESTART:
             aspect_factor = 0x90;
         wide_mode = VIDEO_WIDEOPTION_NORMAL;
     }
+    else if (wide_mode == VIDEO_WIDEOPTION_16_10) {
+        if (vpp_flags & VPP_FLAG_PORTRAIT_MODE)
+             aspect_factor = 0x199;
+        else
+             aspect_factor = 0xA0;
+        wide_mode = VIDEO_WIDEOPTION_NORMAL;
+    }
+
 
     if ((aspect_factor == 0) || (wide_mode == VIDEO_WIDEOPTION_FULL_STRETCH)) {
         aspect_factor = 0x100;

@@ -182,6 +182,11 @@ void root_func(){
 		dev_name = "mesonvout";
 		status = "okay";
 	};
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
 
 /// ***************************************************************************************
 ///	-	EARLY_INIT

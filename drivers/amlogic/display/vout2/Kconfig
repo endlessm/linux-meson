@@ -1,14 +1,19 @@
 #
 # Video output configuration
 #
-menu "Amlogic video output2 module"
 
-config AM_TV_OUTPUT2
-	tristate "TV output2"
+menuconfig AMLOGIC_VOUT2
+	tristate "Amlogic video output2 support"
 	default n
-	help  
-		tv output2 module
+	help
+		Amlogic video output2 support
 
-		
-endmenu
-	
+if AMLOGIC_VOUT2
+
+config AML_TVOUT2
+	tristate "Video output2 and control module"
+	default n
+	help
+		Video output and control module support
+
+endif

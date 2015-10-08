@@ -208,7 +208,20 @@ void root_func(){
 		compatible = "amlogic,mesonvout2";
 		dev_name = "mesonvout2";
 		status = "okay";
-	};	
+	};
+
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
+
+	tvout2 {
+		compatible = "amlogic,tvout2";
+		dev_name = "tvout2";
+		status = "okay";
+	};
+
 /// ***************************************************************************************
 ///	-	RTC
 //$$ MODULE="RTC"

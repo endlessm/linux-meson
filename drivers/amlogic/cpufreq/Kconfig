@@ -6,6 +6,5 @@ config AMLOGIC_MESON_CPUFREQ
 
 config FIX_SYSPLL
     bool "Meson CPU Fix syspll mode support"
-    depends on ARCH_MESON8B 
     help
         This add fix sys pll mode support for M8baby

@@ -337,7 +337,7 @@ static void aml_rtc_reset(void)
 }
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
-extern int run_arc_program(void);
+extern int run_arc_program_rtc(void);
 extern int stop_ao_cpu(void);
 #endif
 
@@ -376,7 +376,7 @@ static unsigned int _ser_access_read_locked(unsigned long addr)
 out:
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
 	if (ret >= 0)
-		run_arc_program();
+		run_arc_program_rtc();
 #endif
 	return val;
 }
@@ -415,7 +415,7 @@ static void _ser_access_write_locked(unsigned long addr, unsigned long data)
 out:
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
 	if (ret >= 0)
-		run_arc_program();
+		run_arc_program_rtc();
 #endif
 	return;
 }

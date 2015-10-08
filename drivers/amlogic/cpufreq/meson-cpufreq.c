@@ -43,7 +43,45 @@ struct meson_cpufreq {
 
 static struct meson_cpufreq cpufreq;
 #ifdef CONFIG_FIX_SYSPLL
-static int fix_syspll = 0;
+int fix_syspll = 0;
+EXPORT_SYMBOL(fix_syspll);
+unsigned int fixpll_target = 0;
+EXPORT_SYMBOL(fixpll_target);
+
+void adj_cpufreq_table(struct cpufreq_frequency_table *table, int target, int mpll)
+{
+    int i = 0;
+    while (1) {
+        if (table[i + 1].frequency == CPUFREQ_TABLE_END) {
+            break;
+        }
+        i++;
+    }
+    while (i >= 0) {
+        table[i].frequency = (target * table[i].frequency) / 32;
+        i--;
+    }
+}
+
+int fixpll_freq_verify(unsigned long rate)
+{
+    int i;
+    struct cpufreq_frequency_table *table;
+
+    table = meson_freq_table_fix_syspll;
+    rate = rate / 1000;
+
+    if (rate <= table[4].frequency ||
+        rate >= table[8].frequency) {
+        return 0;
+    }
+    for (i = 0; i < ARRAY_SIZE(meson_freq_table_fix_syspll); i++) {
+        if (rate == table[i].frequency) {
+            return 1;
+        }
+    }
+    return 0;
+}
 #endif
 
 static DEFINE_MUTEX(meson_cpufreq_mutex);
@@ -74,8 +112,8 @@ static int meson_cpufreq_verify(struct cpufreq_policy *policy)
     return 0;
 }
 
-static int early_suspend_flag = 0;
 #if (defined CONFIG_SMP) && (defined CONFIG_HAS_EARLYSUSPEND)
+static int early_suspend_flag = 0;
 #include <linux/earlysuspend.h>
 static void meson_system_early_suspend(struct early_suspend *h)
 {
@@ -95,6 +133,7 @@ static struct early_suspend early_suspend={
 };
 
 #endif
+
 static int meson_cpufreq_target_locked(struct cpufreq_policy *policy,
                                        unsigned int target_freq,
                                        unsigned int relation)
@@ -104,7 +143,7 @@ static int meson_cpufreq_target_locked(struct cpufreq_policy *policy,
     int ret = -EINVAL;
     unsigned int freqInt = 0;
 #ifdef CONFIG_FIX_SYSPLL
-	struct cpufreq_frequency_table *freq_table = NULL;
+    struct cpufreq_frequency_table *freq_table = NULL;
     unsigned int freq_new, index;
 #endif
 
@@ -383,11 +422,29 @@ static int __init meson_cpufreq_probe(struct platform_device *pdev)
 		const void *prop;
 #ifdef CONFIG_FIX_SYSPLL
     int err = 0;
+    int using_mpll = 0;
     if (pdev->dev.of_node) {
         err = of_property_read_bool(pdev->dev.of_node, "syspll_fixed");
         if (err) {
             printk("%s:SYSPLL request to be fixed\n", __func__);
             fix_syspll = 1;
+        }
+        err = of_property_read_bool(pdev->dev.of_node, "using_mpll");
+        if (err) {
+            printk("%s:using mpll\n", __func__);
+            using_mpll = 1;
+        }
+        err = of_property_read_u32(pdev->dev.of_node, "fixpll_target", &fixpll_target);
+        if (err) {
+            fixpll_target = 1536000;
+        } else {
+            printk("%s:SYSPLL fix to target:%u\n", __func__, fixpll_target);
+            /*
+             * update meson_freq_table_fix_syspll according fixpll_target
+             */
+            adj_cpufreq_table(meson_freq_table_fix_syspll, fixpll_target, using_mpll);
+            printk("%s, adj ok\n", __func__);
+
         }
     }
 #endif
@@ -462,7 +519,9 @@ static unsigned long global_l_p_j_ref_freq;
 
 static void adjust_jiffies(unsigned int freqOld, unsigned int freqNew)
 {
+#ifdef	CONFIG_SMP
     int i;
+#endif
 
     if (!global_l_p_j_ref) {
         global_l_p_j_ref = loops_per_jiffy;

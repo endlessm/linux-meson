@@ -9,3 +9,5 @@ obj-$(CONFIG_KEY_INPUT_CUSTOM_AM)	+= key_input.o
 obj-$(CONFIG_TOUCH_KEY_PAD_IT7230)	+= it7230.o
 obj-$(CONFIG_TOUCH_KEY_PAD_SO340010)	+= so340010.o
 obj-$(CONFIG_TOUCH_KEY_PAD_HA2605)	+= ha2605.o
+obj-$(CONFIG_TOUCH_KEY_PAD_CP25XX) += cp25xx.o
+obj-y += cp25xx.o

@@ -86,6 +86,10 @@ static char quirks[128];
 module_param_string(quirks, quirks, sizeof(quirks), S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(quirks, "supplemental list of device IDs and their quirks");
 
+#ifdef CONFIG_AMLOGIC_USB_3
+static unsigned int init_count = 0;
+static unsigned int delay_use_old = 1;
+#endif
 
 /*
  * The entries in this table correspond, line for line,
@@ -1003,10 +1007,25 @@ int usb_stor_probe2(struct us_data *us)
 	usb_autopm_get_interface_no_resume(us->pusb_intf);
 	set_bit(US_FLIDX_SCAN_PENDING, &us->dflags);
 
+#ifdef CONFIG_AMLOGIC_USB_3
+	if ((us->pusb_dev->speed == USB_SPEED_SUPER) && (!init_count)) {
+		delay_use_old = delay_use;
+		delay_use = 3;
+		init_count = 1;
+	}
+#endif
+
 	if (delay_use > 0)
 		dev_dbg(dev, "waiting for device to settle before scanning\n");
 	queue_delayed_work(system_freezable_wq, &us->scan_dwork,
 			delay_use * HZ);
+
+#ifdef CONFIG_AMLOGIC_USB_3
+	if (init_count) {
+		delay_use = delay_use_old;
+	}
+#endif
+
 	return 0;
 
 	/* We come here if there are any problems */
