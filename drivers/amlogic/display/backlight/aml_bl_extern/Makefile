@@ -1,6 +1,5 @@
 
 obj-y	+= aml_bl_extern.o
-obj-y	+= i2c_lp8556.o
-obj-y	+= pmu_aml1218.o
-obj-y	+= mipi_LT070ME05.o
-
+obj-$(CONFIG_AML_BL_EXTERN_PMU_AML1218)      += pmu_aml1218.o
+obj-$(CONFIG_AML_BL_EXTERN_MIPI_LT070ME05)   += mipi_LT070ME05.o
+obj-$(CONFIG_AML_BL_EXTERN_I2C_LP8556)       += i2c_lp8556.o

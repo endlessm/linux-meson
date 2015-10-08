@@ -30,7 +30,7 @@
 void xd_sm_start_timer(unsigned long time_value);
 int xd_sm_check_timer(void);
 int xd_sm_check_timeout(void);
-
+
 #define Debug_Printf				printk
     
 //#define inline _Inline
@@ -75,7 +75,7 @@
 #define xd_sm_malloc			kmalloc
 #define xd_sm_free				kfree
 #endif				/*  */
-    
+    
 //XD IO redfine
 #define xd_set_re_enable()				xd_set_re_low()
 #define xd_set_re_disable()				xd_set_re_high()
@@ -127,7 +127,7 @@ void xd_sm_delay_us(unsigned long num_us);
 
 //Delay time in 1 ms
 void xd_sm_delay_ms(unsigned long num_ms);
-
+
 //ECC routines
 extern unsigned char ecc_table[];
 void ecc_trans_result(unsigned char reg2, unsigned char reg3,
@@ -138,5 +138,5 @@ extern unsigned char ecc_table[];
 unsigned char ecc_correct_data(unsigned char *data, unsigned char *data_ecc,
 				unsigned char ecc1, unsigned char ecc2,
 				unsigned char ecc3);
-
+
 #endif				//_H_sm_MISC

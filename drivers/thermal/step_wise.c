@@ -24,7 +24,7 @@
 
 #include <linux/thermal.h>
 
-#include "thermal_core.h"
+#include <linux/thermal_core.h>
 
 /*
  * If the temperature is higher than a trip point,
@@ -122,8 +122,10 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 	enum thermal_trip_type trip_type;
 	enum thermal_trend trend;
 	struct thermal_instance *instance;
+	struct thermal_cooling_device *cdev;
 	bool throttle = false;
 	int old_target;
+	long cur_state;
 
 	if (trip == THERMAL_TRIPS_NONE) {
 		trip_temp = tz->forced_passive;
@@ -145,6 +147,17 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 			continue;
 
 		old_target = instance->target;
+		cdev = instance->cdev;
+		if (cdev) {
+			cdev->ops->get_cur_state(cdev, (unsigned long *)&cur_state);
+			if ((throttle && cur_state < old_target)) {
+				/*
+				 * temperature raizing high but not limited
+				 * current state
+				 */
+				old_target = THERMAL_NO_TARGET;
+			}
+		}
 		instance->target = get_target_state(instance, trend, throttle);
 
 		if (old_target == instance->target)

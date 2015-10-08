@@ -281,7 +281,7 @@ void root_func(){
         compatible = "amlogic,ion_dev";
         dev_name = "ion_dev";
         status = "ok";
-	reserve-memory = <0x01000000>;
+	reserve-memory = <0x02000000>; //32M
 	reserve-iomap = "true";
     };
 /// ***************************************************************************************
@@ -292,6 +292,12 @@ void root_func(){
 	mesonvout{
 		compatible = "amlogic,mesonvout";
 		dev_name = "mesonvout";
+		status = "okay";
+	};
+
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
 		status = "okay";
 	};
 
@@ -693,10 +699,10 @@ void root_func(){
                  600000         825000      825000
                  720000         825000      825000
                  816000         850000      850000
-                1008000         875000      875000
-                1200000         925000      925000
-                1320000        1100000     1100000
-                1488000        1100000     1100000
+                1008000        1140000     1140000
+                1200000        1140000     1140000
+                1320000        1140000     1140000
+                1488000        1140000     1140000
                 1536000        1140000     1140000
             >;
         };
@@ -1148,7 +1154,6 @@ void root_func(){
 //$$ L2 PROP_U32 2 = "dsi_transfer_ctrl"
 //$$ L2 PROP_U32 12 = "dsi_init_on"
 //$$ L2 PROP_U32 12 = "dsi_init_off"
-//$$ L2 PROP_U32 = "lcd_extern_init"
 	lcd_B080XAN01:lcd_B080XAN01{	//k101
 		model_name="B080XAN01";	/** lcd model name */
 		interface="mipi";		/** lcd_interface(mipi, lvds, edp, ttl) */
@@ -1178,7 +1183,6 @@ void root_func(){
 					0x05 0x10 0   //sleep in
 					0xff 10       //delay 10ms
 					0xff 0xff>;/** mipi command(data_type, command, para_num, parameters). 0xff,0xff is ending flag. 0xff,n(n<0xff) means delay n(unit: ms) */
-		lcd_extern_init=<0>;/** lcd extern init command control(0=disable, 1=enable) */
     };
 	
 //******************************************************************************
@@ -1678,8 +1682,8 @@ void root_func(){
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
         trip_point=<70 1488001 1488001 511 511 3 2
-                    80 1200001 1200001 435 435 2 2
-                    90  800001  800001 328 328 1 1
+                    80 1206001 1206001 435 435 2 2
+                    90  804001  804001 328 328 1 1
                     260 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
@@ -1870,6 +1874,7 @@ void root_func(){
     cpufreq-meson{
         compatible = "amlogic,cpufreq-meson";
         syspll_fixed;
+        fixpll_target = <1536000>;
         status = "okay";
     };
 

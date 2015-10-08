@@ -2,13 +2,20 @@
 # Kconfig for Amlogic LCD Devices
 #
 
-menu "Amlogic TV LCD Support"
-
-config AML_TV_LCD
-	bool "Amlogic TV LCD Driver"
+menuconfig AMLOGIC_LCD
+	bool "Amlogic LCD support"
 	default n
 	help
-	  Enable this to choose the drivers for controlling the
-	  the LCD panel on TV.
+	  Amlogic LCD modules and controls
 
-endmenu
+if AMLOGIC_LCD
+
+config AML_LCD_TV
+	bool "Amlogic TV LCD module"
+	default n
+	help
+	  Amlogic TV LCD module support
+
+source "drivers/amlogic/display/lcd/aml_lcd_extern/Kconfig"
+
+endif

@@ -606,7 +606,7 @@ int hcd_init(
 	 * allocates the DMA buffer pool, registers the USB bus, requests the
 	 * IRQ line, and calls hcd_start method.
 	 */
-	retval = usb_add_hcd(hcd, _dev->irq, IRQF_SHARED | IRQF_DISABLED);
+	retval = usb_add_hcd(hcd, _dev->irq, IRQF_SHARED | IRQF_DISABLED | IRQ_TYPE_LEVEL_HIGH);
 	if (retval < 0) {
 		goto error2;
 	}
@@ -717,11 +717,13 @@ int hcd_suspend(struct usb_hcd *hcd)
 {
 	dwc_otg_hcd_t *dwc_otg_hcd = hcd_to_dwc_otg_hcd(hcd);
 	dwc_otg_hcd->auto_pm_suspend_flag = (hcd->flags>>31)&1;
+	dwc_otg_hcd->pm_freeze_flag = (hcd->flags >> 30) & 1;
 
 	DWC_DEBUGPL(DBG_HCD, "HCD SUSPEND\n");
 
 	dwc_otg_hcd_suspend(dwc_otg_hcd);
 	hcd->flags &= (~(1<<31));
+	hcd->flags &= (~(1<<30));
 
 	return 0;
 }
@@ -731,11 +733,14 @@ int hcd_resume(struct usb_hcd *hcd)
 {
 	dwc_otg_hcd_t *dwc_otg_hcd = hcd_to_dwc_otg_hcd(hcd);
 	dwc_otg_hcd->auto_pm_suspend_flag = (hcd->flags>>31)&1;
-	
+	dwc_otg_hcd->pm_freeze_flag = (hcd->flags >> 30) & 1;
+
 	DWC_DEBUGPL(DBG_HCD, "HCD RESUME\n");
 	
 	dwc_otg_hcd_resume(dwc_otg_hcd);
 	hcd->flags &= (~(1<<31));
+	hcd->flags &= (~(1<<30));
+
 	return 0;
 }
 

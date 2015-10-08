@@ -30,7 +30,7 @@
 	unsigned char Option_Code1;
 	unsigned char Option_Code2;
 } XD_SM_ID_90_t;
-
+
 #define CIS_FIELD1_OFFSET						0
 #define IDI_FIELD1_OFFSET						128
 #define CIS_FIELD2_OFFSET						256
@@ -103,7 +103,7 @@
 #define BUSY_TIME_R								(10*TIMER_1MS)	// xd: 25us,  sm: 25us
 #define BUSY_TIME_RST							(6*TIMER_1MS)	// xd: 0.5ms, sm: 6ms
 #define BUSY_TIME_TCRY							(1*TIMER_1MS)
-    
+    
 /* Error codes */ 
 typedef enum XD_SM_Error_Status_t 
     { XD_SM_NO_ERROR =
@@ -138,7 +138,7 @@ typedef enum XD_SM_Error_Status_t
 	char *capacity_str;
 	unsigned char page_buf[XD_SM_SECTOR_SIZE];
 	unsigned char redundant_buf[MAX_PAGES_PER_BLOCK * MAX_REDUNDANT_SIZE];
-	
+	
 #ifdef XD_SM_NUM_POINTER	
 	unsigned short (*logical_physical_table)[MAX_LOGICAL_BLKS_PER_ZONE];
 	unsigned char (*free_block_table)[MAX_PHYSICAL_BLKS_PER_ZONE / 8];
@@ -172,7 +172,7 @@ typedef enum XD_SM_Error_Status_t
 	int (*sm_get_wp) (void);
 	void (*sm_io_release) (void);
 } XD_SM_Card_Info_t;
-
+
 #define XD_Card_Info_t							XD_SM_Card_Info_t
 #define SM_Card_Info_t							XD_SM_Card_Info_t
 extern unsigned long xd_sm_total_zones;
@@ -212,7 +212,7 @@ typedef enum XD_SM_Error_Status_t
 						  unsigned char *redundant_buf,
 						  unsigned long redundant_cnt);
  /**/ typedef int (*xd_sm_test_ready_t) (void);
-
+
 //XD Operation Command Table                                    1st                       2nd                   Busy
 #define XD_SM_SERIAL_DATA_INPUT					0x80
 #define XD_SM_READ1								0x00
@@ -238,12 +238,12 @@ typedef enum XD_SM_Error_Status_t
 int xd_sm_init(XD_Card_Info_t * card_info);
 void xd_exit(void);
 void sm_exit(void);
-
+
 //Check if any card is inserted
 //int xd_sm_check_insert();
-    
+    
 //XD/SM Power on/off
 void xd_sm_power_on(void);
 void xd_sm_power_off(void);
-
+
 #endif				//_H_XD_SM

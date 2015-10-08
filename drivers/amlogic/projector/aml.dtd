@@ -1,0 +1,13 @@
+#ifdef CONFIG_AML_PROJECTOR
+//$$ DEVICE="projector"
+//$$ L2 PROP_STR = "status"
+    projector{
+		compatible = "amlogic,projector";
+		status = "okay";
+
+		address = <0x1A>;
+		i2c_bus = "i2c_bus_a";
+		gpio_pwr = "GPIOAO_10"
+	};
+
+#endif

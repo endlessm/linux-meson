@@ -207,16 +207,16 @@
 	unsigned short Multi_Word_DMA_Transfer;
 	unsigned char Reserved4[128];
 } MS_Boot_IDI_t;
-
+
 #pragma pack()
-    
+    
 #define MS_PAGE_SIZE                                    512
 #define MS_MAX_DISABLED_BLOCKS                          MS_PAGE_SIZE/2
 typedef struct _MS_Disabled_Block_Data  {
 	unsigned short disabled_block_nums;
 	unsigned short disabled_block_table[MS_MAX_DISABLED_BLOCKS];
 } MS_Disabled_Block_Data_t;
-
+
 #define MS_BOOT_HEADER_SIZE                             368
 #define MS_BOOT_SYSTEM_ENTRY_SIZE                       48
 #define MS_BOOT_ATTRIBUTE_INFORMATION_SIZE              96
@@ -227,7 +227,7 @@
 #define MS_LOGICAL_SIZE_PER_SEGMENT                     496
 #define MS_MAX_FREE_BLOCKS_PER_SEGMENT                  16
 #define MS_MAX_SEGMENT_NUMBERS                          16
-    
+    
 //Acceptable Command List for Memory Stick
 #define CMD_MS_BLOCK_READ                               0xAA
 #define CMD_MS_BLOCK_WRITE                              0x55
@@ -250,5 +250,5 @@
 //#define MS_WRITE_PATTERN_1
 #define MS_WRITE_PATTERN_2
 
-
+
 #endif				//_H_MS_PROTOCOL

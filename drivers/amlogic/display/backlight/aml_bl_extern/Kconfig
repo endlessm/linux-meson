@@ -1,0 +1,23 @@
+
+menu "Amlogic Backlight Extern Support"
+
+config AML_BL_EXTERN_PMU_AML1218
+	boolean "AML bl extern pmu_aml1218 support"
+	default y
+	help
+		AML bl extern pmu_aml1218 support
+
+config AML_BL_EXTERN_MIPI_LT070ME05
+	boolean "AML bl extern mipi_LT070ME05 support"
+	default n
+	help
+		AML bl extern mipi_LT070ME05 support
+
+config AML_BL_EXTERN_I2C_LP8556
+	boolean "AML bl extern i2c_lp8556 support"
+	default n
+	help
+		AML bl extern i2c_lp8556 support
+
+
+endmenu

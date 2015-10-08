@@ -17,6 +17,13 @@ config AML_PHY
 	---help---
 	  Currently has a driver for the AMLOGIC INTERNAL PHY
 
+config PMU4_V2
+	tristate "AMLOGIC is PHY PMU4_V2"
+	depends on AML_PHY
+	default n
+	---help---
+	  Currently has a driver for the AMLOGIC INTERNAL PHY
+
 config AML_LAN8720
 	tristate "Drivers for SMSC LAN8720 PHYs"
 	---help---

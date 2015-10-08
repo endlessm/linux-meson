@@ -1,32 +1,46 @@
 #
 # Video output configuration
 #
-menu "Amlogic video output module"
 
-config AM_TV_OUTPUT
-	tristate "TV output"
-	default y
-	help  
-		tv output module
+menuconfig AMLOGIC_VOUT
+	tristate "Amlogic video output support"
+	default n
+	help
+		Amlogic video output support
+
+if AMLOGIC_VOUT
+
+config AML_TVOUT
+	tristate "Video output and control module"
+	default n
+	help
+		Video output and control module support
 
 config AML_VOUT_FRAMERATE_AUTOMATION
 	bool "framerate automation"
-	default y
-	depends on AM_TV_OUTPUT
+	default n
+	depends on AML_TVOUT
 	help
 		framerate adjustment automatically from video source
 
-config AM_LCD_OUTPUT
-	tristate "LCD output" 
-	default y
-	help  
-		LCD output module
+config AML_VDAC_HW_SWITCH
+	bool "vdac hardware switch"
+	default n
+	depends on AML_TVOUT
+	help
+		vdac hardware switch of cvbs/ypbpr for mx.
+
+config AML_LCD_TABLET
+	tristate "Tablet LCD output module"
+	default n
+	help
+		Tablet LCD output module support
 
 config AML_GAMMA_DEBUG
-	tristate "AML Gamma debug"
-	default y
-	depends on  AM_LCD_OUTPUT
+	tristate "gamma debug"
+	default n
+	depends on  AML_LCD_TABLET
 	help
-		AML gamma debug
+		gamma debug support
 
-endmenu
+endif

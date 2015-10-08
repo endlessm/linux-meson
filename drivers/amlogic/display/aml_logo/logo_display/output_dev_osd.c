@@ -225,9 +225,10 @@ static int osd0_init(logo_object_t *plogo)
 		if(plogo->para.loaded)
 		{
 			osd_init_hw(plogo->para.loaded);
-			if(plogo->para.vout_mode > VMODE_4K2K_SMPTE){
+			/*if(plogo->para.vout_mode > VMODE_4K2K_SMPTE){
 				plogo->para.vout_mode|=VMODE_LOGO_BIT_MASK;
-			}
+			}*/
+			plogo->para.vout_mode|=VMODE_LOGO_BIT_MASK;
 		}
 #ifdef CONFIG_AM_HDMI_ONLY
 		if(plogo->para.vout_mode > VMODE_4K2K_SMPTE) {
@@ -288,9 +289,10 @@ static int osd1_init(logo_object_t *plogo)
 		if(plogo->para.loaded)
 		{
 			osd_init_hw(plogo->para.loaded);
-			if(plogo->para.vout_mode > VMODE_4K2K_SMPTE){
+			/*if(plogo->para.vout_mode > VMODE_4K2K_SMPTE){
 				plogo->para.vout_mode|=VMODE_LOGO_BIT_MASK;
-			}
+			}*/
+			plogo->para.vout_mode|=VMODE_LOGO_BIT_MASK;
 		}
 #ifdef CONFIG_AM_HDMI_ONLY
 		if(plogo->para.vout_mode > VMODE_4K2K_SMPTE) {

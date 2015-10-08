@@ -21,9 +21,9 @@
 	int (*ata_cf_get_ins) (void);
 	void (*ata_cf_io_release) (void);
 } CF_Card_Info_t;
-
+
 #define CF_INIT_RETRY				3
-    
+    
 //Following functions are the API used for outside routine
     
 //CF Initialization...
@@ -38,14 +38,14 @@ int cf_check_insert(void);
 //Read data from CF card
 int cf_read_data(unsigned long lba, unsigned long byte_cnt,
 		 unsigned char *data_buf);
-
+
 //Write data to CF card
 int cf_write_data(unsigned long lba, unsigned long byte_cnt,
 		  unsigned char *data_buf);
-
+
 //CF Power on/off
 void cf_power_on(void);
 void cf_power_off(void);
 void cf_exit(void);
-
+
 #endif				// __CF_PROTOCOL_H

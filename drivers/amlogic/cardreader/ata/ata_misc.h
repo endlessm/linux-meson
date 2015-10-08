@@ -21,11 +21,11 @@
 void ata_start_timer(unsigned long time_value);
 int ata_check_timer(void);
 int ata_check_timeout(void);
-
+
 #define ATA_DEBUG
     
 #define Debug_Printf				printk
-    
+    
 //Definition to use block address 0x3400000
 //#define AMLOGIC_CHIP_SUPPORT
     
@@ -38,7 +38,7 @@
 #endif				/*  */
     
 //Definition for debug
-    
+    
 #define ata_malloc                  kmalloc
 #define ata_free                    kfree
     
@@ -54,7 +54,7 @@
 void write_pio_8(unsigned reg, unsigned char val);
 unsigned short read_pio_16(unsigned reg);
 void write_pio_16(unsigned reg, unsigned short val);
-
+
 //Delay time in 100 ns
 //void ata_delay_100ns(unsigned long num_100ns);
     

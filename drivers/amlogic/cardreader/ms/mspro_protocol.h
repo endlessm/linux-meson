@@ -219,9 +219,9 @@
 	unsigned short Sectors_PerTrack;
 	unsigned char Reserved[6];
 } MSPRO_Identify_Device_Information_t;
-
+
 #pragma pack()
-    
+    
 #define MSPRO_SECTOR_SIZE                               512
     
 #define MSPRO_DEVID_SYSTEM_INFORMATION                  0x10
@@ -245,7 +245,7 @@
 #define MSPRO_PBR_FAT32_VALUES_SIZE                     96
 #define MSPRO_SPECIAL_FILE_VALUES_SIZE                  32
 #define MSPRO_IDENTIFY_DEVICE_INFORMATION_SIZE          16
-    
+    
 //Acceptable Command List for Memory Stick Pro
 #define CMD_MSPRO_READ_DATA                             0x20
 #define CMD_MSPRO_WRITE_DATA                            0x21
@@ -290,5 +290,5 @@
     
 //#define MSPRO_STARTUP_TIMEOUT                         (1000*TIMER_1MS)
 #define MSPRO_STARTUP_TIMEOUT                           300
-
+
 #endif				//_H_MSPRO_PROTOCOL

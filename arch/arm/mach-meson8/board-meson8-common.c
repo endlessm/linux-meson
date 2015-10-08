@@ -58,13 +58,13 @@ extern void __init meson_timer_init(void);
 static __init void meson8_reserve(void)
 {
 
-    /* 
-      * Reserved memory for hotplug: 
-      *   start address: PHYS_OFFSET, size 0x4000, 
-      *   toprevent other getting logical address 0xc0000000 and 
-      *   flushing valid data on "zero address"
-      */
-    memblock_reserve(PHYS_OFFSET,__pa(swapper_pg_dir) - PHYS_OFFSET);
+	/*
+	 *   Reserved memory for hotplug:
+	 *   start address: PHYS_OFFSET, size 0x4000,
+	 *   toprevent other getting logical address 0xc0000000 and
+	 *   flushing valid data on "zero address"
+	 */
+	memblock_reserve(PHYS_OFFSET,__pa(swapper_pg_dir) - PHYS_OFFSET);
 }
 
 __initdata struct map_desc meson_board_io_desc[1];
@@ -84,19 +84,22 @@ static void __init meson_map_io(void)
 }
 
 static struct of_device_id m8_of_platform_bus_ids[] = {
-		{.compatible = "simple-bus",},  
-		{},
+	{.compatible = "simple-bus",},
+	{},
 };
+
+#ifdef CONFIG_OF_LM
 static struct of_device_id m8_of_lm_bus_ids[] = {
-		{.compatible = "logicmodule-bus",},  
-		{},
+	{.compatible = "logicmodule-bus",},
+	{},
 };
+#endif
 
 static __init void meson_init_machine_devicetree(void)
 {
-	struct device *parent;	
+	struct device *parent;
 	parent = get_device(&platform_bus);
-	
+
 	of_platform_populate(NULL,m8_of_platform_bus_ids,NULL,parent);
 #ifdef CONFIG_OF_LM
 	of_lm_populate(NULL,m8_of_lm_bus_ids,NULL,NULL);
@@ -108,7 +111,7 @@ int meson_cache_of_init(void);
 static __init void meson_init_early(void)
 {
 	int rev;
-	
+
 	meson_cpu_version_init();
 	/*
 	 * Mali or some USB devices allocate their coherent buffers from atomic
@@ -137,7 +140,7 @@ static const char *m8_common_board_compat[] __initdata = {
 
 DT_MACHINE_START(AML8726_M8, "Amlogic Meson8")
 	.reserve	= meson8_reserve,
-//.nr_irqs	= 
+//.nr_irqs	=
 	.smp		= smp_ops(meson_smp_ops),
 	.map_io		= meson_map_io,/// dt - 1
 	.init_early	= meson_init_early,/// dt -2

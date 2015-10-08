@@ -40,6 +40,9 @@ static void saradc_reset(void)
 {
 	int i;
 
+#if defined(CONFIG_ARCH_MESONG9TV) || defined(CONFIG_ARCH_MESONG9BB)
+	set_sar_adc_clk();
+#endif
 	//set adc clock as 1.28Mhz
 	set_clock_divider(20);
 	enable_clock();
@@ -137,7 +140,7 @@ static int saradc_get_cal_value(struct saradc *saradc, int val)
 #endif
 
 static u8 print_flag = 0; //(1<<CHAN_4)
-#ifdef CONFIG_AMLOGIC_THERMAL
+#ifdef CONFIG_AML_PLATFORM_THERMAL
 void temp_sensor_adc_init(int triming)
 {
 	select_temp();
@@ -169,12 +172,12 @@ int get_adc_sample(int chan)
 
 	// Read any CBUS register to delay one clock cycle after starting the sampling engine
 	// The bus is really fast and we may miss that it started
-	{ count = get_reg(ISA_TIMERE); }
+	value = get_reg(P_ISA_TIMERE);
 
 	count = 0;
 	while (delta_busy() || sample_busy() || avg_busy()) {
 		if (++count > 10000) {
-			printk(KERN_ERR "ADC busy error=%x.\n", READ_CBUS_REG(SAR_ADC_REG0));
+			printk(KERN_ERR "ADC busy error=%x.\n", get_reg(PP_SAR_ADC_REG0));
 			goto end;
 		}
 	}
@@ -354,7 +357,7 @@ static int get_celius(void)
      *
      */
     ///@todo fix it later
-    if(aml_read_reg32(P_SAR_ADC_REG3)&(1<<29))
+    if(aml_read_reg32(PP_SAR_ADC_REG3)&(1<<29))
     {
         x=23077;
         y=-88;
@@ -381,7 +384,7 @@ static ssize_t temperature_show(struct class *cla, struct class_attribute *attr,
 }
 static ssize_t temperature_mode_show(struct class *cla, struct class_attribute *attr, char *buf)
 {
-    return sprintf(buf, "%d\n", aml_read_reg32(P_SAR_ADC_REG3)&(1<<29)?1:0);
+    return sprintf(buf, "%d\n", aml_read_reg32(PP_SAR_ADC_REG3)&(1<<29)?1:0);
 }
 static ssize_t temperature_mode_store(struct class *cla, struct class_attribute *attr, const char *buf, ssize_t count)
 {

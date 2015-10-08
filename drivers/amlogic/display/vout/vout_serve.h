@@ -20,6 +20,7 @@ VOUT_ATTR_MODE,
 VOUT_ATTR_AXIS,
 VOUT_ATTR_WR_REG,
 VOUT_ATTR_RD_REG,
+VOUT_ATTR_VINFO,
 VOUT_ATTR_MAX
 }vout_attr_t ;
 
@@ -54,7 +55,7 @@ typedef struct {
 	mutex_unlock(&vout_mutex); }			
 		
 #define    SET_VOUT_CLASS_ATTR(name,op)    \
-static  char    name[40] ;				  \
+static char name[40] __nosavedata;				  \
 static ssize_t aml_vout_attr_##name##_show(struct class  * cla, struct class_attribute *attr, char *buf)   \
 {  											\
 	SHOW_INFO(name)  	\

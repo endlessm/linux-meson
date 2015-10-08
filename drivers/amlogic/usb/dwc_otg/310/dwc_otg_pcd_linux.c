@@ -1282,7 +1282,7 @@ int pcd_init(
 	 */
 	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n", _dev->irq);
 	retval = request_irq(_dev->irq, dwc_otg_pcd_irq,
-			     IRQF_SHARED | IRQF_DISABLED,
+			     IRQF_SHARED | IRQF_DISABLED | IRQ_TYPE_LEVEL_HIGH,
 			     gadget_wrapper->gadget.name, otg_dev->pcd);
 	if (retval != 0) {
 		DWC_ERROR("request of irq%d failed\n", _dev->irq);

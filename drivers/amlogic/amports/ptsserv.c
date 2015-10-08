@@ -13,12 +13,14 @@
 #include "vdec_reg.h"
 
 #define VIDEO_REC_SIZE  (8192*2)
-#define AUDIO_REC_SIZE  8192
+#define AUDIO_REC_SIZE  8192*2
 #define VIDEO_LOOKUP_RESOLUTION 2500
 #define AUDIO_LOOKUP_RESOLUTION 1024
 
 #define INTERPOLATE_AUDIO_PTS
 #define INTERPOLATE_AUDIO_RESOLUTION 9000
+
+#define PTS_VALID_OFFSET_TO_CHECK      0x08000000
 
 #define OFFSET_DIFF(x, y)  ((int)(x - y))
 #define OFFSET_LATER(x, y) (OFFSET_DIFF(x, y) > 0)
@@ -233,9 +235,21 @@ int calculation_stream_delayed_ms(u8 type, u32 *latestbitrate, u32 *avg_bitare)
         {
             diff2 = stbuf_level(get_buf_by_type(type));
         }
-        
-	if(diff2 > stbuf_space(get_buf_by_type(type)))
-            diff = diff2;
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	if (HAS_HEVC_VDEC) {
+	    if (pTable->hevc) {
+	         if(diff2 > stbuf_space(get_buf_by_type(PTS_TYPE_HEVC)))
+	 	   diff = diff2; 								
+	    }else{
+	        if(diff2 > stbuf_space(get_buf_by_type(type)))
+		   diff = diff2;				
+		}			
+	} else			
+#endif
+           {
+	    if(diff2 > stbuf_space(get_buf_by_type(type)))
+               diff = diff2;
+        	}
         delay_ms=diff*1000/(1+pTable->last_avg_bitrate/8);
 
         if (timestampe_delayed < 10 || (abs(timestampe_delayed - delay_ms)>3*1000 && delay_ms > 1000)) {
@@ -287,7 +301,7 @@ int calculation_acached_delayed(void){
 
 	pTable = &pts_table[PTS_TYPE_AUDIO];
 
-	delay = pTable->last_checkin_pts-pTable->last_checkout_pts;
+	delay = pTable->last_checkin_pts-timestamp_apts_get();
 	if (0<delay && delay<5*90000) 
 		return delay;
 
@@ -440,7 +454,7 @@ static int pts_checkin_offset_inline(u8 type, u32 offset, u32 val,u64 uS64)
 }
 int pts_checkin_offset(u8 type, u32 offset, u32 val){
     u64 us;
-    us = div64_u64(val*100,9);
+    us = div64_u64((u64)val*100,9);
     return pts_checkin_offset_inline(type,offset,val,us);
 }
 int pts_checkin_offset_us64(u8 type, u32 offset, u64 us){
@@ -598,7 +612,7 @@ static int _pts_lookup_offset_inline(
     spin_lock_irqsave(&lock, flags);
 
     if (likely(pTable->status == PTS_RUNNING)) {
-        pts_rec_t *p, *p2 = NULL;
+        pts_rec_t *p = NULL, *p2 = NULL;
 
         if ((pTable->lookup_cache_valid) &&
             (offset == pTable->lookup_cache_offset)) {
@@ -606,6 +620,27 @@ static int _pts_lookup_offset_inline(
 
             *val = pTable->lookup_cache_pts;
             return 0;
+        }
+
+        if ((type == PTS_TYPE_VIDEO) && !list_empty(&pTable->valid_list)) {
+            pts_rec_t *rec = NULL, *next = NULL;
+            int look_cnt1 = 0;
+            list_for_each_entry_safe(rec, next, &pTable->valid_list, list) {
+                if (OFFSET_DIFF(offset, rec->offset) > PTS_VALID_OFFSET_TO_CHECK) {
+                    if (pTable->pts_search == &rec->list) {
+                        pTable->pts_search = rec->list.next;
+                    }
+
+                    if (tsync_get_debug_vpts()) {
+                        printk("remove node  offset: 0x%x cnt:%d\n", rec->offset, look_cnt1);
+                    }
+
+                    list_move_tail(&rec->list, &pTable->free_list);
+                    look_cnt1 ++;
+                }else {
+                    break;
+                }
+            }
         }
 
         if (list_empty(&pTable->valid_list)) {
@@ -714,7 +749,8 @@ static int _pts_lookup_offset_inline(
         else if ((type == PTS_TYPE_AUDIO) &&
             (p2 != NULL) &&
             (!list_is_last(&p2->list,  &pTable->valid_list)) &&
-            (VAL_DIFF((p = list_entry(p2->list.next, pts_rec_t, list))->val, p2->val) < INTERPOLATE_AUDIO_RESOLUTION)) {
+            (VAL_DIFF((p = list_entry(p2->list.next, pts_rec_t, list))->val, p2->val) < INTERPOLATE_AUDIO_RESOLUTION) &&
+            (VAL_DIFF(p->val,p2->val) >= 0)) {
             /* do interpolation between [p2, p] */
             *val = div_u64(((p->val - p2->val) * (offset - p2->offset)), (p->offset - p2->offset)) + p2->val;
             *uS64 = (u64)(*val) << 32;
@@ -760,7 +796,13 @@ static int _pts_lookup_offset_inline(
                 *val = pTable->first_checkin_pts;
                 pTable->first_lookup_ok = 1;
                 pTable->first_lookup_is_fail = 1;
-
+                if ( type == PTS_TYPE_VIDEO ) {
+                    if ( timestamp_vpts_get() == 0 ) {
+                        timestamp_firstvpts_set(1);
+                    } else {
+                        timestamp_firstvpts_set(timestamp_vpts_get());
+                    }
+                }
                 if (tsync_get_debug_pts_checkout()) {
                     if (tsync_get_debug_vpts() && (type == PTS_TYPE_VIDEO))
                         printk("first vpts look up offset<0x%x> failed, return first_checkin_pts<0x%x>\n",

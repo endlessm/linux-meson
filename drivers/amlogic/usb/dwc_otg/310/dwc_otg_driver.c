@@ -1193,7 +1193,7 @@ static int dwc_otg_driver_probe(
 	DWC_DEBUGPL(DBG_CIL, "registering (common) handler for irq%d\n",
 		    _dev->irq);
 	retval = request_irq(_dev->irq, dwc_otg_common_irq,
-			     IRQF_SHARED | IRQF_DISABLED | IRQ_LEVEL, "dwc_otg",
+			     IRQF_SHARED | IRQF_DISABLED | IRQ_TYPE_LEVEL_HIGH, "dwc_otg",
 			     dwc_otg_device);
 	if (retval) {
 		DWC_ERROR("request of irq%d failed\n", _dev->irq);

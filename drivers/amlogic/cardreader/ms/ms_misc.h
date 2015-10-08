@@ -29,11 +29,11 @@
 void ms_start_timer(unsigned long time_value);
 int ms_check_timer(void);
 int ms_check_timeout(void);
-
+
 #define MS_MSPRO_DEBUG
 #define Debug_Printf				printk
 extern const unsigned short ms_crc_table[];
-
+
 //#define inline _Inline
     
 //Definition to use block address 0x3400000
@@ -51,7 +51,7 @@
 #define MS_MSPRO_SW_CONTROL
     
 #define MS_MSPRO_ALLOC_MEMORY
-    
+    
 #ifdef MS_MSPRO_ALLOC_MEMORY
 #define ms_mspro_malloc				kzalloc
 #define ms_mspro_free				kfree
@@ -68,7 +68,7 @@ void ms_delay_us(unsigned long num_us);
 
 //Delay time in 1 ms
 void ms_delay_ms(unsigned long num_ms);
-
+
 //Maximum 20Mhz, Period = 50ns
 #define ms_clk_delay_serial_low()
 #define ms_clk_delay_serial_high()
@@ -82,7 +82,7 @@ void ms_delay_ms(unsigned long num_ms);
 #define ms_clk_parallel_high()      	{ms_set_clk_high();ms_clk_delay_parallel_high();}
 unsigned short ms_verify_crc16(unsigned char *ptr, unsigned int len);
 unsigned short ms_cal_crc16(unsigned char *ptr, unsigned int len);
-
+
 /**************************************************************/
 int ms_media_type_identification(MS_MSPRO_Card_Info_t *ms_mspro_info);
 int ms_search_boot_block(MS_MSPRO_Card_Info_t *ms_mspro_info, unsigned char *data_buf);
@@ -146,7 +146,7 @@ int ms_mspro_wait_int(MS_MSPRO_Card_Info_t *ms_mspro_info, MS_MSPRO_TPC_Packet_t
 int ms_mspro_packet_communicate(MS_MSPRO_Card_Info_t *ms_mspro_info, MS_MSPRO_TPC_Packet_t * tpc_packet);
 char *ms_mspro_error_to_string(int errcode);
 void ms_mspro_endian_convert(Endian_Type_t data_type, void *data);
-
+
 //Following functions are the API used for outside routinue
 //void ms_mspro_get_info(blkdev_stat_t *info);
 int ms_mspro_init(MS_MSPRO_Card_Info_t * card_info);

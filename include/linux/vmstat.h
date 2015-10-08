@@ -5,6 +5,7 @@
 #include <linux/percpu.h>
 #include <linux/mm.h>
 #include <linux/mmzone.h>
+#include <linux/page-isolation.h>
 #include <linux/vm_event_item.h>
 #include <linux/atomic.h>
 

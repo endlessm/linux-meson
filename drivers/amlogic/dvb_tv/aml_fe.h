@@ -31,6 +31,11 @@
 #include "aml_dvb.h"
 #include "linux/videodev2.h"
 
+#include <linux/dma-contiguous.h>
+#include <linux/dma-mapping.h>
+#include <linux/sizes.h>
+
+
 #include <linux/amlogic/aml_gpio_consumer.h>
 
 
@@ -59,7 +64,11 @@ typedef enum{
 	AM_TUNER_FQ1216 = 3,
 	AM_TUNER_HTM = 4,
 	AM_TUNER_CTC703=5,
-	AM_TUNER_SI2177 = 6
+	AM_TUNER_SI2177 = 6,
+	AM_TUNER_R840 = 7,
+	AM_TUNER_SI2157 = 8,
+	AM_TUNER_SI2151 = 9,
+	AM_TUNER_MXL661 = 10
 }aml_tuner_type_t;
 
 typedef enum{
@@ -68,7 +77,9 @@ typedef enum{
 	AM_ATV_DEMOD_FQ1216 =3,
 	AM_ATV_DEMOD_HTM = 4,
 	AM_ATV_DEMOD_CTC703 = 5,
-	AM_ATV_DEMOD_SI2177 =6
+	AM_ATV_DEMOD_SI2177 =6,
+	AM_ATV_DEMOD_AML =7,
+	AM_ATV_DEMOD_R840 =8
 }aml_atv_demod_type_t;
 
 typedef enum{
@@ -81,7 +92,10 @@ typedef enum{
 	AM_DTV_DEMOD_ITE9133 = 6,
 	AM_DTV_DEMOD_ITE9173 = 7,
 	AM_DTV_DEMOD_DIB8096 = 8,
-	AM_DTV_DEMOD_ATBM8869 = 9
+	AM_DTV_DEMOD_ATBM8869 = 9,
+	AM_DTV_DEMOD_MXL241 = 10,
+	AM_DTV_DEMOD_AVL68xx = 11,
+	AM_DTV_DEMOD_MXL683 = 12
 }aml_dtv_demod_type_t;
 
 typedef enum{
@@ -131,6 +145,12 @@ struct aml_fe_dev{
 	int      mem_start;
 	int      mem_end;
 };
+struct aml_demod_param{
+	/*for tuner video if to amlatvdemod*/
+	unsigned int      if_freq;//HZ
+	/*for tuner output*/
+	unsigned int      if_inv;
+};
 
 struct aml_fe{
 	struct dvb_frontend *fe;
@@ -143,6 +163,7 @@ struct aml_fe{
 	int      dev_id;
 	int      capability;
 	aml_ts_source_t    ts;
+	struct aml_demod_param demod_param;
 	struct aml_fe_dev *tuner;
 	struct aml_fe_dev *atv_demod;
 	struct aml_fe_dev *dtv_demod;
@@ -164,6 +185,7 @@ extern int aml_register_fe_drv(aml_fe_dev_type_t type, struct aml_fe_drv *drv);
 
 extern int aml_unregister_fe_drv(aml_fe_dev_type_t type, struct aml_fe_drv *drv);
 
+extern struct dvb_frontend * get_tuner(void);
 extern const char* soundsys_to_str(unsigned short soundsys);
 extern const char* audmode_to_str(unsigned short soundsys);
 extern const char* v4l2_std_to_str(v4l2_std_id std);

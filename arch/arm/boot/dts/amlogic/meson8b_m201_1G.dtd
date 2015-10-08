@@ -301,6 +301,13 @@ void root_func(){
 		status = "okay";
 	};
 
+
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
+
 /// ***************************************************************************************
 ///	-	RTC
 //$$ MODULE="RTC"
@@ -763,10 +770,10 @@ void root_func(){
                  600000         860000      860000
                  720000         860000      860000
                  816000         900000      900000
-                1008000         920000      920000
-                1200000         970000      970000
-                1320000        1100000     1100000
-                1488000        1100000     1100000
+                1008000        1140000     1140000
+                1200000        1140000     1140000
+                1320000        1140000     1140000
+                1488000        1140000     1140000
                 1536000        1140000     1140000
             >;
         };
@@ -1312,8 +1319,8 @@ void root_func(){
 		#thermal-cells=<7>;
 		dev_name = "aml_thermal";
         trip_point=<70 1488001 1488001 511 511 3 2
-                    80 1200001 1200001 435 435 2 2
-                    90  800001  800001 328 328 1 1
+                    80 1206001 1206001 435 435 2 2
+                    90  804001  804001 328 328 1 1
                     260 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
 		cpu_cali_a=<0>;
 		idle_interval=<1000>;
@@ -1509,6 +1516,7 @@ void root_func(){
     cpufreq-meson{
         compatible = "amlogic,cpufreq-meson";
         syspll_fixed;
+        fixpll_target = <1536000>;
         status = "okay";
     };
 

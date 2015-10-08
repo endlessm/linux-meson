@@ -14,6 +14,7 @@
 
 #include <linux/amlogic/hdmi_tx/hdmi_info_global.h>
 #include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
+#include <linux/amlogic/hdmi_tx/hdmi_tx_compliance.h>
 
 static unsigned char hdmi_output_rgb = 0;
 static void hdmitx_set_spd_info(hdmitx_dev_t* hdmitx_device);
@@ -524,6 +525,7 @@ int hdmitx_set_display(hdmitx_dev_t* hdmitx_device, HDMI_Video_Codes_t VideoCode
         }
     }
     hdmitx_set_spd_info(hdmitx_device);
+    hdmitx_special_handler_video(hdmitx_device);
     return ret;
 }
 

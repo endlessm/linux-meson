@@ -46,15 +46,26 @@
 
 #define POLL_PERIOD_WHEN_KEY_DOWN 10 /* unit msec */
 #define POLL_PERIOD_WHEN_KEY_UP   50
-#define KEY_JITTER_COUNT  2  /*  2 * POLL_PERIOD_WHEN_KEY_DOWN msec */
+#define KEY_DOWN_JITTER_COUNT  3  /*  3 * POLL_PERIOD_WHEN_KEY_DOWN msec */
+#define KEY_UP_JITTER_COUNT  3  /*  3 * POLL_PERIOD_WHEN_KEY_DOWN msec */
+#define KEY_LONG_COUNT  60  /*  600msec */
+
+#define KEY_ST_UP 0
+#define KEY_ST_DOWN 1
+#define KEY_ST_LONG 2
+
+#define combination_code(lcode, scode) ((lcode<<16)|scode)
+#define long_code(ccode) (ccode>>16)
+#define short_code(ccode) (ccode&0xffff)
 
 struct kp {
 	struct input_dev *input;
 	struct timer_list timer;
 	unsigned int report_code;
-	unsigned int code;
 	unsigned int poll_period;
-	int count;	
+	int down_count;
+	int up_count;
+	int state;
 	int config_major;
 	char config_name[20];
 	struct class *config_class;
@@ -63,6 +74,7 @@ struct kp {
 	int chan_num;
 	struct adc_key *key;
 	int key_num;
+	int long_press_time;
 	struct work_struct work_update;
 };
 
@@ -72,71 +84,93 @@ struct kp {
 
 static struct kp *gp_kp=NULL;
 
-//static int timer_count = 0;
-
 static int kp_search_key(struct kp *kp)
 {
 	struct adc_key *key;
 	int value, i, j;
-	
+
 	for (i=0; i<kp->chan_num; i++) {
 		value = get_adc_sample(kp->chan[i]);
 		if (value < 0) {
 			continue;
 		}
 		key = kp->key;
-	 	for (j=0; j<kp->key_num; j++) {
+		for (j=0; j<kp->key_num; j++) {
 			if ((key->chan == kp->chan[i])
 			&& (value >= key->value - key->tolerance)
 			&& (value <= key->value + key->tolerance)) {
-				return key->code;
+				return combination_code(key->lcode, key->code);
 			}
 			key++;
 		}
 	}
-	
+
 	return 0;
 }
 
 static void kp_work(struct kp *kp)
 {
 	int code = kp_search_key(kp);
+#define kp_report(kp, st) do { \
+	input_report_key(kp->input, kp->report_code, st); \
+	input_sync(kp->input); \
+} while(0)
 
-  if (code) {
-    kp->poll_period = POLL_PERIOD_WHEN_KEY_DOWN;
-  }
-	if ((!code) && (!kp->report_code)) {
-	  if (kp->poll_period < POLL_PERIOD_WHEN_KEY_UP) kp->poll_period++;
-		return;
+	if (code) {
+		kp->poll_period = POLL_PERIOD_WHEN_KEY_DOWN;
+		kp->down_count++;
+		kp->up_count = 0;
 	}
-	else if (code != kp->code) {
-		kp->code = code;
-		kp->count = 0;
-	}
-	else if (kp->count < KEY_JITTER_COUNT) {
-	  kp->count++;
-  }
 	else {
-		if (kp->report_code != code) {
-			if (!code) { /* key up */
-				printk("key %d up\n", kp->report_code);
-				input_report_key(kp->input, kp->report_code, 0);
-				input_sync(kp->input);
+		kp->up_count++;
+		kp->down_count = 0;
+		if (kp->poll_period < POLL_PERIOD_WHEN_KEY_UP)
+			kp->poll_period++;
+	}
+
+	switch (kp->state) {
+	case KEY_ST_UP:
+		if (kp->down_count >= KEY_DOWN_JITTER_COUNT) {
+			if (long_code(code)) {
+				kp->report_code = code;
+				kp->state = KEY_ST_LONG;
 			}
-			else if (!kp->report_code) { /* key down */
-				printk("key %d down\n", code);
-				input_report_key(kp->input, code, 1);
-				input_sync(kp->input);
-				}
-			else { /* another key down when 1st key still pressing */
-				printk("key %d up(f)\n", kp->report_code);
-				input_report_key(kp->input, kp->report_code, 0);
-				printk("key %d down(f)\n", code);
-				input_report_key(kp->input, code, 1);		
-				input_sync(kp->input);
-				}
-			kp->report_code = code;
+			else {
+				kp->report_code = short_code(code);
+				printk("key %d down\n", kp->report_code);
+				kp_report(kp, 1);
+				kp->state = KEY_ST_DOWN;
+			}
 		}
+		break;
+
+	case KEY_ST_DOWN:
+		if (kp->up_count >= KEY_UP_JITTER_COUNT) {
+			kp_report(kp, 0);
+			kp->state = KEY_ST_UP;
+			printk("key %d up\n", kp->report_code);
+		}
+		break;
+
+	case KEY_ST_LONG:
+		if (kp->down_count >= kp->long_press_time/POLL_PERIOD_WHEN_KEY_DOWN) {
+			kp->report_code = long_code(kp->report_code);
+			kp_report(kp, 1);
+			kp->state = KEY_ST_DOWN;
+			printk("key %d down(long)\n", kp->report_code);
+		}
+		else if (kp->up_count >= KEY_UP_JITTER_COUNT) {
+			kp->report_code = short_code(kp->report_code);
+			kp_report(kp, 1);
+			printk("key %d down(short)\n", kp->report_code);
+			kp_report(kp, 0);
+			kp->state = KEY_ST_UP;
+			printk("key %d up(short)\n", kp->report_code);
+		}
+		break;
+
+	default:
+		break;
 	}
 }
 
@@ -193,6 +227,13 @@ static int register_keypad_dev(struct kp  *kp)
 
 static int kp_probe(struct platform_device *pdev)
 {
+	char *prop_name[] = {
+		"key_code",
+		"key_chan",
+		"key_val",
+		"key_tolerance",
+		"key_lcode",
+	};
     struct kp *kp;
     struct input_dev *input_dev;
     int i, j, ret, key_size, name_len;
@@ -205,7 +246,7 @@ static int kp_probe(struct platform_device *pdev)
 		printk("==%s==\n", __func__);
 
 #ifdef CONFIG_OF
-	 if (!pdev->dev.of_node) {
+		if (!pdev->dev.of_node) {
 				printk("adc_key: pdev->dev.of_node == NULL!\n");
 				state =  -EINVAL;
 				goto get_key_node_fail;
@@ -215,19 +256,19 @@ static int kp_probe(struct platform_device *pdev)
 		  printk("adc_key: faild to get key_num!\n");
 		  state =  -EINVAL;
 		  goto get_key_node_fail;
-	  }
-	  ret = of_property_read_u32(pdev->dev.of_node,"name_len",&name_len);
+		}
+		ret = of_property_read_u32(pdev->dev.of_node,"name_len",&name_len);
     if (ret) {
 		  printk("adc_key: faild to get name_len!\n");
 		  name_len = 20;
-	  }
+		}
     pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
     if (!pdata) {
         dev_err(&pdev->dev, "platform data is required!\n");
         state = -EINVAL;
         goto get_key_node_fail;
     }
-   
+
 		pdata->key = kzalloc(sizeof(*(pdata->key))*key_size, GFP_KERNEL);
 		if (!(pdata->key)) {
 			dev_err(&pdev->dev, "platform key is required!\n");
@@ -243,38 +284,32 @@ static int kp_probe(struct platform_device *pdev)
 					break;
 				}
 		}
-		key_param = kzalloc(4*(sizeof(*key_param))*(pdata->key_num), GFP_KERNEL);
+		key_param = kzalloc(5*(sizeof(*key_param))*(pdata->key_num), GFP_KERNEL);
     if(!key_param) {
 			printk("adc_key: key_param can not get mem\n");
 			goto get_param_mem_fail;
 		}
-    ret = of_property_read_u32_array(pdev->dev.of_node,"key_code",key_param, pdata->key_num);
-    if (ret) {
-		  printk("adc_key: faild to get key_code!\n");
-		  goto get_key_param_failed;
-	  }
-    ret = of_property_read_u32_array(pdev->dev.of_node,"key_chan",key_param+pdata->key_num, pdata->key_num);
-    if (ret) {
-		  printk("adc_key: faild to get key_chan!\n");
-		  goto get_key_param_failed;
-	  }
-	  ret = of_property_read_u32_array(pdev->dev.of_node,"key_val",key_param+pdata->key_num*2, pdata->key_num);
-    if (ret) {
-		  printk("adc_key: faild to get key_val!\n");
-		  goto get_key_param_failed;
-	  }
-	  ret = of_property_read_u32_array(pdev->dev.of_node,"key_tolerance",key_param+pdata->key_num*3, pdata->key_num);
-    if (ret) {
-		  printk("adc_key: faild to get tolerance!\n");
-		  goto get_key_param_failed;
-	  }
 
-	  for (i=0; i<pdata->key_num; i++) {
+	for (i=0; i<ARRAY_SIZE(prop_name); i++) {
+		ret = of_property_read_u32_array(pdev->dev.of_node,
+			prop_name[i], key_param+key_size*i, pdata->key_num);
+		if (ret && (i<4)) {
+			printk("adc_key: faild to get %s!\n", prop_name[i]);
+			goto get_key_param_failed;
+		}
+	}
+
+		for (i=0; i<pdata->key_num; i++) {
 			pdata->key[i].code = *(key_param+i);
 			pdata->key[i].chan = *(key_param+pdata->key_num+i);
 			pdata->key[i].value = *(key_param+pdata->key_num*2+i);
 			pdata->key[i].tolerance = *(key_param+pdata->key_num*3+i);
-	  }
+			pdata->key[i].lcode = *(key_param+pdata->key_num*4+i);
+		}
+
+	if (of_property_read_u32(pdev->dev.of_node,
+			"long_press_time", &pdata->long_press_time))
+		pdata->long_press_time = 1000;
 
 #else
 		pdata = pdev->dev.platform_data;
@@ -291,27 +326,28 @@ static int kp_probe(struct platform_device *pdev)
 
     platform_set_drvdata(pdev, pdata);
     kp->input = input_dev;
-    kp->report_code = 0;
-		kp->code = 0;
 		kp->poll_period = POLL_PERIOD_WHEN_KEY_UP;
-		kp->count = 0;
-     
+
     INIT_WORK(&(kp->work_update), update_work_func);
-     
+
     setup_timer(&kp->timer, kp_timer_sr, (unsigned int)kp) ;
     mod_timer(&kp->timer, jiffies+msecs_to_jiffies(100));
 
     /* setup input device */
     set_bit(EV_KEY, input_dev->evbit);
     set_bit(EV_REP, input_dev->evbit);
-        
+
     kp->key = pdata->key;
     kp->key_num = pdata->key_num;
-
+    kp->long_press_time = pdata->long_press_time;
     key = pdata->key;
     kp->chan_num = 0;
     for (i=0; i<kp->key_num; i++) {
         set_bit(key->code, input_dev->keybit);
+        if (key->lcode) {
+          set_bit(key->lcode, input_dev->keybit);
+          printk(KERN_INFO "long key(%d) registed.\n", key->lcode);
+        }
         /* search the key chan */
         new_chan_flag = 1;
         for (j=0; j<kp->chan_num; j++) {
@@ -342,7 +378,7 @@ static int kp_probe(struct platform_device *pdev)
     input_dev->rep[REP_PERIOD]=0xffffffff;
 
     input_dev->keycodesize = sizeof(unsigned short);
-    input_dev->keycodemax = 0x1ff;
+    input_dev->keycodemax = KEY_MAX;
 
     ret = input_register_device(kp->input);
     if (ret < 0) {

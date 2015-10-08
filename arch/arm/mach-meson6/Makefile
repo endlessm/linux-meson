@@ -6,7 +6,7 @@
 #obj-y := clock.o time.o iomapping.o usbclock.o gpio.o mod_gate.o power_gate.o
 
 obj-y := cpu.o clock.o time.o iomapping.o usbclock.o  mod_gate.o power_gate.o gpio.o pinctrl.o
-#obj-y +=  usbclock.o usbsetting.o 
+#obj-y +=  usbclock.o usbsetting.o
 #obj-y += power_gate.o mod_gate.o watchdog.o
 obj-m :=
 obj-n :=
@@ -42,7 +42,7 @@ obj-$(CONFIG_CPU_IDLE) += cpuidle.o
 
 obj-$(CONFIG_AML_HDMI_TX) +=  hdmi_tx_hw/
 
-obj-$(CONFIG_AM_LCD_OUTPUT) +=  lcd/
+obj-$(CONFIG_AML_LCD_TABLET) +=  lcd/
 
 # ARM Trustzone
 obj-$(CONFIG_MESON_TRUSTZONE) += meson-smc.o meson-secure.o

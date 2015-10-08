@@ -1,0 +1,49 @@
+#
+# lcd extern driver configuration
+#
+
+menuconfig AML_LCD_EXTERN
+	tristate "Amlogic lcd extern driver support"
+	default n
+	help
+		Amlogic video output support
+
+if AML_LCD_EXTERN
+
+config AML_LCD_EXTERN_I2C_T5800Q
+	boolean "Amlogic i2c T5800Q lcd extern driver support"
+	default n
+	help
+		Video output and control module support
+
+config AML_LCD_EXTERN_I2C_TC101
+	boolean "Amlogic i2c tc101 lcd extern driver support"
+	default n
+	help
+		framerate adjustment automatically from video source
+
+config AML_LCD_EXTERN_I2C_ANX6345
+	boolean "Amlogic i2c anx6345 lcd extern driver support"
+	default n
+	help
+		vdac hardware switch of cvbs/ypbpr for mx.
+
+config AML_LCD_EXTERN_SPI_LD070WS2
+	boolean "Amlogic spi LD070WS2 lcd extern driver support"
+	default n
+	help
+		Tablet LCD output module support
+
+config AML_LCD_EXTERN_MIPI_N070ICN
+	boolean "Amlogic mipi N070ICN lcd extern driver support"
+	default n
+	help
+		Tablet LCD output module support
+
+config AML_LCD_EXTERN_MIPI_KD080D13
+	boolean "Amlogic mipi KD080D13 lcd extern driver support"
+	default n
+	help
+		Tablet LCD output module support
+
+endif

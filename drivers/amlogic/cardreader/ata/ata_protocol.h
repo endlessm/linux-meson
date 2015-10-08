@@ -186,7 +186,7 @@
 	unsigned short vendor_specific129[31];	// 129~159
 	unsigned short Reserved160[96];	// 160~255
 } ATA_Identify_Information_t;
-
+
 #pragma pack()
 typedef enum _ATA_Error_Status 
     { ATA_NO_ERROR, ATA_ERROR_TIMEOUT, ATA_ERROR_HARDWARE_FAILURE,
@@ -252,5 +252,5 @@
 void ata_remove_device(ATA_Device_t * ata_dev, int dev_no);
 int ata_check_cmd_validity(ATA_Device_t * ata_dev);
 int ata_set_features(ATA_Device_t * ata_dev);
-
+
 #endif				// __ATA_PROTOCOL_H

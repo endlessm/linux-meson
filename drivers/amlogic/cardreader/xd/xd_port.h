@@ -60,15 +60,15 @@
 extern unsigned XD_PWR_OUTPUT_REG;
 extern unsigned XD_PWR_OUTPUT_MASK;
 extern unsigned XD_PWR_EN_LEVEL;
-
+
 #define XD_POWER_CONTROL
 extern unsigned XD_WORK_MODE;
-
+
     //extern void (*xd_power_register)(int power_on);
     //extern int (*xd_ins_register)(void);
     //extern void (*xd_io_release_register)(void);
 void xd_gpio_enable(void);
-
+
 #else				//XD_IO_EXTERNAL
     
 #define XD_DAT_OUTPUT_EN_REG			CARD_GPIO_ENABLE
@@ -131,7 +131,7 @@
     
 #endif				//XD_IO_EXTERNAL
 extern int i_GPIO_timer;
-
+
 #define xd_set_dat0_7_input()				{(*(volatile unsigned *)XD_DAT_OUTPUT_EN_REG) |= XD_DAT0_7_OUTPUT_EN_MASK; for(i_GPIO_timer=0;i_GPIO_timer<15;i_GPIO_timer++);}
 #define xd_set_dat0_7_output()				{(*(volatile unsigned *)XD_DAT_OUTPUT_EN_REG) &= (~XD_DAT0_7_OUTPUT_EN_MASK);}
 #define xd_set_dat0_7_value(data)			{(*(volatile unsigned *)XD_DAT_OUTPUT_REG) = (((*(volatile unsigned *)XD_DAT_OUTPUT_REG) & (~XD_DAT0_7_OUTPUT_MASK)) | (data << XD_DAT_OUTPUT_OFFSET));}
@@ -166,12 +166,12 @@
     
 #define	xd_set_ins_input()					{(*(volatile unsigned *)XD_INS_OUTPUT_EN_REG) |= XD_INS_OUTPUT_EN_MASK; for(i_GPIO_timer=0;i_GPIO_timer<15;i_GPIO_timer++);}
 #define xd_get_ins_value()					(((*(volatile unsigned *)XD_INS_INPUT_REG) & XD_INS_INPUT_MASK)?1:0)
-    
+    
 #define XD_POWER_CONTROL                	
     
 #ifdef XD_POWER_CONTROL                 	
 #define xd_set_enable()         		{(*(volatile unsigned *)XD_PWR_OUTPUT_EN_REG) &= (~XD_PWR_OUTPUT_EN_MASK); if(XD_PWR_EN_LEVEL){*(volatile unsigned *)XD_PWR_OUTPUT_REG |= XD_PWR_OUTPUT_MASK;} else {*(volatile unsigned *)XD_PWR_OUTPUT_REG &= ~XD_PWR_OUTPUT_MASK;}}
 #define xd_set_disable()        		{(*(volatile unsigned *)XD_PWR_OUTPUT_EN_REG) &= (~XD_PWR_OUTPUT_EN_MASK); if(XD_PWR_EN_LEVEL){*(volatile unsigned *)XD_PWR_OUTPUT_REG &= ~XD_PWR_OUTPUT_MASK;} else {*(volatile unsigned *)XD_PWR_OUTPUT_REG |= XD_PWR_OUTPUT_MASK;}}
 #endif				/*  */
-    
+    
 #endif				//_H_XD_PORT_COMMON

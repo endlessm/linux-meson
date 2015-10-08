@@ -49,17 +49,20 @@
 #include <plat/wakeup.h>
 
 #define MOD_NAME       "gpio_key"
-#define USE_IRQ     1
+//#define USE_IRQ     1
+
+#define PRESS_TIMES_DETECT   4
 
 struct gpio_key{
 	int code;	  /* input key code */
 	const char *name;
 	int pin;    /*pin number*/
 	int status; /*0 up, 1 down*/
+	int long_press_times ;
 };
 
 struct gpio_platform_data{
-	
+
 	struct gpio_key *key;
 	int key_num;
 	int repeat_delay;
@@ -71,7 +74,7 @@ struct gpio_platform_data{
 };
 
 struct kp {
-	
+
 	struct input_dev *input;
 	struct timer_list timer;
 	int config_major;
@@ -91,33 +94,42 @@ static struct kp *gp_kp=NULL;
 
 //static int timer_count = 0;
 
+
+
 static void kp_work(struct kp *kp)
 {
 	struct gpio_key *key;
 	int i;
 	int io_status;
-	
+
 	key = kp->keys;
 	for (i=0; i<kp->key_num; i++) {
 		io_status = amlogic_get_value(key->pin, MOD_NAME);
-		//printk("get gpio key status %s(%d)\n",key->name, io_status);
-		if(io_status != key->status ){
+		//printk("get gpio key status %s(%d) key->status=%d\n",key->name, io_status,key->status);
+		if (io_status != key->status) {
 			if (io_status) {
+				if (key->long_press_times++ > PRESS_TIMES_DETECT) {
 				printk("key %d up\n", key->code);
 				input_report_key(kp->input, key->code, 0);
 				input_sync(kp->input);
+				key->status = io_status;
+				key->long_press_times = 0;
+				}
+			} else {
+				if (key->long_press_times++ > PRESS_TIMES_DETECT) {
+					printk("key %d down\n", key->code);
+					input_report_key(kp->input, key->code, 1);
+					input_sync(kp->input);
+					key->status = io_status;
+					key->long_press_times = 0;
+				}
 			}
-			else {
-				printk("key %d down\n", key->code);
-				input_report_key(kp->input, key->code, 1);
-				input_sync(kp->input);
-			}
-			key->status = io_status;
+		} else {
+			key->long_press_times = 0;
 		}
 		key++;
 	}
 }
-
 static void update_work_func(struct work_struct *work)
 {
     struct kp *kp_data = container_of(work, struct kp, work_update);
@@ -125,7 +137,7 @@ static void update_work_func(struct work_struct *work)
     kp_work(kp_data);
 }
 
-/***What we do here is just for loss wakeup key when suspend. 
+/***What we do here is just for loss wakeup key when suspend.
 	In suspend routine, the intr is disable.			*******/
 //we need do more things to adapt the gpio change.
 int det_pwr_key(void)
@@ -170,7 +182,7 @@ void kp_timer_sr(unsigned long data)
     if(!deep_suspend_flag)
                 clr_pwr_key();
 
-    mod_timer(&kp_data->timer,jiffies+msecs_to_jiffies(25));
+    mod_timer(&kp_data->timer,jiffies+msecs_to_jiffies(500));
 }
 #endif
 static int gpio_key_config_open(struct inode *inode, struct file *file)
@@ -245,10 +257,10 @@ static int gpio_key_probe(struct platform_device *pdev)
         state = -EINVAL;
         goto get_key_node_fail;
     }
-   
+
     ret = of_property_read_bool(pdev->dev.of_node, "gpio_high_z");
     if (ret) {
-        gpio_highz = 1;     
+        gpio_highz = 1;
         printk("gpio request set to High-Z status\n");
     }
 
@@ -312,7 +324,7 @@ static int gpio_key_probe(struct platform_device *pdev)
 				}
 				//printk("gpio_key: %d %s(%d)\n",i,(pdata->key[i].name), ret);
 				pdata->key[i].pin = ret;
-				
+
 				amlogic_gpio_request(pdata->key[i].pin, MOD_NAME);
                 if (!gpio_highz) {
     				amlogic_gpio_direction_input(pdata->key[i].pin, MOD_NAME);
@@ -340,7 +352,7 @@ static int gpio_key_probe(struct platform_device *pdev)
 
     platform_set_drvdata(pdev, pdata);
     kp->input = input_dev;
-     
+
     INIT_WORK(&(kp->work_update), update_work_func);
 #ifdef USE_IRQ
 
@@ -363,12 +375,12 @@ static int gpio_key_probe(struct platform_device *pdev)
     }
 #else
     setup_timer(&kp->timer, kp_timer_sr, (unsigned int)kp) ;
-    mod_timer(&kp->timer, jiffies+msecs_to_jiffies(100));
+    mod_timer(&kp->timer, jiffies+msecs_to_jiffies(500));
 #endif
     /* setup input device */
     set_bit(EV_KEY, input_dev->evbit);
     set_bit(EV_REP, input_dev->evbit);
-        
+
     kp->keys = pdata->key;
     kp->key_num = pdata->key_num;
 
@@ -378,7 +390,7 @@ static int gpio_key_probe(struct platform_device *pdev)
         set_bit(key->code, input_dev->keybit);
         printk(KERN_INFO "%s key(%d) registed.\n", key->name, key->code);
     }
-    
+
     input_dev->name = "gpio_keypad";
     input_dev->phys = "gpio_keypad/input0";
     input_dev->dev.parent = &pdev->dev;
@@ -401,44 +413,44 @@ static int gpio_key_probe(struct platform_device *pdev)
 		    input_free_device(input_dev);
 		    state = -EINVAL;
 		    goto get_key_param_failed;
-    }
+	}
 	set_pwr_key();
-    printk("gpio keypad register input device completed.\r\n");
-    register_keypad_dev(gp_kp);
-    kfree(key_param);
-    return 0;
+	printk("gpio keypad register input device completed.\r\n");
+	register_keypad_dev(gp_kp);
+	kfree(key_param);
+	return 0;
 
-    get_key_param_failed:
+	get_key_param_failed:
 			kfree(key_param);
-    get_param_mem_fail:
+	get_param_mem_fail:
 			kfree(pdata->key);
-    get_key_mem_fail:
+	get_key_mem_fail:
 			kfree(pdata);
-    get_key_node_fail:
-    return state;
+	get_key_node_fail:
+	return state;
 }
 
 static int gpio_key_remove(struct platform_device *pdev)
 {
-    struct gpio_platform_data *pdata = platform_get_drvdata(pdev);
-    struct kp *kp = gp_kp;
+	struct gpio_platform_data *pdata = platform_get_drvdata(pdev);
+	struct kp *kp = gp_kp;
 
-    input_unregister_device(kp->input);
-    input_free_device(kp->input);
-    unregister_chrdev(kp->config_major,kp->config_name);
-    if(kp->config_class)
-    {
-        if(kp->config_dev)
-        device_destroy(kp->config_class,MKDEV(kp->config_major,0));
-        class_destroy(kp->config_class);
-    }
-    kfree(kp);
+	input_unregister_device(kp->input);
+	input_free_device(kp->input);
+	unregister_chrdev(kp->config_major,kp->config_name);
+	if (kp->config_class)
+	{
+		if (kp->config_dev)
+		device_destroy(kp->config_class,MKDEV(kp->config_major,0));
+		class_destroy(kp->config_class);
+	}
+	kfree(kp);
 #ifdef CONFIG_OF
 	kfree(pdata->key);
 	kfree(pdata);
 #endif
-    gp_kp=NULL ;
-    return 0;
+	gp_kp=NULL ;
+	return 0;
 }
 
 static int gpio_key_suspend(struct platform_device *dev, pm_message_t state)
@@ -448,25 +460,25 @@ static int gpio_key_suspend(struct platform_device *dev, pm_message_t state)
 
 static int gpio_key_resume(struct platform_device *dev)
 {
-    printk("gpio_key_resume");
-    if (READ_AOBUS_REG(AO_RTI_STATUS_REG2) == FLAG_WAKEUP_PWRKEY) {
-			//if( quick_boot_mode == 0 ) 
-			{ 
-		        	// power button, not alarm
+	printk("gpio_key_resume");
+	if (READ_AOBUS_REG(AO_RTI_STATUS_REG2) == FLAG_WAKEUP_PWRKEY) {
+			//if (quick_boot_mode == 0)
+			{
+				// power button, not alarm
 				//printk("gpio_key_resume send KEY_POWER\n");
-		        	input_report_key(gp_kp->input, KEY_POWER, 0);
-		        	input_sync(gp_kp->input);
-		        	input_report_key(gp_kp->input, KEY_POWER, 1);
-		        	input_sync(gp_kp->input);
-			}	
+				input_report_key(gp_kp->input, KEY_POWER, 0);
+				input_sync(gp_kp->input);
+				input_report_key(gp_kp->input, KEY_POWER, 1);
+				input_sync(gp_kp->input);
+			}
 
-        WRITE_AOBUS_REG(AO_RTI_STATUS_REG2, 0);
+		WRITE_AOBUS_REG(AO_RTI_STATUS_REG2, 0);
 
 		deep_suspend_flag = 0;
 
 		clr_pwr_key();
-    }
-    return 0;
+	}
+	return 0;
 }
 
 #ifdef CONFIG_OF

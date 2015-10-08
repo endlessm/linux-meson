@@ -21,21 +21,22 @@ static struct cpufreq_frequency_table meson_freq_table[]=
     {14	, 1488000  },
     {15	, CPUFREQ_TABLE_END},
 };
-
 #ifdef CONFIG_FIX_SYSPLL
 static struct cpufreq_frequency_table meson_freq_table_fix_syspll[]=
 {
-    {0	,   96000   },
-    {1	,  192000   },
-    {2  ,  384000   },
-    {3  ,  768000   },
-#if 1
-    {4  , 1250000   },
-    {5  , 1536000   },
-    {6	, CPUFREQ_TABLE_END},
-#else
-    {4  , 1536000   },
-    {5	, CPUFREQ_TABLE_END},
-#endif
+    {0  ,  1},      //  1 / 32
+    {1  ,  2},      //  2 / 32
+    {2  ,  4},      //  4 / 32
+    {3  ,  8},      //  8 / 32
+    {4  , 16},      // 16 / 32
+    {5  , 20},      // 20 / 32
+    {6  , 24},      // 24 / 32
+    {7  , 28},      // 28 / 32
+    {8  , 32},      // 32 / 32
+    {9  , CPUFREQ_TABLE_END},
 };
+
+void adj_cpufreq_table(struct cpufreq_frequency_table *table, int target, int mpll);
+
+int fixpll_freq_verify(unsigned long rate);
 #endif

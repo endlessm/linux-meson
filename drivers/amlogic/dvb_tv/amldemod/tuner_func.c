@@ -1,109 +1,34 @@
 #include <linux/kernel.h>
 #include <linux/i2c.h>
-
-//#include <dvb_frontend.h>
-
-#include "aml_demod.h"
+#include <linux/dvb/aml_demod.h>
 #include "demod_func.h"
+#include "../aml_fe.h"
 
+int dtmb_get_power_strength(int agc_gain);
 
-//#include "mxl/MxL5007_API.h"
-//#include "../tuners/si2176_func.h"
-
-//static int configure_first=-1;
-#if 0
-static int set_tuner_DCT7070X(struct aml_demod_sta *demod_sta,
-			      struct aml_demod_i2c *adap)
-{
-    int ret = 0;
-    unsigned char data[6];
-    unsigned long ch_freq, ftmp;
-    struct i2c_msg msg;
-
-    ch_freq = demod_sta->ch_freq;
-    //printk("Set Tuner DCT7070X to %ld kHz\n", ch_freq);
-
-    ftmp = (ch_freq+36125)*10/625;  // ftmp=(ch_freq+GX_IF_FREQUENCY)
-    data[0] = ftmp>>8&0xff;
-    data[1] = ftmp&0xff;
-    data[2] = 0x8b;              // 62.5 kHz
-
-    if (ch_freq < 153000)
-	data[3] = 0x01;
-    else if (ch_freq < 430000)
-	data[3] = 0x06;
-    else
-	data[3] = 0x0c;
-
-    data[4] = 0xc3;
-
-    msg.addr = adap->addr;
-    msg.flags = 0; // I2C_M_IGNORE_NAK;
-    msg.len = 5;
-    msg.buf = data;
-
-    ret = am_demod_i2c_xfer(adap, &msg, 1);
-
-    return ret;
-}
-#endif
-
-/*int tuner_set_ch(struct aml_demod_sta *demod_sta, struct aml_demod_i2c *adap)
-{
-    int ret = 0;
-    printk("Set tuner: 1 is DCT70707, 1 is Mxl5007, 3 is FJ2207, 4 is TD1316, 5 is XUGUAN DMTX-6A, 6 is Si2176\n");
-    switch (adap->tuner) {
-    case 0 : // NULL
-	printk("Warning: NULL Tuner\n");
-	break;
-
-    case 1 : // DCT
-	ret = set_tuner_DCT7070X(demod_sta, adap);
-	break;
-
-    case 2 : // Maxliner
-	ret = set_tuner_MxL5007(demod_sta, adap);
-	break;
-
-    case 3 : // NXP
-	ret = set_tuner_fj2207(demod_sta, adap);
-	break;
-
-    case 4 : // TD1316
-	ret = set_tuner_TD1316(demod_sta, adap);
-	break;
-
-    case 5 :
-	ret = set_tuner_xuguan(demod_sta, adap);
-	break;
-
-    case 6 : //Si2176
-	ret = set_tuner_si2176(demod_sta, adap);
-	break;
-
-    default :
-	return -1;
-    }
-
-    return 0;
-}*/
-#if (defined CONFIG_AM_SI2176)
-extern	int si2176_get_strength(void);
-#elif (defined CONFIG_AM_SI2177)
-extern	int si2177_get_strength(void);
-#endif
 
 int tuner_get_ch_power(struct aml_fe_dev *adap)
 {
-//    int ret = 0;
 	int strength=0;
-
-#if (defined CONFIG_AM_SI2176)
-	 strength=si2176_get_strength();
-#elif (defined CONFIG_AM_SI2177)
-	 strength=si2177_get_strength();
+	#if (defined CONFIG_AM_R840)
+		int pll_status=0;
+		int agc_if_gain;
+	#endif
+	struct dvb_frontend *dvbfe;
+	dvbfe = get_tuner();
+	if (dvbfe != NULL)
+	{
+		if (dvbfe->ops.tuner_ops.get_strength)
+			strength = dvbfe->ops.tuner_ops.get_strength(dvbfe);
+	}
+#if (defined CONFIG_AM_R840)
+	if (strength <= -50) {
+		agc_if_gain=((dtmb_read_reg(0xd9))&0x3ff);
+		strength=dtmb_get_power_strength(agc_if_gain);
+	 }
+	  printk("[r840] strength is %d\n",strength);
+	  printk("[r840] pll_status is %x\n",pll_status);
 #endif
-
 	 return strength;
 }
 
@@ -233,5 +158,21 @@ int  agc_power_to_dbm(int agc_gain, int ad_power, int offset, int tuner)
 	est_rf_power = ptab->level - j - (ad_power>>4) + 12 + offset;
 
 	return (est_rf_power);
+}
+
+int dtmb_get_power_strength(int agc_gain)
+{
+	int strength;
+	int j;
+	static int calcE_R840[13]={1010,969,890,840,800,760,720,680,670,660,
+								510,440,368};
+	for (j=0; j<sizeof(calcE_R840)/sizeof(int); j++)
+		if (agc_gain >= calcE_R840[j])
+			break;
+	if (agc_gain >= 440)
+		strength=-90+j*3;
+	else
+		strength=-56;
+	return strength;
 }
 

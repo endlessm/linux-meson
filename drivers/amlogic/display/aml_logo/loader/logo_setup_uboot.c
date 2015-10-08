@@ -66,9 +66,14 @@ static inline int install_logo_info(logo_object_t *plogo,char *para)
 	{"4k2k24hz",VMODE_4K2K_24HZ,			PARA_SECOND_GROUP_START+13,	PARA_SECOND_GROUP_START+15,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
 	{"4k2k25hz",VMODE_4K2K_25HZ,			PARA_SECOND_GROUP_START+14,	PARA_SECOND_GROUP_START+16,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
 	{"4k2k30hz",VMODE_4K2K_30HZ,			PARA_SECOND_GROUP_START+15,	PARA_SECOND_GROUP_START+17,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
-	{"4k2ksmpte",VMODE_4K2K_SMPTE,			PARA_SECOND_GROUP_START+16,	PARA_SECOND_GROUP_START+18,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
-	{"lvds1080p",VMODE_LVDS_1080P,			PARA_SECOND_GROUP_START+17,	PARA_SECOND_GROUP_START+19,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
-	{"lvds1080p50hz",VMODE_LVDS_1080P_50HZ,			PARA_SECOND_GROUP_START+18,	PARA_SECOND_GROUP_START+20,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"4k2k60hz",VMODE_4K2K_60HZ,	        PARA_SECOND_GROUP_START+16,	PARA_SECOND_GROUP_START+18,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"4k2k60hz420",VMODE_4K2K_60HZ_Y420,	PARA_SECOND_GROUP_START+17,	PARA_SECOND_GROUP_START+19,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"4k2k5g",VMODE_4K2K_5G,	            PARA_SECOND_GROUP_START+18,	PARA_SECOND_GROUP_START+20,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"4k2k50hz420",VMODE_4K2K_50HZ_Y420,	            PARA_SECOND_GROUP_START+19,	PARA_SECOND_GROUP_START+21,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"4k2ksmpte",VMODE_4K2K_SMPTE,			PARA_SECOND_GROUP_START+20,	PARA_SECOND_GROUP_START+22,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"lvds1080p",VMODE_LVDS_1080P,			PARA_SECOND_GROUP_START+21,	PARA_SECOND_GROUP_START+23,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"lvds1080p50hz",VMODE_LVDS_1080P_50HZ, PARA_SECOND_GROUP_START+22,	PARA_SECOND_GROUP_START+24,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
+	{"768p60hz",VMODE_768P, PARA_SECOND_GROUP_START+23,	PARA_SECOND_GROUP_START+25,	PARA_SECOND_GROUP_START,	PARA_THIRD_GROUP_START-1},
 //display mode
 	{"origin",DISP_MODE_ORIGIN,	PARA_THIRD_GROUP_START-1,	PARA_THIRD_GROUP_START+1,	PARA_THIRD_GROUP_START,PARA_FOURTH_GROUP_START-1},  //15
 	{"center",DISP_MODE_CENTER,	PARA_THIRD_GROUP_START,		PARA_THIRD_GROUP_START+2,	PARA_THIRD_GROUP_START,PARA_FOURTH_GROUP_START-1},
@@ -87,7 +92,14 @@ static inline int install_logo_info(logo_object_t *plogo,char *para)
 	static u32 tail=PARA_END+1;
 	u32 first=para_info_pair[0].next_idx ; 
 	u32 i,addr;
+	vmode_t vmode;
 	
+	vmode = vmode_name_to_mode(para);
+	if (vmode < VMODE_MAX) {
+		plogo->para.vout_mode = vmode;
+		printk("plogo vmode = %d\n", vmode);
+		return 0;
+	}
 	for(i=first;i<tail;i=para_info_pair[i].next_idx)
 	{
 		if(strcmp(para_info_pair[i].name,para)==0)
@@ -102,10 +114,10 @@ static inline int install_logo_info(logo_object_t *plogo,char *para)
 				case PARA_FIRST_GROUP_START:
 				plogo->para.output_dev_type=(platform_dev_t)para_info_pair[i].info;
 				break;
-				case PARA_SECOND_GROUP_START:
+/*				case PARA_SECOND_GROUP_START:
 				plogo->para.vout_mode=(vmode_t)para_info_pair[i].info;
 				break;
-				case PARA_THIRD_GROUP_START:
+*/				case PARA_THIRD_GROUP_START:
 				plogo->para.dis_mode=(logo_display_mode_t)para_info_pair[i].info;
 				break;
 				case PARA_FOURTH_GROUP_START:
@@ -148,7 +160,7 @@ logo_object_t*	 get_current_logo_obj(void)
 
 vmode_t get_resolution_vmode(void)
 {
-	logo_object_t *plogo=&aml_logo;
+    logo_object_t *plogo=&aml_logo;
 
 	if (plogo != NULL)
 		return plogo->para.vout_mode;
@@ -185,6 +197,7 @@ int  __init  logo_setup(char *str)
 	memset(plogo,0,sizeof(logo_object_t));
 	sprintf(plogo->name,LOGO_NAME);
 	
+	plogo->para.vout_mode = VMODE_INIT_NULL;
 	do
 	{
 		if(!isalpha(*ptr)&&!isdigit(*ptr))

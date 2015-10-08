@@ -13,6 +13,8 @@ endif
 
 obj-$(CONFIG_VSYNC_RDMA) += osd_rdma.o
 
+obj-$(CONFIG_HIBERNATION) +=  osd_progressbar.o
+
 EXTRA_CFLAGS += -Iinclude/linux/osd/ -Idrivers/staging/android/
 
 

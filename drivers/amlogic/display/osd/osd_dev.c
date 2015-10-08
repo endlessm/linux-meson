@@ -266,6 +266,16 @@ void osddev_set_osd_antiflicker(u32 index, u32 vmode, u32 yres)
         osd_set_osd_antiflicker_hw(index, vmode, yres);
 }
 
+void osddev_get_update_state(u32 index, u32 *up_free)
+{
+        osd_get_osd_updatestate_hw(index, up_free);
+}
+
+void osddev_set_update_state(u32 index, u32 up_free)
+{
+        osd_set_osd_updatestate_hw(index, up_free);
+}
+
 void osddev_get_osd_angle(u32 index, u32 *angle)
 {
         osd_get_osd_angle_hw(index, angle);
@@ -374,3 +384,22 @@ void osddev_resume(void)
 {
 	osd_resume_hw();
 }
+
+#ifdef CONFIG_HIBERNATION
+extern void  osd_freeze_hw(void);
+extern void  osd_thaw_hw(void);
+extern void  osd_restore_hw(void);
+
+void  osddev_freeze(void)
+{
+	osd_freeze_hw();
+}
+void osddev_thaw(void)
+{
+	osd_thaw_hw();
+}
+void osddev_restore(void)
+{
+	osd_restore_hw();
+}
+#endif

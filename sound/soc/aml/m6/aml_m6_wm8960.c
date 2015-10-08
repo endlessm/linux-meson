@@ -364,7 +364,7 @@ static int aml_asoc_init(struct snd_soc_pcm_runtime *rtd)
 #endif
 
 //p_aml_audio->dis_hp_det = of_property_read_bool(card->dev->of_node,"dis_hp_det");
-     ret = of_property_read_u32(card->dev->of_node,"dis_hp_det",(u32 *)&p_aml_audio->dis_hp_det);
+     ret = of_property_read_u32(card->dev->of_node,"dis_hp_det",(u32 *)&p_aml_audio->dis_hp_det);
      printk("******p_aml_audio->dis_hp_det=%d***\n",p_aml_audio->dis_hp_det);
     if(ret){
         printk("don't find match dis_hp_det\n");

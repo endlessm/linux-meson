@@ -5157,6 +5157,6 @@ static const struct fw_data GSLX680_FW[] = {
 {0x78,0x00000000},
 {0x7c,0x00000000},
 
-};
+};
 
 #endif

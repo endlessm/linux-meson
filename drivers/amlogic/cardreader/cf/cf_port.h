@@ -27,10 +27,10 @@
 extern unsigned CF_PWR_OUTPUT_REG;
 extern unsigned CF_PWR_OUTPUT_MASK;
 extern unsigned CF_PWR_EN_LEVEL;
-
+
 #define CF_POWER_CONTROL
 void cf_atapi_enable(void);
-
+
 #else				//CF_IO_EXTERNAL
     
 #define CF_RST_OUTPUT_EN_REG			GPIOD1_GPIO_ENABLE
@@ -59,19 +59,19 @@
 extern void (*cf_reset_register) (int reset_high);
 extern int (*cf_ins_register) (void);
 extern void (*cf_io_release_register) (void);
-
+
 #define cf_set_reset_output()				{*(volatile unsigned *)CF_RST_OUTPUT_EN_REG &= ~CF_RST_OUTPUT_EN_MASK;}
 #define cf_set_reset_high()					{*(volatile unsigned *)CF_RST_OUTPUT_REG |= CF_RST_OUTPUT_MASK;}
 #define cf_set_reset_low()					{*(volatile unsigned *)CF_RST_OUTPUT_REG &= ~CF_RST_OUTPUT_MASK;}
     
 #define	cf_set_ins_input()					{*(volatile unsigned *)CF_INS_OUTPUT_EN_REG |= CF_INS_OUTPUT_EN_MASK; for(i_GPIO_timer=0;i_GPIO_timer<15;i_GPIO_timer++);}
 #define cf_get_ins_value()					((*(volatile unsigned *)CF_INS_INPUT_REG & CF_INS_INPUT_MASK)?1:0)
-    
+    
 #define CF_POWER_CONTROL
     
 #ifdef CF_POWER_CONTROL
 #define cf_set_enable()         		{*(volatile unsigned *)CF_PWR_OUTPUT_EN_REG &= ~CF_PWR_OUTPUT_EN_MASK; if(CF_PWR_EN_LEVEL) {*(volatile unsigned *)CF_PWR_OUTPUT_REG |= CF_PWR_OUTPUT_MASK;} else {*(volatile unsigned *)CF_PWR_OUTPUT_REG &= ~CF_PWR_OUTPUT_MASK;}}
 #define cf_set_disable()        		{*(volatile unsigned *)CF_PWR_OUTPUT_EN_REG &= ~CF_PWR_OUTPUT_EN_MASK; if(CF_PWR_EN_LEVEL) {*(volatile unsigned *)CF_PWR_OUTPUT_REG &= ~CF_PWR_OUTPUT_MASK;} else {*(volatile unsigned *)CF_PWR_OUTPUT_REG |= CF_PWR_OUTPUT_MASK;}}
 #endif				/*  */
-    
+    
 #endif				//_H_CF_PORT_COMMON

@@ -39,11 +39,11 @@ obj-$(CONFIG_MESON_SUSPEND) += power_suspend.o
 #obj-$(CONFIG_SUSPEND) += sleep.o
 #endif
 
-obj-$(CONFIG_AMLOGIC_THERMAL) += thermal.o
+obj-$(CONFIG_AML_PLATFORM_THERMAL) += thermal.o
 
 obj-$(CONFIG_AML_HDMI_TX) +=  hdmi_tx_hw/
 
-obj-$(CONFIG_AM_LCD_OUTPUT) +=  lcd/
+obj-$(CONFIG_AML_LCD_TABLET) +=  lcd/
 
 obj-$(CONFIG_GPIO_TEST) += gpiotest.o
 

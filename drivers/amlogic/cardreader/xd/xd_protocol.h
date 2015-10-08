@@ -20,7 +20,7 @@
 	unsigned char Vendor_Specific2;
 	unsigned char Vendor_Specific3;
 } XD_ID_91_t;
-
+
 #define CELL_TYPE_SINGLE_LC						0
 #define CELL_TYPE_2xMULTI_LC					1
 #define CELL_TYPE_4xMULTI_LC					2
@@ -40,7 +40,7 @@
 	unsigned char XD_CARD_ID;
 	unsigned char Vendor_Specific3;
 } XD_ID_9A_t;
-
+
 #pragma pack()
     
 //Busy Intervals of 16MB to 2 GB XD card
@@ -78,9 +78,9 @@
 //Read data from XD/SM card
 int xd_sm_read_data(unsigned long lba, unsigned long byte_cnt,
 		    unsigned char *data_buf);
-
+
 //Write data to XD/SM card
 int xd_sm_write_data(unsigned long lba, unsigned long byte_cnt,
 		     unsigned char *data_buf);
-
+
 #endif				//_H_XD_PROTOCOL

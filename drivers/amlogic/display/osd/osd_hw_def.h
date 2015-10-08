@@ -186,4 +186,11 @@ static update_func_t hw_func_array[HW_OSD_COUNT][HW_REG_INDEX_MAX]={
 #define remove_from_update_list(osd_idx,cmd_idx)
 #endif
 
+#ifdef CONFIG_VSYNC_RDMA
+int reset_rdma(void);
+int osd_rdma_enable(u32  enable);
+int read_rdma_table(void);
+int osd_rdma_update_config(char is_init);
+#endif
+
 #endif

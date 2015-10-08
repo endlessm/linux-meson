@@ -43,6 +43,9 @@ static int subtitle_start_pts = 0;
 static int subtitle_fps = 0;
 static int subtitle_subtype = 0;
 static int subtitle_reset = 0;
+char sub_buf[1024]={0};
+char sub_title_buf[2048]={0};
+
 //static int *subltitle_address[MAX_SUBTITLE_PACKET];
 
 typedef enum {
@@ -422,6 +425,47 @@ static ssize_t store_subtype(struct class *class,
     return size;
 }
 
+static ssize_t show_title_info(struct class *class,
+                         struct class_attribute *attr,
+                         char *buf)
+{
+    if(!strncmp(sub_title_buf,"Unknown",strlen("Unknown")) || !strlen(sub_title_buf))
+        return sprintf(buf,"Unknown\n");
+    return sprintf(buf, "%s\n",sub_title_buf);
+}
+
+static ssize_t store_title_info(struct class *class,
+                          struct class_attribute *attr,
+                          const char *buf,
+                          size_t size)
+{
+    memset(sub_title_buf,0,sizeof(sub_title_buf));
+    memcpy(sub_title_buf, buf, strlen(buf));
+    
+    return size;
+}
+
+
+static ssize_t show_language(struct class *class,
+                         struct class_attribute *attr,
+                         char *buf)
+{
+    if(!strncmp(sub_buf,"Unknown",strlen("Unknown"))|| !strlen(sub_buf))
+        return sprintf(buf,"Unknown\n");
+    return sprintf(buf, "%s\n",sub_buf);
+}
+
+static ssize_t store_language(struct class *class,
+                          struct class_attribute *attr,
+                          const char *buf,
+                          size_t size)
+{
+    memset(sub_buf,0,sizeof(sub_buf));
+    memcpy(sub_buf, buf, strlen(buf));
+    return size;
+}
+
+
 static struct class_attribute subtitle_class_attrs[] = {
     __ATTR(enable,     S_IRUGO | S_IWUSR | S_IWGRP, show_enable,  store_enable),
     __ATTR(total,     S_IRUGO | S_IWUSR | S_IWGRP, show_total,  store_total),
@@ -435,7 +479,9 @@ static struct class_attribute subtitle_class_attrs[] = {
     __ATTR(startpts,     S_IRUGO | S_IWUSR | S_IWGRP, show_startpts,  store_startpts),
     __ATTR(fps,     S_IRUGO | S_IWUSR | S_IWGRP, show_fps,  store_fps),
     __ATTR(subtype,     S_IRUGO | S_IWUSR | S_IWGRP, show_subtype,  store_subtype),
-	__ATTR(reset, 	S_IRUGO | S_IWUSR, show_reset,  store_reset),
+    __ATTR(sub_language,    S_IRUGO | S_IWUSR | S_IWGRP, show_language,  store_language),
+    __ATTR(sub_title_info,  S_IRUGO | S_IWUSR | S_IWGRP, show_title_info,  store_title_info),
+    __ATTR(reset,   S_IRUGO | S_IWUSR, show_reset,  store_reset),
     __ATTR_NULL
 };
 /*

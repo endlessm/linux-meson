@@ -184,6 +184,12 @@ void root_func(){
 		power_level = <1>;							//  0: normal;  1: power save mode for g35
 	};
 
+	tvout {
+		compatible = "amlogic,tvout";
+		dev_name = "tvout";
+		status = "okay";
+	};
+
 /// ***************************************************************************************
 ///	-	EARLY_INIT
 //$$ MODULE="early_init"

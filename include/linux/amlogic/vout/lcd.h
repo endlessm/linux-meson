@@ -12,6 +12,7 @@
 
 #ifndef __AML_PANEL_LCD_H
 #define __AML_PANEL_LCD_H
+#include <plat/platform_data.h>
 
 /* for POL_CNTL_ADDR */
    #define LCD_DCLK_SEL             14    //FOR DCLK OUTPUT
@@ -87,6 +88,7 @@ typedef enum
     LCD_DIGITAL_TTL,
     LCD_DIGITAL_LVDS,
     LCD_DIGITAL_MINILVDS,
+    LCD_DIGITAL_VBYONE,
     LCD_TYPE_MAX,
 } Lcd_Type_t;
 
@@ -261,4 +263,12 @@ typedef struct Ext_Lcd_Config_s{
 	u16 backlight_power_on_delay;
 	u16 backlight_power_off_delay;
 } Ext_Lcd_Config_t;
+
+struct aml_lcd_platform {
+	plat_data_public_t public;
+	Lcd_Config_t *lcd_conf;
+	/* local settings */
+	int lcd_status;
+};
+
 #endif /* __AML_PANEL_LCD_H */

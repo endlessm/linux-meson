@@ -25,7 +25,7 @@
 
 #include <asm/fiq.h>
 #include <asm/uaccess.h>
-#include "aml_demod.h"
+#include <linux/dvb/aml_demod.h>
 #include "demod_func.h"
 
 #include <linux/slab.h>
@@ -232,10 +232,11 @@ static struct class aml_demod_class = {
     .name = "aml_demod",
     .class_attrs = aml_demod_class_attrs,
 };
+#if 0
 
 static irqreturn_t aml_demod_isr(int irq, void *dev_id)
 {
-#if 0
+
     if (demod_sta.dvb_mode == 0) {
 	//dvbc_isr(&demod_sta);
 	if(dvbc_isr_islock()){
@@ -247,9 +248,10 @@ static irqreturn_t aml_demod_isr(int irq, void *dev_id)
     else {
 	dvbt_isr(&demod_sta);
     }
-#endif
+
     return IRQ_HANDLED;
 }
+#endif
 
 static int aml_demod_open(struct inode *inode, struct file *file)
 {
@@ -288,42 +290,60 @@ void mem_read(struct aml_demod_mem* arg)
 //	memcpy(mem_buf[addr],data,1);
 	printk("[addr %x] data is %x\n",addr,data);
 }
-#ifdef CONFIG_AM_SI2176
-extern	int si2176_get_strength(void);
-#endif
-
-#ifdef CONFIG_AM_SI2177
-extern	int si2177_get_strength(void);
-#endif
 
 static long aml_demod_ioctl(struct file *file,
                         unsigned int cmd, unsigned long arg)
 {
 	int i=0;
 	int step;
-	int strength;
 
-	strength=0;
+#if ((defined CONFIG_AM_SI2177) || (defined CONFIG_AM_SI2157) || (defined CONFIG_AM_SI2151) ||(defined CONFIG_AM_MXL661))
+	int strength=0;
+	struct dvb_frontend *dvbfe;
+#endif
+
+#if (defined CONFIG_AM_R840)
+	int strength=0;
+	struct dvb_frontend *dvbfe;
+#endif
+
 
     switch (cmd) {
+	case AML_DEMOD_GET_RSSI :
+		printk("Ioctl Demod GET_RSSI. \n");
+#if ((defined CONFIG_AM_SI2177) || (defined CONFIG_AM_SI2157) || (defined CONFIG_AM_SI2151)  ||(defined CONFIG_AM_MXL661))
+		dvbfe = get_tuner();
+		if (dvbfe != NULL)
+			strength=dvbfe->ops.tuner_ops.get_strength(dvbfe);
+		 printk("[si2177] strength is %d\n",strength-256);
+#endif
 
-		case AML_DEMOD_GET_RSSI :
-			printk("Ioctl Demod GET_RSSI. \n");
-			#ifdef CONFIG_AM_SI2176
-			 strength=si2176_get_strength();
-			 printk("[si2176] strength is %d\n",strength-256);
-			#endif
+#if (defined CONFIG_AM_R840)
+		 dvbfe = get_tuner();
+		 if (dvbfe != NULL)
+			 strength=dvbfe->ops.tuner_ops.get_strength(dvbfe);
+		  printk("[r840] strength is %d\n",strength);
+#endif
 
-			#ifdef CONFIG_AM_SI2177
-			 strength=si2177_get_strength();
-			 printk("[si2177] strength is %d\n",strength-256);
-			#endif
-
-			break;
+		break;
 
 	case AML_DEMOD_SET_TUNER :
-	     printk("Ioctl Demod Set Tuner.\n");
-		  demod_set_tuner(&demod_sta, &demod_i2c, (struct aml_tuner_sys *)arg);
+		 printk("Ioctl Demod Set Tuner.\n");
+#if ((defined CONFIG_AM_SI2177) || (defined CONFIG_AM_SI2157) || (defined CONFIG_AM_SI2151)  ||(defined CONFIG_AM_MXL661))
+		printk("1234 \n");
+		dvbfe = get_tuner();
+		printk("1234999 \n");
+		if (dvbfe != NULL)
+			dvbfe->ops.tuner_ops.set_tuner(dvbfe, &demod_sta, &demod_i2c, (struct aml_tuner_sys *)arg);
+		printk("12345 \n");
+#endif
+
+#if (defined CONFIG_AM_R840)
+		printk("CONFIG_AM_R840.\n");
+		dvbfe = get_tuner();
+		if (dvbfe != NULL)
+			dvbfe->ops.tuner_ops.set_tuner(dvbfe, &demod_sta, &demod_i2c, (struct aml_tuner_sys *)arg);
+#endif
 		break;
 
     	case AML_DEMOD_SET_SYS :
@@ -630,7 +650,7 @@ static int __init aml_demod_init(void)
     init_waitqueue_head(&lock_wq);
 
     /* hook demod isr */
-    r = request_irq(INT_DEMOD, &aml_demod_isr,
+/*    r = request_irq(INT_DEMOD, &aml_demod_isr,
                     IRQF_SHARED, "aml_demod",
                     (void *)aml_demod_dev_id);
 
@@ -638,7 +658,7 @@ static int __init aml_demod_init(void)
         printk("aml_demod irq register error.\n");
         r = -ENOENT;
         goto err0;
-    }
+    }*/
 
     /* sysfs node creation */
     r = class_register(&aml_demod_class);
@@ -696,12 +716,12 @@ static int __init aml_demod_init(void)
     unregister_chrdev_region(aml_demod_devno, 1);
 
   err2:
-    free_irq(INT_DEMOD, (void *)aml_demod_dev_id);
+//    free_irq(INT_DEMOD, (void *)aml_demod_dev_id);
 
   err1:
     class_unregister(&aml_demod_class);
 
-  err0:
+//  err0:
     return r;
 }
 
@@ -718,7 +738,7 @@ static void __exit aml_demod_exit(void)
     cdev_del(aml_demod_cdevp);
     kfree(aml_demod_cdevp);
 
-    free_irq(INT_DEMOD, (void *)aml_demod_dev_id);
+ //   free_irq(INT_DEMOD, (void *)aml_demod_dev_id);
 
     class_unregister(&aml_demod_class);
 
