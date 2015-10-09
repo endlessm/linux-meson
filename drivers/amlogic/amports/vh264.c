@@ -84,9 +84,6 @@ static inline bool close_to(int a, int b, int m)
 }
 
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-#define NV21
-#endif
 static DEFINE_MUTEX(vh264_mutex);
 /* 12M for L41 */
 #define MAX_DPB_BUFF_SIZE       (12*1024*1024)
@@ -398,7 +395,6 @@ void spec_set_canvas(buffer_spec_t *spec,
                      unsigned width,
                      unsigned height)
 {
-#ifdef NV21
     canvas_config(spec->y_canvas_index,
                   spec->y_addr,
                   width,
@@ -412,28 +408,6 @@ void spec_set_canvas(buffer_spec_t *spec,
                   height / 2,
                   CANVAS_ADDR_NOWRAP,
                   CANVAS_BLKMODE_32X32);
-#else
-    canvas_config(spec->y_canvas_index,
-                  spec->y_addr,
-                  width,
-                  height,
-                  CANVAS_ADDR_NOWRAP,
-                  CANVAS_BLKMODE_32X32);
-
-    canvas_config(spec->u_canvas_index,
-                  spec->u_addr,
-                  width / 2,
-                  height / 2,
-                  CANVAS_ADDR_NOWRAP,
-                  CANVAS_BLKMODE_32X32);
-
-    canvas_config(spec->v_canvas_index,
-                  spec->v_addr,
-                  width / 2,
-                  height / 2,
-                  CANVAS_ADDR_NOWRAP,
-                  CANVAS_BLKMODE_32X32);
-#endif
     return;
 }
 
@@ -722,19 +696,11 @@ static int vh264_set_params(void)
             for (i = 0 ; i < actual_dpb_size ; i++) {
                 buffer_spec[i].y_addr = addr;
                 addr += mb_total << 8;
-#ifdef NV21
                 buffer_spec[i].u_addr = addr;
                 buffer_spec[i].v_addr = addr;
                 addr += mb_total << 7;
-#else
-                buffer_spec[i].u_addr = addr;
-                addr += mb_total << 6;
-                buffer_spec[i].v_addr = addr;
-                addr += mb_total << 6;
-#endif
                 vfbuf_use[i] = 0;
 
-#ifdef NV21
                 buffer_spec[i].y_canvas_index = 128 + i * 2;
                 buffer_spec[i].u_canvas_index = 128 + i * 2 + 1;
                 buffer_spec[i].v_canvas_index = 128 + i * 2 + 1;
@@ -751,23 +717,9 @@ static int vh264_set_params(void)
                 canvas_config(128 + i * 2 + 1, buffer_spec[i].u_addr, mb_width << 4, mb_height << 3,
                               CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
                 WRITE_VREG(ANC0_CANVAS_ADDR + i, spec2canvas(&buffer_spec[i]));
-#else
-                buffer_spec[i].y_canvas_index = 128 + i * 3;
-                buffer_spec[i].u_canvas_index = 128 + i * 3 + 1;
-                buffer_spec[i].v_canvas_index = 128 + i * 3 + 2;
-
-                canvas_config(128 + i * 3, buffer_spec[i].y_addr, mb_width << 4, mb_height << 4,
-                              CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-                canvas_config(128 + i * 3 + 1, buffer_spec[i].u_addr, mb_width << 3, mb_height << 3,
-                              CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-                canvas_config(128 + i * 3 + 2, buffer_spec[i].v_addr, mb_width << 3, mb_height << 3,
-                              CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-                WRITE_VREG(ANC0_CANVAS_ADDR + i, spec2canvas(&buffer_spec[i]));
-#endif
             }
         } else {
             for (i = 0 ; i < 21 ; i++) {
-#ifdef NV21
                 buffer_spec[i].y_addr = addr;
                 addr += mb_total << 8;
                 buffer_spec[i].u_addr = addr;
@@ -791,31 +743,9 @@ static int vh264_set_params(void)
                 canvas_config(128 + i * 2 + 1, buffer_spec[i].u_addr, mb_width << 4, mb_height << 3,
                               CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
                 WRITE_VREG(ANC0_CANVAS_ADDR + i, spec2canvas(&buffer_spec[i]));
-#else
-                buffer_spec[i].y_addr = addr;
-                addr += mb_total << 8;
-                buffer_spec[i].u_addr = addr;
-                addr += mb_total << 6;
-                buffer_spec[i].v_addr = addr;
-                addr += mb_total << 6;
-                vfbuf_use[i] = 0;
-
-                buffer_spec[i].y_canvas_index = 128 + i * 3;
-                buffer_spec[i].u_canvas_index = 128 + i * 3 + 1;
-                buffer_spec[i].v_canvas_index = 128 + i * 3 + 2;
-
-                canvas_config(128 + i * 3, buffer_spec[i].y_addr, mb_width << 4, mb_height << 4,
-                              CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-                canvas_config(128 + i * 3 + 1, buffer_spec[i].u_addr, mb_width << 3, mb_height << 3,
-                              CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-                canvas_config(128 + i * 3 + 2, buffer_spec[i].v_addr, mb_width << 3, mb_height << 3,
-                              CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-                WRITE_VREG(ANC0_CANVAS_ADDR + i, spec2canvas(&buffer_spec[i]));
-#endif
             }
 
             for (i = 21 ; i < actual_dpb_size ; i++) {
-#ifdef NV21
                 buffer_spec[i].y_canvas_index = 2 * (i - 21) + 2;
                 buffer_spec[i].y_addr = addr;
                 addr += mb_total << 8;
@@ -834,21 +764,6 @@ static int vh264_set_params(void)
 #endif
                 spec_set_canvas(&buffer_spec[i], mb_width << 4, mb_height << 4);
                 WRITE_VREG(ANC0_CANVAS_ADDR + i, spec2canvas(&buffer_spec[i]));
-#else
-                buffer_spec[i].y_canvas_index = 3 * (i - 21) + 3;
-                buffer_spec[i].y_addr = addr;
-                addr += mb_total << 8;
-                buffer_spec[i].u_canvas_index = 3 * (i - 21) + 4;
-                buffer_spec[i].u_addr = addr;
-                addr += mb_total << 6;
-                buffer_spec[i].v_canvas_index = 3 * (i - 21) + 5;
-                buffer_spec[i].v_addr = addr;
-                addr += mb_total << 6;
-                vfbuf_use[i] = 0;
-
-                spec_set_canvas(&buffer_spec[i], mb_width << 4, mb_height << 4);
-                WRITE_VREG(ANC0_CANVAS_ADDR + i, spec2canvas(&buffer_spec[i]));
-#endif
             }
         }
     } else {
@@ -1363,11 +1278,7 @@ static void vh264_isr(void)
                 last_pts = last_pts + DUR2PTS(vf->duration - frame_dur);
 
                 vf->index = buffer_index;
-#ifdef NV21
                 vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD | VIDTYPE_VIU_NV21;
-#else
-                vf->type = VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD;
-#endif
                 vf->duration_pulldown = 0;
                 vf->index = buffer_index;
                 vf->pts = (pts_valid) ? pts : 0;
@@ -1395,9 +1306,7 @@ static void vh264_isr(void)
                     vf->type = poc_sel ? VIDTYPE_INTERLACE_BOTTOM : VIDTYPE_INTERLACE_TOP;
                 }
 
-#ifdef NV21
                 vf->type |= VIDTYPE_VIU_NV21;
-#endif
                 vf->type |= VIDTYPE_INTERLACE_FIRST;
 
                 vf->duration >>= 1;
@@ -1441,10 +1350,7 @@ static void vh264_isr(void)
                     vf->type = poc_sel ? VIDTYPE_INTERLACE_TOP : VIDTYPE_INTERLACE_BOTTOM;
                 }
 
-#ifdef NV21
                 vf->type |= VIDTYPE_VIU_NV21;
-#endif
-
                 vf->duration >>= 1;
                 vf->duration_pulldown = 0;
                 vf->index = buffer_index;
@@ -1768,9 +1674,7 @@ static void vh264_prot_init(void)
     /* enable mailbox interrupt */
     WRITE_VREG(ASSIST_MBOX1_MASK, 1);
 
-#ifdef NV21
     SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1<<17);
-#endif
     if (ucode_type == UCODE_IP_ONLY_PARAM )
     {
         SET_VREG_MASK(AV_SCRATCH_F, 1<<6);
@@ -2132,7 +2036,7 @@ static void stream_switching_done(void)
     printk("Leaving switching mode.\n");
 }
 
-#if !defined(NV21)|| !defined(CONFIG_GE2D_KEEP_FRAME)
+#if !defined(CONFIG_GE2D_KEEP_FRAME)
 static int canvas_dup(u8 *dst, ulong src_paddr, ulong size)
 {
     void __iomem *p = ioremap_wc(src_paddr, size);
@@ -2168,7 +2072,6 @@ static void stream_switching_do(struct work_struct *work)
         ulong videoKeepBuf[3], videoKeepBufPhys[3];
 
         get_video_keep_buffer(videoKeepBuf, videoKeepBufPhys);
-#ifdef NV21
 #ifdef CONFIG_GE2D_KEEP_FRAME
         if (!videoKeepBufPhys[0] || !videoKeepBufPhys[1]) {
             do_copy = false;
@@ -2178,11 +2081,6 @@ static void stream_switching_do(struct work_struct *work)
             do_copy = false;
         }
 #endif    
-#else
-        if (!videoKeepBuf[0] || !videoKeepBuf[1] || !videoKeepBuf[2]) {
-            do_copy = false;
-        }
-#endif
         buffer_index = p_last_vf->index;
         mb_total_num = mb_total;
         mb_width_num = mb_width;
@@ -2195,7 +2093,6 @@ static void stream_switching_do(struct work_struct *work)
         /* construct a clone of the frame from last frame */
         if (do_copy) {
             /* construct a clone of the frame from last frame */
-#ifdef NV21
 #ifdef CONFIG_GE2D_KEEP_FRAME
             printk("src yaddr[0x%x] index[%d] width[%d] heigth[%d]\n",buffer_spec[buffer_index].y_addr,buffer_spec[buffer_index].y_canvas_index,\
                 buffer_spec[buffer_index].y_canvas_width,buffer_spec[buffer_index].y_canvas_height);
@@ -2227,18 +2124,6 @@ static void stream_switching_do(struct work_struct *work)
             canvas_config(1, videoKeepBufPhys[1], mb_width_num << 4, mb_height_num << 3,
                           CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
 #endif
-#else
-            canvas_dup((u8 *)videoKeepBuf[0], buffer_spec[buffer_index].y_addr, mb_total_num<<8);
-            canvas_dup((u8 *)videoKeepBuf[1], buffer_spec[buffer_index].u_addr, mb_total_num<<6);
-            canvas_dup((u8 *)videoKeepBuf[2], buffer_spec[buffer_index].v_addr, mb_total_num<<6);
-
-            canvas_config(0, videoKeepBufPhys[0], mb_width_num << 4, mb_height_num << 4,
-                          CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-            canvas_config(1, videoKeepBufPhys[1], mb_width_num << 3, mb_height_num << 3,
-                          CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-            canvas_config(2, videoKeepBufPhys[2], mb_width_num << 3, mb_height_num << 3,
-                          CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_32X32);
-#endif
         }
 
         switching_fense_vf = *p_last_vf;
@@ -2246,11 +2131,7 @@ static void stream_switching_do(struct work_struct *work)
         switching_fense_vf.index = -1;
 		switching_fense_vf.flag |= VFRAME_FLAG_SWITCHING_FENSE;
         if (do_copy) {
-#ifdef NV21
             switching_fense_vf.canvas0Addr = 0x010100;
-#else
-            switching_fense_vf.canvas0Addr = 0x020100;
-#endif
         }
 
 
