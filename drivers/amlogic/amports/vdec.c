@@ -105,20 +105,33 @@ s32 vdec_init(vformat_t vf)
 
     inited_vcodec_num++;
 
-    vdec_device = platform_device_register_data(&vdec_core_device->dev, vdec_device_name[vf], -1,
-                                            &vdec_dev_reg, sizeof(vdec_dev_reg));
+    vdec_device = platform_device_alloc(vdec_device_name[vf], -1);
+    if (!vdec_device) {
+        printk("vdec: Device allocation failed\n");
+        r = -ENOMEM;
+        goto error;
+    }
 
-    if (IS_ERR(vdec_device)) {
-        r = PTR_ERR(vdec_device);
-        printk("vdec: Decoder device register failed (%d)\n", r);
-        inited_vcodec_num--;
+    r = platform_device_add_data(vdec_device, &vdec_dev_reg, sizeof(vdec_dev_reg));
+    if (r) {
+        printk("vdec: Device resource addition failed (%d)\n", r);
+        goto error;
+    }
+
+    r = platform_device_add(vdec_device);
+
+    if (r) {
+        printk("vdec: Device addition failed (%d)\n", r);
         goto error;
     }
 
     return 0;
 
 error:
-    vdec_device = NULL;
+    if (vdec_device) {
+        platform_device_put(vdec_device);
+        vdec_device = NULL;
+    }
 
     inited_vcodec_num--;
 
