@@ -28,9 +28,6 @@ struct vdec_dev {
 	void			*vb_alloc_ctx;
 	struct mutex		dev_mutex;
 
-	void			*decoder_buf;
-	phys_addr_t		decoder_buf_phys;
-
 	ge2d_context_t		*ge2d_context;
 	config_para_ex_t		ge2d_config;
 };
