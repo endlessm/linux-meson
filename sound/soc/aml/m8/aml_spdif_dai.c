@@ -29,9 +29,6 @@
 #include "aml_i2s.h"
 #include <linux/of.h>
 
-#include <linux/cdev.h>
-#include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
-
 /* #define DEBUG_ALSA_SPDIF_DAI */
 #define ALSA_PRINT(fmt, args...)	printk(KERN_INFO "[aml-spdif-dai]" fmt, ##args)
 #ifdef DEBUG_ALSA_SPDIF_DAI
@@ -377,9 +374,6 @@ static int aml_dai_spdif_startup(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct aml_runtime_data *prtd = runtime->private_data;
 	audio_stream_t *s;
-
-	if (hdmi_audio_off_flag)
-		return -ENODEV;
 
 	ALSA_TRACE();
 	if (!prtd) {
