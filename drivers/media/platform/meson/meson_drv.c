@@ -171,7 +171,7 @@ static void get_buffer_size_info(struct vdec_fmt *fmt, u32 width, u32 height,
 		break;
 	case V4L2_PIX_FMT_NV12M:
 		i->num_planes = 2;
-		i->plane_stride[0] = i->plane_stride[1] = round_up(width, 16);
+		i->plane_stride[0] = i->plane_stride[1] = round_up(width, 32);
 		i->buffer_size[0] = i->plane_stride[0] * height;
 		i->buffer_size[1] = i->plane_stride[1] *
 				    (round_up(height, 2) / 2);
