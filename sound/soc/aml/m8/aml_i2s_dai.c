@@ -113,9 +113,11 @@ static void aml_dai_i2s_shutdown(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+#if 0
 	if (runtime->channels == 8 || IEC958_mode_codec == 0) {
 		aml_spdif_play();
 	}
+#endif
 }
 
 #define AOUT_EVENT_IEC_60958_PCM 0x1
@@ -202,7 +204,7 @@ static int aml_dai_i2s_prepare(struct snd_pcm_substream *substream,
 		s->device_type = AML_AUDIO_I2SOUT;
 		aml_hw_i2s_init(runtime);
 /* i2s/958 share the same audio hw buffer when PCM mode */
-		if (IEC958_mode_codec == 0) {
+		if (0 && IEC958_mode_codec == 0) {
 			aml_hw_iec958_init(substream);
 			/* use the hw same sync for i2s/958 */
 			WRITE_MPEG_REG_BITS(AIU_I2S_MISC, 1, 3, 1);
@@ -231,7 +233,7 @@ static int aml_dai_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* TODO */
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			audio_out_i2s_enable(1);
-			if (IEC958_mode_codec == 0) {
+			if (0 && IEC958_mode_codec == 0) {
 				ALSA_PRINT("audio_hw_958_enable  1\n");
 				audio_hw_958_enable(1);
 			}
@@ -247,7 +249,7 @@ static int aml_dai_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			audio_out_i2s_enable(0);
-			if (IEC958_mode_codec == 0) {
+			if (0 && IEC958_mode_codec == 0) {
 				ALSA_PRINT("audio_hw_958_enable  0\n");
 				audio_hw_958_enable(0);
 			}
