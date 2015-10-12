@@ -21,7 +21,6 @@ struct aml_audio_private_data {
     unsigned int mic_val;
     unsigned int hp_detal;
     unsigned int hp_adc_ch;
-    bool suspended;
 
     bool mic_det;
     bool hp_disable;

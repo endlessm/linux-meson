@@ -39,7 +39,6 @@
 #include "aml_audio_hw.h"
 #include "../../codecs/aml_m8_codec.h"
 #include <mach/register.h>
-#include <linux/amlogic/jtag.h>
 
 #ifdef CONFIG_USE_OF
 #include <linux/of.h>
@@ -89,16 +88,16 @@ static void aml_audio_stop_timer(struct aml_audio_private_data *p_aml_audio)
 
 static int hp_det_adc_value(struct aml_audio_private_data *p_aml_audio)
 {
-    int ret,hp_value;
-    int hp_val_sum = 0;
-    int loop_num = 0;
+    int ret,hp_value,hp_val_sum,loop_num;
     unsigned int mic_ret = 0;
+    hp_val_sum = 0;
+    loop_num = 0;
     
     while(loop_num < 8){
         hp_value = get_adc_sample(p_aml_audio->hp_adc_ch);
         if(hp_value <0){
             printk("hp detect get error adc value!\n");
-            return -1; //continue;
+            continue;
         }
         hp_val_sum += hp_value;
         loop_num ++;
@@ -140,6 +139,7 @@ static int aml_audio_hp_detect(struct aml_audio_private_data *p_aml_audio)
     while(loop_num < 3){
         ret = hp_det_adc_value(p_aml_audio);
         if(p_aml_audio->hp_last_state != ret){
+            loop_num = 0;
             msleep_interruptible(50);
             if(ret < 0){
                 ret = p_aml_audio->hp_last_state;
@@ -148,8 +148,8 @@ static int aml_audio_hp_detect(struct aml_audio_private_data *p_aml_audio)
             }
         }else{
             msleep_interruptible(50);
+            loop_num = loop_num + 1;
         }
-        loop_num = loop_num + 1;
     }
  
    // mutex_unlock(&p_aml_audio->lock);
@@ -198,7 +198,7 @@ static void aml_asoc_timer_func(unsigned long data)
     struct aml_audio_private_data *p_aml_audio = (struct aml_audio_private_data *)data;
     unsigned long delay = msecs_to_jiffies(150);
 
-    if(p_aml_audio->hp_det_status && !p_aml_audio->suspended){
+    if(p_aml_audio->hp_det_status){
         schedule_work(&p_aml_audio->work);
     }
     mod_timer(&p_aml_audio->timer, jiffies + delay);
@@ -260,6 +260,7 @@ static int aml_m8_spk_enabled;
 static bool aml_audio_i2s_mute_flag = 0;
 static bool aml_audio_spdif_mute_flag = 0;
 
+#if 0
 static int aml_m8_set_spk(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
 {
@@ -275,6 +276,7 @@ static int aml_m8_set_spk(struct snd_kcontrol *kcontrol,
     return 0;
 }
 
+#endif
 static int aml_m8_get_spk(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
 {
@@ -373,19 +375,10 @@ static int aml_set_bias_level(struct snd_soc_card *card,
 #ifdef CONFIG_PM_SLEEP
 static int aml_suspend_pre(struct snd_soc_card *card)
 {
-    struct aml_audio_private_data * p_aml_audio;
+    printk(KERN_DEBUG "enter %s\n", __func__);
+#if HP_DET
 
-    printk(KERN_INFO "enter %s\n", __func__);
-    p_aml_audio = snd_soc_card_get_drvdata(card);
-    if(!p_aml_audio->hp_disable){
-        /* stop timer */
-        mutex_lock(&p_aml_audio->lock);
-        p_aml_audio->suspended = true;
-        if (p_aml_audio->timer_en) {
-            aml_audio_stop_timer(p_aml_audio);
-        }
-        mutex_unlock(&p_aml_audio->lock);
-    }
+#endif
     return 0;
 }
 
@@ -471,19 +464,7 @@ static int aml_resume_pre(struct snd_soc_card *card)
 
 static int aml_resume_post(struct snd_soc_card *card)
 {
-    struct aml_audio_private_data * p_aml_audio;
-
-    printk(KERN_INFO "enter %s\n", __func__);
-    p_aml_audio = snd_soc_card_get_drvdata(card);
-    if(!p_aml_audio->hp_disable){
-        mutex_lock(&p_aml_audio->lock);
-        p_aml_audio->suspended = false;
-        if (!p_aml_audio->timer_en) {
-            aml_audio_start_timer(p_aml_audio, msecs_to_jiffies(100));
-        }
-        mutex_unlock(&p_aml_audio->lock);
-    }
-
+    printk(KERN_DEBUG "enter %s\n", __func__);
     return 0;
 }
 #else
@@ -532,69 +513,6 @@ static struct snd_soc_jack_pin jack_pins[] = {
     }
 };
 
-/* HDMI in audio format detect: LPCM or NONE-LPCM */           
-static const char *hdmi_audio_type_texts[] = {
-    "LPCM","NONE-LPCM","UN-KNOWN"
-};          
-static const struct soc_enum hdmi_audio_type_enum =
-    SOC_ENUM_SINGLE(SND_SOC_NOPM, 0,
-            ARRAY_SIZE(hdmi_audio_type_texts),
-            hdmi_audio_type_texts);
-
-static int aml_hdmi_audio_type_get_enum(struct snd_kcontrol *kcontrol,
-    struct snd_ctl_elem_value *ucontrol)
-{
-    int ch_status = 0;
-    if ((READ_MPEG_REG(AUDIN_DECODE_CONTROL_STATUS)>>24)&0x1){
-        ch_status = READ_MPEG_REG(AUDIN_DECODE_CHANNEL_STATUS_A_0);
-        if (ch_status&2) //NONE-LPCM
-            ucontrol->value.enumerated.item[0] = 1;
-        else //LPCM
-            ucontrol->value.enumerated.item[0] = 0;     
-    }
-    else
-        ucontrol->value.enumerated.item[0] = 2; //un-stable. un-known       
-    
-    return 0;
-}
-
-static int aml_hdmi_audio_type_set_enum(struct snd_kcontrol *kcontrol,
-    struct snd_ctl_elem_value *ucontrol)
-{
-    return 0;
-}
-
-/* spdif in audio format detect: LPCM or NONE-LPCM */
-static const char *spdif_audio_type_texts[] = {
-    "LPCM","NONE-LPCM","UN-KNOWN"
-};          
-static const struct soc_enum spdif_audio_type_enum =
-    SOC_ENUM_SINGLE(SND_SOC_NOPM, 0,
-            ARRAY_SIZE(spdif_audio_type_texts),
-            spdif_audio_type_texts);
-
-static int aml_spdif_audio_type_get_enum(struct snd_kcontrol *kcontrol,
-    struct snd_ctl_elem_value *ucontrol)
-{
-	int ch_status = 0;
-    //if ((READ_MPEG_REG(AUDIN_SPDIF_MISC)>>0x7)&0x1){
-        ch_status = READ_MPEG_REG(AUDIN_SPDIF_CHNL_STS_A)&0x3;
-        if (ch_status&2) //NONE-LPCM
-            ucontrol->value.enumerated.item[0] = 1;
-        else //LPCM
-            ucontrol->value.enumerated.item[0] = 0;     
-    //}
-    //else
-    //    ucontrol->value.enumerated.item[0] = 2; //un-stable. un-known       
-    return 0;
-}
-
-static int aml_spdif_audio_type_set_enum(struct snd_kcontrol *kcontrol,
-    struct snd_ctl_elem_value *ucontrol)
-{
-    return 0;
-}
-
 static const struct snd_kcontrol_new aml_m8_controls[] = {
 	//SOC_DAPM_PIN_SWITCH("Ext Spk"),
 
@@ -608,16 +526,7 @@ static const struct snd_kcontrol_new aml_m8_controls[] = {
 
 	SOC_SINGLE_BOOL_EXT("Ext Spk Switch", 0,
 		aml_m8_get_spk,
-		aml_m8_set_spk),
-
-	SOC_ENUM_EXT("HDMI Audio Type", hdmi_audio_type_enum,
-        aml_hdmi_audio_type_get_enum,
-        aml_hdmi_audio_type_set_enum),
-
-	SOC_ENUM_EXT("SPDIFIN Audio Type", spdif_audio_type_enum,
-        aml_spdif_audio_type_get_enum,
-        aml_spdif_audio_type_set_enum),
-    
+		NULL),
    /*
     SOC_SINGLE_BOOL_EXT("Audio MPLL9 Switch", 0,
     aml_m8_get_MPLL9,
@@ -683,7 +592,6 @@ static int aml_asoc_init(struct snd_soc_pcm_runtime *rtd)
         p_aml_audio->timer.function = aml_asoc_timer_func;
         p_aml_audio->timer.data = (unsigned long)p_aml_audio;
         p_aml_audio->data= (void*)card;
-        p_aml_audio->suspended = false;
 
         INIT_WORK(&p_aml_audio->work, aml_asoc_work_func);
         mutex_init(&p_aml_audio->lock);
@@ -759,23 +667,19 @@ static void aml_m8_pinmux_init(struct snd_soc_card *card)
 	const char *str=NULL;
 	int ret;
 	p_aml_audio = snd_soc_card_get_drvdata(card);   
-	p_aml_audio->pin_ctl = devm_pinctrl_get_select(card->dev, "aml_snd_m8");
-
-	p_audio = p_aml_audio;
-	printk("-----ext_codec=%d---\n",ext_codec);
-	//#if USE_EXTERNAL_DAC
-	if (ext_codec) {
+    p_aml_audio->pin_ctl = devm_pinctrl_get_select(card->dev, "aml_snd_m8");
+    
+    p_audio = p_aml_audio;
+    printk("-----ext_codec=%d---\n",ext_codec);
+//#if USE_EXTERNAL_DAC
+    if(ext_codec){
 #ifndef CONFIG_MESON_TRUSTZONE
-	//aml_write_reg32(P_AO_SECURE_REG1,0x00000000);
-	if (is_jtag_disable()) {
-		aml_clr_reg32_mask(P_AO_SECURE_REG1, ((1<<8) | (1<<1)));
-	}
+    //aml_write_reg32(P_AO_SECURE_REG1,0x00000000);
+        aml_clr_reg32_mask(P_AO_SECURE_REG1, ((1<<8) | (1<<1)));
 #else
-	/* Secure reg can only be accessed in Secure World if TrustZone enabled. */
-	//meson_secure_reg_write(P_AO_SECURE_REG1, 0x00000000);
-	if (is_jtag_disable()) {
-		meson_secure_reg_write(P_AO_SECURE_REG1, meson_secure_reg_read(P_AO_SECURE_REG1) & (~((1<<8) | (1<<1))));
-	}
+    /* Secure reg can only be accessed in Secure World if TrustZone enabled. */
+    //meson_secure_reg_write(P_AO_SECURE_REG1, 0x00000000);
+	meson_secure_reg_write(P_AO_SECURE_REG1, meson_secure_reg_read(P_AO_SECURE_REG1) & (~((1<<8) | (1<<1))));
 #endif /* CONFIG_MESON_TRUSTZONE */
     }
 //#endif
