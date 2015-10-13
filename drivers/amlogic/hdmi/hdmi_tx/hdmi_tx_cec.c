@@ -2039,8 +2039,8 @@ void cec_usrcmd_set_dispatch(const char * buf, size_t count)
 
 /***************************** cec high level code end *****************************/
 
-late_initcall(cec_init);
-module_exit(cec_uninit);
+//late_initcall(cec_init);
+//module_exit(cec_uninit);
 MODULE_DESCRIPTION("AMLOGIC HDMI TX CEC driver");
 MODULE_LICENSE("GPL");
 //MODULE_LICENSE("Dual BSD/GPL");
