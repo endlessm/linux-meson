@@ -6619,8 +6619,8 @@ arch_initcall(video_early_init);
 module_init(video_drv_init);
 module_exit(video_drv_exit);
 #else
-module_init(video_init);
-module_exit(video_exit);
+//module_init(video_init);
+//module_exit(video_exit);
 #endif
 
 MODULE_PARM_DESC(smooth_sync_enable, "\n smooth_sync_enable\n");
