@@ -105,15 +105,15 @@ static int snd_request_hw_timer(void *data)
     int ret = 0;
     mutex_lock(&timer_mutex);
     if (hw_timer_init == 0) {
-        aml_clr_reg32_mask(P_ISA_TIMER_MUX, ((3 << 0) | (1 << 15) | (1 << 19)));
-        aml_set_reg32_mask(P_ISA_TIMER_MUX, ((TIMERB_RESOLUTION << 0)
-                                             | (TIMERB_MODE << 15)
-                                             | (1 << 19)));
-        aml_write_reg32(P_ISA_TIMERD, TIMER_COUNT);
+        aml_clr_reg32_mask(P_ISA_TIMER_MUX, ((3 << 4) | (1 << 14) | (1 << 18)));
+        aml_set_reg32_mask(P_ISA_TIMER_MUX, ((TIMERB_RESOLUTION << 4)
+                                             | (TIMERB_MODE << 14)
+                                             | (1 << 18)));
+        aml_write_reg32(P_ISA_TIMERC, TIMER_COUNT);
         hw_timer_init = 1;
     }
     mutex_unlock(&timer_mutex);
-    ret = request_irq(INT_TIMER_D, audio_isr_handler, IRQF_SHARED, "timerd_irq", data);
+    ret = request_irq(INT_TIMER_C, audio_isr_handler, IRQF_SHARED, "timerc_irq", data);
     if (ret < 0) {
         printk("audio hw interrupt register fail \n");
         return -1;
@@ -122,7 +122,7 @@ static int snd_request_hw_timer(void *data)
 }
 static int snd_free_hw_timer_irq(void *data)
 {
-    free_irq(INT_TIMER_D, data);
+    free_irq(INT_TIMER_C, data);
     return 0;
 }
 #endif

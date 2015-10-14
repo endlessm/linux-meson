@@ -395,6 +395,7 @@ int hcd_init(
 	int retval = 0;
 	int irqno;
 	struct pt_regs regs;
+	unsigned long flags = IRQF_SHARED | IRQF_DISABLED;
 
 	DWC_DEBUGPL(DBG_HCD, "DWC OTG HCD INIT\n");
 	
@@ -517,16 +518,18 @@ int hcd_init(
 //	if (otg_dev->core_if->otg_ver)
 //		hcd->self.is_hnp_cap = dwc_otg_get_hnpcapable(otg_dev->core_if);
 #endif
-	if (fiq_enable && dwc_otg_hcd->core_if->use_fiq_flag)
+	if (fiq_enable && dwc_otg_hcd->core_if->use_fiq_flag) {
 		irqno = MESON_USB_FIQ_BRIDGE;
-	else
+	} else {
 		irqno = _dev->irq;
+		flags |= IRQ_TYPE_LEVEL_HIGH;
+	}
 	/*
 	 * Finish generic HCD initialization and start the HCD. This function
 	 * allocates the DMA buffer pool, registers the USB bus, requests the
 	 * IRQ line, and calls hcd_start method.
 	 */
-	retval = usb_add_hcd(hcd, irqno, IRQF_SHARED | IRQF_DISABLED | IRQ_TYPE_LEVEL_HIGH);
+	retval = usb_add_hcd(hcd, irqno, flags);
 	if (retval < 0) {
 		goto error2;
 	}
