@@ -1332,7 +1332,7 @@ void fiq_isr_fake(unsigned int fiq)
 void handle_fasteoi_irq_fake(unsigned int irq, struct irq_desc *desc)
 {
 	raw_spin_lock(&desc->lock);
-	fiq_isr_fake(irq);
+//	fiq_isr_fake(irq);
 	desc->irq_data.chip->irq_eoi(&desc->irq_data);
 	raw_spin_unlock(&desc->lock);
 	return;
