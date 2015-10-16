@@ -5845,6 +5845,7 @@ unsigned long get_pageblock_flags_group(struct page *page,
 
 	return flags;
 }
+EXPORT_SYMBOL_GPL(get_pageblock_flags_group);
 
 /**
  * set_pageblock_flags_group - Set the requested group of flags for a pageblock_nr_pages block of pages
