@@ -6,6 +6,7 @@ menu "Ethernet Support"
 config AM_ETHERNET
 	tristate "Amloigc Ethetnet support"
 	select  NET
+	select PHYLIB
 	help
 		Depends on NET
 config AM_PHY
