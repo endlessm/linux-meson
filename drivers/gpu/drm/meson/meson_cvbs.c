@@ -29,11 +29,22 @@
 
 #include "meson_priv.h"
 #include "meson_modes.h"
+#include "meson_cvbs.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
+#include <linux/amlogic/aml_gpio_consumer.h>
 
 /* Encoder */
+
+enum meson_cvbs_switch_state {
+	MESON_CVBS_SWITCH_PAL,
+	MESON_CVBS_SWITCH_NTSC,
+	MESON_CVBS_SWITCH_UNDEFINED,
+};
+
+static int gpio_pal = -1;
+static int gpio_ntsc = -1;
 
 static void meson_encoder_destroy(struct drm_encoder *encoder)
 {
@@ -132,11 +143,36 @@ static bool read_hpd_gpio(void)
 	return !!(aml_read_reg32(P_PREG_PAD_GPIO3_I) & (1 << 19));
 }
 
+static enum meson_cvbs_switch_state meson_cvbs_get_switch_state(void)
+{
+	if (gpio_pal > 0 && amlogic_get_value(gpio_pal, "mesondrm pal"))
+		return MESON_CVBS_SWITCH_PAL;
+	if (gpio_ntsc > 0 && amlogic_get_value(gpio_ntsc, "mesondrm ntsc"))
+		return MESON_CVBS_SWITCH_NTSC;
+	return MESON_CVBS_SWITCH_UNDEFINED;
+}
+
 static enum drm_connector_status meson_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct meson_connector *meson_connector = to_meson_connector(connector);
+	int vrefresh = drm_mode_vrefresh(meson_connector->mode);
+	enum meson_cvbs_switch_state s = meson_cvbs_get_switch_state();
+	struct device *d = connector->dev->dev;
+
 	if (!meson_connector->enabled)
 		return connector_status_disconnected;
+
+	/* PAL connector */
+	if (vrefresh == 100 && s != MESON_CVBS_SWITCH_PAL) {
+		dev_info(d, "CVBS/NTSC selected from switch\n");
+		return connector_status_disconnected;
+	}
+
+	/* NTSC connector */
+	if (vrefresh == 120 && s != MESON_CVBS_SWITCH_NTSC) {
+		dev_info(d, "CVBS/PAL selected from switch\n");
+		return connector_status_disconnected;
+	}
 
 	/* use the opposite from HPD -- HDMI connected means composite disconnected,
 	 * HDMI disconnected means composite connected. */
@@ -216,4 +252,58 @@ struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
 fail:
 	meson_connector_destroy(connector);
 	return NULL;
+}
+
+int meson_cvbs_init(struct drm_device *dev)
+{
+	struct device *d = dev->dev;
+	const char *str;
+	int ret;
+
+	ret = of_property_read_string(d->of_node, "cvbs_pal_gpio", &str);
+	if (ret < 0) {
+		dev_warn(d, "Failed to read property \"cvbs_pal_gpio\"\n");
+		goto out;
+	}
+	gpio_pal = amlogic_gpio_name_map_num(str);
+	if (gpio_pal < 0) {
+		dev_warn(d, "Failed to map cvbs_pal_gpio to a GPIO number\n");
+		goto out;
+	}
+	ret = amlogic_gpio_request_one(gpio_pal, GPIOF_IN,
+			"mesondrm pal");
+	if (ret < 0) {
+		dev_warn(d, "Failed to request cvbs_pal_gpio\n");
+		goto out;
+	}
+	ret = amlogic_set_pull_up_down(gpio_pal, 1, "mesondrm pal");
+	if (ret < 0) {
+		dev_warn(d, "Failed to up-down cvbs_pal_gpio\n");
+		goto out;
+	}
+
+	ret = of_property_read_string(d->of_node, "cvbs_ntsc_gpio", &str);
+	if (ret < 0) {
+		dev_warn(d, "Failed to read property \"cvbs_ntsc_gpio\"\n");
+		goto out;
+	}
+	gpio_ntsc = amlogic_gpio_name_map_num(str);
+	if (gpio_pal < 0) {
+		dev_warn(d, "Failed to map cvbs_ntsc_gpio to a GPIO number\n");
+		goto out;
+	}
+	ret = amlogic_gpio_request_one(gpio_ntsc, GPIOF_IN,
+				       "mesondrm ntsc");
+	if (ret < 0) {
+		dev_warn(d, "Failed to request cvbs_ntsc_gpio\n");
+		goto out;
+	}
+	ret = amlogic_set_pull_up_down(gpio_ntsc, 1, "mesondrm ntsc");
+	if (ret < 0) {
+		dev_warn(d, "Failed to up-down cvbs_ntsc_gpio\n");
+		goto out;
+	}
+
+out:
+	return ret;
 }
