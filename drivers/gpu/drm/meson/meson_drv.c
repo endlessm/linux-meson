@@ -203,6 +203,27 @@ struct meson_plane {
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
+#define CVBS_UNDERSCAN_MANGLE(x) ((x) * 5 / 100)
+static void get_underscan_border(struct drm_plane_state *state,
+				 int *hborder_p, int *vborder_p)
+{
+	struct meson_crtc *meson_crtc = to_meson_crtc(state->crtc);
+	int hborder = meson_crtc->underscan_hborder;
+	int vborder = meson_crtc->underscan_vborder;
+
+	/* If we're on a CVBS mode, add in some constant underscan borders. */
+
+	/* XXX: We're detecting CVBS through interlaced vs. not, but
+	 * HDMI modes can be interlaced too! */
+	if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
+		hborder += CVBS_UNDERSCAN_MANGLE(state->crtc->crtc_w);
+		vborder += CVBS_UNDERSCAN_MANGLE(state->crtc->crtc_h);
+	}
+
+	*hborder_p = hborder;
+	*vborder_p = vborder;
+}
+
 static bool get_scaler_rects(struct drm_crtc *crtc,
 			     struct drm_rect *input,
 			     struct drm_rect *output)
@@ -221,20 +242,17 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 	*output = *input;
 
 	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
-		int hborder = meson_crtc->underscan_hborder;
-		int vborder = meson_crtc->underscan_vborder;
+		int hborder, vborder;
+
+		get_underscan_border(state, &hborder, &vborder);
 
 		if (interlace)
 			vborder /= 2;
 
-		if (hborder != 0) {
-			output->x1 += hborder;
-			output->x2 -= hborder;
-		}
-		if (vborder != 0) {
-			output->y1 += vborder;
-			output->y2 -= vborder;
-		}
+		output->x1 += hborder;
+		output->x2 -= hborder;
+		output->y1 += vborder;
+		output->y2 -= vborder;
 	}
 
 	return (!drm_rect_equals(input, output));
