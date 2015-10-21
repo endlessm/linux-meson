@@ -115,19 +115,14 @@ struct meson_connector {
 	struct drm_connector base;
 	struct drm_encoder *encoder;
 	bool enabled;
-
-	struct drm_display_mode modes[2];
-	int nmodes;
+	struct drm_display_mode *mode;
 };
 #define to_meson_connector(x) container_of(x, struct meson_connector, base)
 
 static void meson_connector_destroy(struct drm_connector *connector)
 {
 	struct meson_connector *meson_connector = to_meson_connector(connector);
-
-	/* XXX: Leak for now. */
-	/* drm_mode_destroy(connector->dev, meson_connector->mode); */
-
+	drm_mode_destroy(connector->dev, meson_connector->mode);
 	drm_connector_cleanup(connector);
 	kfree(meson_connector);
 }
@@ -152,12 +147,8 @@ static int meson_connector_get_modes(struct drm_connector *connector)
 {
 	struct meson_connector *meson_connector = to_meson_connector(connector);
 	struct drm_device *dev = connector->dev;
-
-	int i;
-	for (i = 0; i < meson_connector->nmodes; i++)
-		drm_mode_probed_add(connector, drm_mode_duplicate(dev, &meson_connector->modes[i]));
-
-	return i;
+	drm_mode_probed_add(connector, drm_mode_duplicate(dev, meson_connector->mode));
+	return 1;
 }
 
 static int meson_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
@@ -189,8 +180,7 @@ static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
 
 struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
 						  bool enabled,
-						  struct drm_display_mode **mode,
-						  int nmode)
+						  struct drm_display_mode *mode)
 {
 	struct meson_connector *meson_connector;
 	struct drm_connector *connector;
@@ -208,10 +198,7 @@ struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
 	connector = &meson_connector->base;
 	meson_connector->encoder = encoder;
 	meson_connector->enabled = enabled;
-
-	meson_connector->modes[0] = *mode[0];
-	meson_connector->modes[1] = *mode[1];
-	meson_connector->nmodes = nmode;
+	meson_connector->mode = mode;
 
 	drm_connector_init(dev, connector, &meson_connector_funcs, DRM_MODE_CONNECTOR_Composite);
 	drm_connector_helper_add(connector, &meson_connector_helper_funcs);
