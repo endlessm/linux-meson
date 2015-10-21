@@ -135,8 +135,8 @@ static int fiq_start;
 
 void enable_fiq(int fiq)
 {
-	fiqno = fiq;
 	enable_irq(fiq + fiq_start);
+	fiqno = fiq;
 }
 
 void disable_fiq(int fiq)
