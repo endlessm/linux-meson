@@ -898,24 +898,6 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	meson_hdmi_connector_create(dev);
 	meson_cvbs_init(dev);
 
-	{
-		struct drm_display_mode *mode;
-
-		mode = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
-		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-
-		meson_cvbs_connector_create(dev, mode);
-	}
-
-	{
-		struct drm_display_mode *mode;
-
-		mode = drm_cvt_mode(dev, 720, 576, 50, false, true, false);
-		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-
-		meson_cvbs_connector_create(dev, mode);
-	}
-
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
 	if (ret < 0) {
 		/* XXX: Don't leak memory. */
