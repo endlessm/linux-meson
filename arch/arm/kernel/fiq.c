@@ -53,7 +53,6 @@
 	})
 
 static unsigned long no_fiq_insn;
-static int fiqno = 0x4000;
 
 /* Default reacquire function
  * - we always relinquish FIQ control
@@ -136,18 +135,11 @@ static int fiq_start;
 void enable_fiq(int fiq)
 {
 	enable_irq(fiq + fiq_start);
-	fiqno = fiq;
 }
 
 void disable_fiq(int fiq)
 {
 	disable_irq(fiq + fiq_start);
-	fiqno = 0x4000;
-}
-
-int get_fiq_index(void)
-{
-	return fiqno;
 }
 
 EXPORT_SYMBOL(set_fiq_handler);
@@ -157,7 +149,6 @@ EXPORT_SYMBOL(claim_fiq);
 EXPORT_SYMBOL(release_fiq);
 EXPORT_SYMBOL(enable_fiq);
 EXPORT_SYMBOL(disable_fiq);
-EXPORT_SYMBOL(get_fiq_index);
 
 void __init init_FIQ(int start)
 {
