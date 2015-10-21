@@ -1232,8 +1232,7 @@ void notrace dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 
 	//}
 	state->fiq_done++;
-	if (kick_irq)
-		WRITE_CBUS_REG(ISA_TIMERD, 1);
+	WRITE_CBUS_REG(ISA_TIMERD, 1);
 	//mb();
 }
 
