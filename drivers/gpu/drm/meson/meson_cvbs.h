@@ -31,5 +31,5 @@
 struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
                                                   bool enabled,
                                                   struct drm_display_mode *mode);
-
+int meson_cvbs_init(struct drm_device *dev);
 #endif
