@@ -50,14 +50,6 @@
 #include <linux/amlogic/hdmi_tx/hdmi_info_global.h>
 #include <linux/amlogic/hdmi_tx/hdmi_tx_module.h>
 
-enum meson_connectors {
-	MESON_CONNECTORS_HDMI      = 0x1,
-	MESON_CONNECTORS_CVBS_NTSC = 0x2,
-	MESON_CONNECTORS_CVBS_PAL  = 0x4,
-};
-static char enabled_connectors = 0;
-module_param(enabled_connectors, byte, S_IRUGO | S_IWUSR);
-
 #define DRIVER_NAME "meson"
 #define DRIVER_DESC "Amlogic Meson DRM driver"
 
@@ -903,13 +895,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 
 	priv->crtc = meson_crtc_create(dev);
 
-	if (enabled_connectors == 0)
-		/* Default: all enabled, CVBS mode selected via switch */
-		enabled_connectors = MESON_CONNECTORS_HDMI |
-				     MESON_CONNECTORS_CVBS_NTSC |
-				     MESON_CONNECTORS_CVBS_PAL;
-
-	meson_hdmi_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_HDMI));
+	meson_hdmi_connector_create(dev);
 	meson_cvbs_init(dev);
 
 	{
@@ -918,7 +904,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 		mode = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
 		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 
-		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_NTSC), mode);
+		meson_cvbs_connector_create(dev, mode);
 	}
 
 	{
@@ -927,7 +913,7 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 		mode = drm_cvt_mode(dev, 720, 576, 50, false, true, false);
 		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 
-		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode);
+		meson_cvbs_connector_create(dev, mode);
 	}
 
 	ret = drm_vblank_init(dev, dev->mode_config.num_crtc);
