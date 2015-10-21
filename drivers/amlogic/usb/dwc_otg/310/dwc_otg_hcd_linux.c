@@ -800,15 +800,16 @@ static int urb_enqueue(struct usb_hcd *hcd,
 				     usb_maxpacket(urb->dev, urb->pipe,
 						   !(usb_pipein(urb->pipe))));
 
-	if (hcd->self.uses_dma && (urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP) &&
-			!urb->transfer_buffer)
-	{
-		DWC_ERROR("dwc_otg_hcd: urb->transfer_buffer not set. Bailing out.\n");
-		DWC_FREE(dwc_otg_urb);
-		return -EINVAL;
-	}
-
 	buf = urb->transfer_buffer;
+	if (hcd->self.uses_dma) {
+		/*
+		 * Calculate virtual address from physical address,
+		 * because some class driver may not fill transfer_buffer.
+		 * In Buffer DMA mode virual address is used,
+		 * when handling non DWORD aligned buffers.
+		 */
+		buf = phys_to_virt(urb->transfer_dma);
+	}
 
 	if (!(urb->transfer_flags & URB_NO_INTERRUPT))
 		flags |= URB_GIVEBACK_ASAP;
