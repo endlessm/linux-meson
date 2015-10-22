@@ -54,3 +54,17 @@ ENDPROC(__get_fiq_regs)
 ENTRY(__FIQ_Branch)
 	mov pc, r8
 ENDPROC(__FIQ_Branch)
+
+ENTRY(__fiq_ll_setup)
+	stmdb   sp!, {r4}
+	mrs	r4, cpsr
+@	and	r4, #~PSR_F_BIT
+	msr	cpsr_c, #(FIQ_MODE | PSR_I_BIT | PSR_F_BIT)
+	mov	r8, r0
+	mov	r9, r1
+	mov	fp, r2
+	mov	sp, r3
+	msr	cpsr_c, r4
+	ldmia sp!, {r4}
+	mov	pc, lr
+ENDPROC(__fiq_ll_setup)
