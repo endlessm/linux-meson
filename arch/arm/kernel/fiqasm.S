@@ -54,3 +54,29 @@ ENDPROC(__get_fiq_regs)
 ENTRY(__FIQ_Branch)
 	mov pc, r8
 ENDPROC(__FIQ_Branch)
+
+/*
+ * There are two misteries not yet solved for this function:
+ *
+ *  - If we do not save R4 onto the stack end restore it before returning we
+ *    get an Oops in hcd_init() (we can as well use R5 instead of R4 without
+ *    saving onto the stack)
+ *
+ *  - This function is really not much different from '__set_fiq_regs()' but
+ *    using the latter we have the "Bad mode in data abort handler detected"
+ *    error also when setting the stack for each CPU.
+ */
+
+ENTRY(__fiq_ll_setup)
+	stmdb   sp!, {r4}
+	mrs	r4, cpsr
+@	and	r4, #~PSR_F_BIT
+	msr	cpsr_c, #(FIQ_MODE | PSR_I_BIT | PSR_F_BIT)
+	mov	r8, r0
+	mov	r9, r1
+	mov	fp, r2
+	mov	sp, r3
+	msr	cpsr_c, r4
+	ldmia sp!, {r4}
+	mov	pc, lr
+ENDPROC(__fiq_ll_setup)
