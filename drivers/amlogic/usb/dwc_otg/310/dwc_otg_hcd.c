@@ -1109,15 +1109,6 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 		}
 		hcd->fiq_state->dummy_send = DWC_ALLOC_ATOMIC(16);
 
-		hcd->fiq_stack = DWC_ALLOC(sizeof(struct fiq_stack));
-		if (!hcd->fiq_stack) {
-			retval = -DWC_E_NO_MEMORY;
-			DWC_ERROR("%s: cannot allocate fiq_stack structure\n", __func__);
-			dwc_otg_hcd_free(hcd);
-			goto out;
-		}
-		hcd->fiq_stack->magic1 = 0xDEADBEEF;
-		hcd->fiq_stack->magic2 = 0xD00DFEED;
 		hcd->fiq_state->gintmsk_saved.d32 = ~0;
 		hcd->fiq_state->haintmsk_saved.b2.chint = ~0;
 
