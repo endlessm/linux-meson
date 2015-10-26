@@ -203,7 +203,10 @@ struct meson_plane {
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
-#define CVBS_UNDERSCAN_MANGLE(x) ((x) * 5 / 100)
+/* For CVBS mode, add a fixed underscan border that is
+ * 7.5% of each display dimension */
+#define CVBS_UNDERSCAN_MANGLE(x) ((x) * 15 / 200)
+
 static void get_underscan_border(struct drm_plane_state *state,
 				 int *hborder_p, int *vborder_p)
 {
