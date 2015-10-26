@@ -211,8 +211,13 @@ static void get_underscan_border(struct drm_plane_state *state,
 				 int *hborder_p, int *vborder_p)
 {
 	struct meson_crtc *meson_crtc = to_meson_crtc(state->crtc);
-	int hborder = meson_crtc->underscan_hborder;
-	int vborder = meson_crtc->underscan_vborder;
+	int hborder = 0;
+	int vborder = 0;
+
+	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
+		hborder += meson_crtc->underscan_hborder;
+		vborder += meson_crtc->underscan_vborder;
+	}
 
 	/* If we're on a CVBS mode, add in some constant underscan borders. */
 
@@ -231,9 +236,9 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 			     struct drm_rect *input,
 			     struct drm_rect *output)
 {
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	struct drm_plane *plane = crtc->primary;
 	struct drm_plane_state *state = plane->state;
+	int hborder, vborder;
 
 	input->x1 = 0;
 	input->y1 = 0;
@@ -242,16 +247,12 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 
 	*output = *input;
 
-	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
-		int hborder, vborder;
+	get_underscan_border(state, &hborder, &vborder);
 
-		get_underscan_border(state, &hborder, &vborder);
-
-		output->x1 += hborder;
-		output->x2 -= hborder;
-		output->y1 += vborder;
-		output->y2 -= vborder;
-	}
+	output->x1 += hborder;
+	output->x2 -= hborder;
+	output->y1 += vborder;
+	output->y2 -= vborder;
 
 	return (!drm_rect_equals(input, output));
 }
