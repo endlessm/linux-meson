@@ -254,6 +254,9 @@ static void eos_check_idle(unsigned long arg)
 {
 	struct vdec_ctx *ctx = (struct vdec_ctx *) arg;
 
+	if (!ctx->src_streaming)
+		return;
+
 	/* The VIFIFO level does not reach 0 at the end of playback, it
 	 * always seems to have a small amount of data there which does not
 	 * get flushed. So we use a low threshold to detect VIFIFO empty.
@@ -756,13 +759,14 @@ static int vdec_src_start_streaming(struct vb2_queue *vq, unsigned int count)
 static int vdec_src_stop_streaming(struct vb2_queue *vq)
 {
 	struct vdec_ctx *ctx = vb2_get_drv_priv(vq);
-	kthread_park(ctx->image_thread);
 	ctx->src_streaming = false;
-	ctx->esparser_busy = false;
+	kthread_park(ctx->image_thread);
+	del_timer_sync(&ctx->eos_idle_timer);
 
 	/* FIXME: calls video_port_release internally, which means the API
 	 * is not really symmetrical with the init routines. */
 	amstream_port_release(amstream_find_port("amstream_vbuf"));
+	ctx->esparser_busy = false;
 
 	return 0;
 }
@@ -1167,7 +1171,6 @@ static int meson_vdec_release(struct file *file)
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "vdec_release\n");
 
-	del_timer_sync(&ctx->eos_idle_timer);
 	kthread_stop(ctx->image_thread);
 	vf_unreg_receiver(&ctx->vf_receiver);
 	v4l2_fh_del(&ctx->fh);
