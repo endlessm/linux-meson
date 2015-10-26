@@ -231,8 +231,6 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	struct drm_plane *plane = crtc->primary;
 	struct drm_plane_state *state = plane->state;
-	struct meson_plane *meson_plane = to_meson_plane(plane);
-	bool interlace = (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_SCALER);
 
 	input->x1 = 0;
 	input->y1 = 0;
@@ -245,9 +243,6 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 		int hborder, vborder;
 
 		get_underscan_border(state, &hborder, &vborder);
-
-		if (interlace)
-			vborder /= 2;
 
 		output->x1 += hborder;
 		output->x2 -= hborder;
