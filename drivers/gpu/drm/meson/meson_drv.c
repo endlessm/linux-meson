@@ -203,48 +203,42 @@ struct meson_plane {
 };
 #define to_meson_plane(x) container_of(x, struct meson_plane, base)
 
-/* XXX: This is super gross. Figure a better way to do this. */
-static bool try_adjust_cvbs_hack_mode(struct drm_plane_state *state,
-				      struct drm_rect *output,
-				      int w, int h)
+/* For CVBS mode, add a fixed underscan border that is
+ * 7.5% of each display dimension */
+#define CVBS_UNDERSCAN_MANGLE(x) ((x) * 15 / 200)
+
+static void get_underscan_border(struct drm_plane_state *state,
+				 int *hborder_p, int *vborder_p)
 {
-	if (state->crtc_w == CVBS_HACK_MODE_SIZE(w) &&
-	    state->crtc_h == CVBS_HACK_MODE_SIZE(h)) {
-		int hborder = w / CVBS_HACK_MODE_OVERSCAN_PERCENT;
-		int vborder = h / CVBS_HACK_MODE_OVERSCAN_PERCENT;
+	struct meson_crtc *meson_crtc = to_meson_crtc(state->crtc);
+	int hborder = 0;
+	int vborder = 0;
 
-		output->x1 = hborder;
-		output->x2 = w - hborder;
-		output->y1 = vborder;
-		output->y2 = h - vborder;
-
-		return true;
-	} else {
-		return false;
+	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
+		hborder += meson_crtc->underscan_hborder;
+		vborder += meson_crtc->underscan_vborder;
 	}
-}
 
-static void adjust_cvbs_hack_mode(struct drm_plane_state *state,
-				  struct drm_rect *output)
-{
-	if (!(state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE))
-		return;
+	/* If we're on a CVBS mode, add in some constant underscan borders. */
 
-	if (try_adjust_cvbs_hack_mode(state, output, 720, 480))
-		return;
-	if (try_adjust_cvbs_hack_mode(state, output, 720, 576))
-		return;
+	/* XXX: We're detecting CVBS through interlaced vs. not, but
+	 * HDMI modes can be interlaced too! */
+	if (state->crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) {
+		hborder += CVBS_UNDERSCAN_MANGLE(state->crtc_w);
+		vborder += CVBS_UNDERSCAN_MANGLE(state->crtc_h);
+	}
+
+	*hborder_p = hborder;
+	*vborder_p = vborder;
 }
 
 static bool get_scaler_rects(struct drm_crtc *crtc,
 			     struct drm_rect *input,
 			     struct drm_rect *output)
 {
-	struct meson_crtc *meson_crtc = to_meson_crtc(crtc);
 	struct drm_plane *plane = crtc->primary;
 	struct drm_plane_state *state = plane->state;
-	struct meson_plane *meson_plane = to_meson_plane(plane);
-	bool interlace = (meson_plane->interlacing_strategy == MESON_INTERLACING_STRATEGY_SCALER);
+	int hborder, vborder;
 
 	input->x1 = 0;
 	input->y1 = 0;
@@ -253,24 +247,12 @@ static bool get_scaler_rects(struct drm_crtc *crtc,
 
 	*output = *input;
 
-	adjust_cvbs_hack_mode(state, output);
+	get_underscan_border(state, &hborder, &vborder);
 
-	if (meson_crtc->underscan_type == UNDERSCAN_ON) {
-		int hborder = meson_crtc->underscan_hborder;
-		int vborder = meson_crtc->underscan_vborder;
-
-		if (interlace)
-			vborder /= 2;
-
-		if (hborder != 0) {
-			output->x1 += hborder;
-			output->x2 -= hborder;
-		}
-		if (vborder != 0) {
-			output->y1 += vborder;
-			output->y2 -= vborder;
-		}
-	}
+	output->x1 += hborder;
+	output->x2 -= hborder;
+	output->y1 += vborder;
+	output->y2 -= vborder;
 
 	return (!drm_rect_equals(input, output));
 }
@@ -925,20 +907,20 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	meson_cvbs_init(dev);
 
 	{
-		struct drm_display_mode *mode = drm_cvt_mode(dev,
-							     CVBS_HACK_MODE_SIZE(720),
-							     CVBS_HACK_MODE_SIZE(480),
-							     60, false, true, false);
+		struct drm_display_mode *mode;
+
+		mode = drm_cvt_mode(dev, 720, 480, 60, false, true, false);
 		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+
 		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_NTSC), mode);
 	}
 
 	{
-		struct drm_display_mode *mode = drm_cvt_mode(dev,
-							     CVBS_HACK_MODE_SIZE(720),
-							     CVBS_HACK_MODE_SIZE(576),
-							     50, false, true, false);
+		struct drm_display_mode *mode;
+
+		mode = drm_cvt_mode(dev, 720, 576, 50, false, true, false);
 		mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+
 		meson_cvbs_connector_create(dev, !!(enabled_connectors & MESON_CONNECTORS_CVBS_PAL), mode);
 	}
 
