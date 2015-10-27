@@ -527,6 +527,12 @@ int hcd_init(
 		aml_set_reg32_mask(P_ISA_TIMER_MUX,	((0<<6) | (0<<15) | (1<<19)));
 		printk("enable fiq %d\n",_dev->irq);
 		set_fiq_init(_dev->irq,(long)dwc_otg_hcd);
+
+		if (irq_set_affinity(_dev->irq, cpumask_of(3))) {
+			pr_warning("unable to set irq affinity (irq=%d, cpu=%u)\n",
+					 _dev->irq, 3);
+		}
+
 		local_fiq_enable();		
 
 	}
