@@ -1238,6 +1238,11 @@ static int dwc_otg_driver_probe(
 		dwc_otg_device->common_irq_installed = 1;
 	}
 
+	if (irq_set_affinity(irqno, cpumask_of(3))) {
+		pr_warning("unable to set irq affinity (irq=%d, cpu=%u)\n",
+				_dev->irq, 3);
+	}
+
 #ifdef LM_INTERFACE
 //	set_irq_type(_dev->irq, IRQT_LOW);
 #endif
