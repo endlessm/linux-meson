@@ -146,6 +146,7 @@ struct meson_uart_port {
 	struct platform_device *pdev;
 	struct aml_uart_platform *aup;
 	struct pinctrl *p;
+	bool use_clk81;
 };
 
 static struct meson_uart_port am_ports[MESON_UART_PORT_NUM];
@@ -352,11 +353,12 @@ static void meson_uart_change_speed(struct meson_uart_port *mup, unsigned long n
 	unsigned long value;
 	struct clk * clk81;
 	struct clk * xtal;
+	bool use_clk81 = mup->use_clk81;
 
 	if (!newbaud || newbaud == mup->baud)
 		return;
 
-	if (IS_MESON_M8B_CPU || IS_MESON_M8M2_CPU) {
+	if ((IS_MESON_M8B_CPU && !use_clk81) || IS_MESON_M8M2_CPU) {
 		msleep(1);
 		xtal = clk_get_sys("xtal", NULL);
 		value = (clk_get_rate(xtal) / 3) / newbaud - 1;
@@ -385,7 +387,7 @@ static void meson_uart_change_speed(struct meson_uart_port *mup, unsigned long n
 	value |= 0x800000;
 
 	//Set USE_XTAL_CLK bit
-	if(IS_MESON_M8B_CPU || IS_MESON_M8M2_CPU)
+	if((IS_MESON_M8B_CPU && !use_clk81) || IS_MESON_M8M2_CPU)
 		value  |= 1<<24;
 
 	writel(value, &uart->reg5);
@@ -791,6 +793,9 @@ static void meson_uart_start_port(struct meson_uart_port *mup)
 		printk("set %s pinmux use pinctrl subsystem\n",mup->aup->port_name[index]);
 		printk("P_AO_RTI_PIN_MUX_REG:%x\n",aml_read_reg32(P_AO_RTI_PIN_MUX_REG));
 	}
+
+	mup->use_clk81 = of_property_read_bool(mup->pdev->dev.of_node, "use_clk81");
+
 	// need put pinctrl
 	aml_set_reg32_mask((uint32_t)&uart->mode, UART_RXRST);
 	aml_clr_reg32_mask((uint32_t)&uart->mode, UART_RXRST);
