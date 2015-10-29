@@ -133,6 +133,7 @@
 		dev_name = "uart_1";
 		pinctrl-names = "default";
 		pinctrl-0 = <&b_uart_pins>;
+		use_clk81;
 	};
 
 	uart_2 {
