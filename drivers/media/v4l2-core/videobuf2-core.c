@@ -595,7 +595,7 @@ static int __reqbufs(struct vb2_queue *q, struct v4l2_requestbuffers *req)
 		 * We already have buffers allocated, so first check if they
 		 * are not in use and can be freed.
 		 */
-		if (q->memory == V4L2_MEMORY_MMAP && __buffers_in_use(q)) {
+		if (q->ops->buf_cleanup && q->memory == V4L2_MEMORY_MMAP && __buffers_in_use(q)) {
 			dprintk(1, "reqbufs: memory in use, cannot free\n");
 			return -EBUSY;
 		}
