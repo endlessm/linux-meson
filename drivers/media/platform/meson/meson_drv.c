@@ -767,6 +767,7 @@ static int vdec_src_stop_streaming(struct vb2_queue *vq)
 	 * is not really symmetrical with the init routines. */
 	amstream_port_release(amstream_find_port("amstream_vbuf"));
 	ctx->esparser_busy = false;
+	ctx->eos_state = EOS_NONE;
 
 	return 0;
 }
