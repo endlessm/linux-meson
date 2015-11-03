@@ -69,15 +69,15 @@ static void meson_gic_unmask(struct irq_data *data)
      * set irq to edge rising .
      */
     aml_set_reg32_bits(dist_base+GIC_DIST_CONFIG + (irq/16)*4,edge,(irq%16)*2,2);
-    /**
-     * Set prority
-     */
-    aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0xff,(irq%4)*8,irq_level);
 
-	if(data->irq == get_fiq_index())
+	/* FIQ goes in group 0 with higher priority */
+	if(data->irq == get_fiq_index()) {
 		aml_set_reg32_bits(dist_base + GIC_DIST_IGROUP + (irq / 32) * 4, 0, (irq%32), 1);	
-	else
+	    aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0x20,(irq%4)*8,8);
+	} else {
 		aml_set_reg32_bits(dist_base + GIC_DIST_IGROUP + (irq / 32) * 4, 1, (irq%32), 1);
+	    aml_set_reg32_bits(dist_base+GIC_DIST_PRI + (irq  / 4)* 4,0xa0,(irq%4)*8,8);
+	}
 
 }
 
@@ -96,8 +96,6 @@ void __init meson_init_gic_irq(void)
 #else
     gic_init(0,29,(void __iomem *)(IO_PERIPH_BASE+0x1000),(void __iomem *)(IO_PERIPH_BASE+0x100));
 #endif
-
-    aml_write_reg32(IO_PERIPH_BASE+0x100 +GIC_CPU_PRIMASK,0xff);
 
 #ifdef CONFIG_MESON_GIC_FIQ
 	init_FIQ(FIQ_START);
