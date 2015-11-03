@@ -800,6 +800,26 @@ static int gic_irq_domain_xlate(struct irq_domain *d,
 	return 0;
 }
 
+unsigned long gic_ack_fiq(void)
+{
+	struct gic_chip_data *gic = &gic_data[0];
+	void __iomem *cpu_base = gic_data_cpu_base(gic);
+	unsigned long irqno;
+
+	/* read intack with the priority mask set so we only acknowledge FIQs */
+	writel_relaxed(0x70, cpu_base + GIC_CPU_PRIMASK);
+	irqno = readl_relaxed(cpu_base + GIC_CPU_INTACK);
+	writel_relaxed(0xf0, cpu_base + GIC_CPU_PRIMASK);
+	return irqno;
+}
+
+void gic_eoi_fiq(unsigned long irqno)
+{
+	struct gic_chip_data *gic = &gic_data[0];
+
+	writel_relaxed(irqno, gic_data_cpu_base(gic) + GIC_CPU_EOI);
+}
+
 #ifdef CONFIG_SMP
 static int __cpuinit gic_secondary_init(struct notifier_block *nfb,
 					unsigned long action, void *hcpu)
