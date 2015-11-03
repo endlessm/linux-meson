@@ -57,6 +57,9 @@
 #include <mach/am_regs.h>
 #include <asm/fiq.h>
 
+extern unsigned long gic_ack_fiq(void);
+extern void gic_eoi_fiq(unsigned long irqno);
+
 char buffer[1000*16];
 int wptr;
 void notrace _fiq_print(enum fiq_debug_level dbg_lvl, volatile struct fiq_state *state, char *fmt, ...)
@@ -1132,7 +1135,7 @@ static int notrace noinline fiq_fsm_do_hcintr(struct fiq_state *state, int num_c
  *
  * Return: void
  */
-void notrace dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
+void notrace __dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 {
 	gintsts_data_t gintsts, gintsts_handled;
 	gintmsk_data_t gintmsk;
@@ -1237,6 +1240,14 @@ void notrace dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 	//mb();
 }
 
+/* FIQ C handler entry point */
+void notrace dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
+{
+	unsigned long irqno = gic_ack_fiq();
+	__dwc_otg_fiq_fsm(state, num_channels);
+	gic_eoi_fiq(irqno);
+}
+
 /**
  * dwc_otg_fiq_nop() - FIQ "lite"
  * @state:	pointer to state struct passed from the banked FIQ mode registers.
@@ -1323,7 +1334,7 @@ void fiq_isr_fake(unsigned int fiq)
 	state = dwc_otg_hcd->fiq_state;
 	if (fiq_fsm_enable) {
 		num_channels = dwc_otg_hcd->core_if->core_params->host_channels;
-		dwc_otg_fiq_fsm(state,num_channels);
+		__dwc_otg_fiq_fsm(state,num_channels);
 	} else {
 		dwc_otg_fiq_nop(state);
 	}
