@@ -798,8 +798,8 @@ static int vdec_src_queue_setup(struct vb2_queue *vq,
 
 	*nplanes = 1;
 
-	// FIXME is 512kb sensible?
-	sizes[0] = 512 * 1024;
+	// FIXME is 1mb sensible?
+	sizes[0] = 1024 * 1024;
 
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
