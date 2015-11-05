@@ -187,8 +187,10 @@ static void configure_v4l2_plane_fmt(struct vdec_ctx *ctx,
 	struct buffer_size_info buf_info;
 
 	mp->pixelformat = ctx->fmt->pixelformat;
-	mp->width = ctx->frame_width;
-	mp->height = ctx->frame_height;
+	if (ctx->frame_width)
+		mp->width = ctx->frame_width;
+        if (ctx->frame_height)
+		mp->height = ctx->frame_height;
 	mp->field = V4L2_FIELD_NONE;
 
 	get_buffer_size_info(ctx->fmt, mp->width, mp->height, &buf_info);
