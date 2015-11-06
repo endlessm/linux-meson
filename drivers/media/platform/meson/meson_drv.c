@@ -42,6 +42,9 @@
  * decoded frame data. Maybe it doesn't have to be contiguous. */
 #define VDEC_HW_BUF_SIZE	(64*1024*1024)
 
+/* This is the default encoded v4l2_buffer size */
+#define VDEC_ENCODED_BUF_SIZE   (1*1024*1024)
+
 static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "debug level (0-1)");
@@ -132,6 +135,7 @@ struct vdec_ctx {
 	 */
 	spinlock_t data_lock;
 
+	int src_bufs_size;
 	int src_bufs_cnt;
 	int dst_bufs_cnt;
 	struct vdec_buf src_bufs[VDEC_MAX_BUFFERS];
@@ -546,10 +550,13 @@ static int vidioc_try_fmt_vid_out(struct file *file, void *priv,
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_out\n");
 
-	/* FIXME: set sizeimage too? */
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix_mp.num_planes = 1;
 	f->fmt.pix_mp.plane_fmt[0].bytesperline = 0;
+
+        if (f->fmt.pix_mp.plane_fmt[0].sizeimage == 0)
+		f->fmt.pix_mp.plane_fmt[0].sizeimage = VDEC_ENCODED_BUF_SIZE;
+
 	return 0;
 }
 
@@ -576,11 +583,15 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 static int vidioc_s_fmt_vid_out(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
-	/* FIXME should check format */
-	// FIXME how does this hook up with the buffer sizes used in reqbufs? */
-	f->fmt.pix_mp.plane_fmt[0].sizeimage = 512 * 1024;
+	struct vdec_ctx *ctx = file2ctx(file);
+	int ret;
 
-	return 0;
+	ret = vidioc_try_fmt_vid_out (file, priv, f);
+
+	if (ret == 0)
+		ctx->src_bufs_size = f->fmt.pix_mp.plane_fmt[0].sizeimage;
+
+        return ret;
 }
 
 static int vidioc_reqbufs(struct file *file, void *priv,
@@ -801,8 +812,7 @@ static int vdec_src_queue_setup(struct vb2_queue *vq,
 
 	*nplanes = 1;
 
-	// FIXME is 512kb sensible?
-	sizes[0] = 512 * 1024;
+	sizes[0] = ctx->src_bufs_size;
 
 	alloc_ctxs[0] = ctx->dev->vb_alloc_ctx;
 
