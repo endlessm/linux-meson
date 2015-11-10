@@ -276,7 +276,7 @@ static const char *dma_config_name[] = {
 //Global variable to switch the fiq fix on or off
 bool fiq_enable = 1;
 // Global variable to enable the split transaction fix
-bool fiq_fsm_enable = true;
+bool fiq_fsm_enable = false;
 //Bulk split-transaction NAK holdoff in microframes
 uint16_t nak_holdoff = 8;
 

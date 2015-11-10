@@ -1293,17 +1293,16 @@ void notrace dwc_otg_fiq_nop(struct fiq_state *state)
 
 	/* We got an interrupt, didn't handle it and want to mask it */
 	if (~(state->gintmsk_saved.d32)) {
-		state->mphi_int_count++;
+//		state->mphi_int_count++;
 		gintmsk.d32 &= state->gintmsk_saved.d32;
 		FIQ_WRITE(state->dwc_regs_base + GINTMSK, gintmsk.d32);
 		/* Force a clear before another dummy send */
-		FIQ_WRITE(state->mphi_regs.intstat, (1<<29));
-		FIQ_WRITE(state->mphi_regs.outdda, (int) state->dummy_send);
-		FIQ_WRITE(state->mphi_regs.outddb, (1<<29));
-
+//		FIQ_WRITE(state->mphi_regs.intstat, (1<<29));
+//		FIQ_WRITE(state->mphi_regs.outdda, (int) state->dummy_send);
+//		FIQ_WRITE(state->mphi_regs.outddb, (1<<29));
+		state->fiq_done++;
+		WRITE_CBUS_REG(ISA_TIMERD, 1);
 	}
-	state->fiq_done++;
-	WRITE_CBUS_REG(ISA_TIMERD, 1);
 	//mb();
 }
 
