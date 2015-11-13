@@ -152,14 +152,6 @@
 		dev_name = "uart_3";
 	};
 
-	bt-dev {
-		compatible = "amlogic,bt-dev";
-		dev_name = "bt-dev";
-		status = "ok";
-		gpio_reset = "GPIOX_11";
-		gpio_en = "GPIOX_20";
-	};
-
 	wifi {
 		compatible = "amlogic,aml_broadcm_wifi";
 		dev_name = "aml_broadcm_wifi";
@@ -485,12 +477,6 @@
 	audio_spdif_codec {
 		compatible = "amlogic,aml-spdif-codec";
 		dev_name = "spdif-dit.0";
-		status = "okay";
-	};
-
-	audio_pcm2BT_codec {
-		compatible = "amlogic,pcm2BT-codec";
-		dev_name = "pcm2bt.0";
 		status = "okay";
 	};
 
