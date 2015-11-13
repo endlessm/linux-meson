@@ -37,7 +37,16 @@
 				algo = "crc32";
 			};
 		};
-
+		fdt@3 {
+			description = "Amlogic ATV185 Flattened Device Tree blob";
+			data = /incbin/("arch/arm/boot/dts/meson8b-atv185.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
 	};
 
 	configurations {
@@ -51,6 +60,11 @@
 			description = "Boot Endless EC100";
 			kernel = "kernel@1";
 			fdt = "fdt@2";
+		};
+		atv185 {
+			description = "Boot Endless ATV185";
+			kernel = "kernel@1";
+			fdt = "fdt@3";
 		};
 	};
 };
