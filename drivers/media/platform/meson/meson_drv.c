@@ -38,10 +38,6 @@
 /* This is used to store the encoded data */
 #define VDEC_ST_FIFO_SIZE	(3*1024*1024)
 
-/* FIXME: this is for the decoder, as a general buffer and also for the
- * decoded frame data. Maybe it doesn't have to be contiguous. */
-#define VDEC_HW_BUF_SIZE	(64*1024*1024)
-
 /* This is the default encoded v4l2_buffer size */
 #define VDEC_ENCODED_BUF_SIZE   (1*1024*1024)
 
@@ -1260,22 +1256,9 @@ static int meson_vdec_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dev->decoder_buf = dma_alloc_coherent(NULL, VDEC_HW_BUF_SIZE,
-					      &dev->decoder_buf_phys,
-					      GFP_KERNEL);
-	if (!dev->decoder_buf) {
-		dev_err(&pdev->dev, "Couldn't allocate decoder buffer\n");
-		ret = -ENOMEM;
-		goto image_exit;
-	}
-
-	vdec_set_resource(dev->decoder_buf_phys,
-			  dev->decoder_buf_phys + VDEC_HW_BUF_SIZE - 1,
-			  &pdev->dev);
-
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret)
-		goto free_buffer;
+		goto image_exit;
 
 	mutex_init(&dev->dev_mutex);
 
@@ -1320,9 +1303,6 @@ rel_vdev:
 	video_device_release(vfd);
 unreg_dev:
 	v4l2_device_unregister(&dev->v4l2_dev);
-free_buffer:
-	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, dev->decoder_buf,
-			  dev->decoder_buf_phys);
 image_exit:
 	vdec_image_exit(dev);
 
@@ -1339,8 +1319,6 @@ static int meson_vdec_remove(struct platform_device *pdev)
 	v4l2_m2m_release(dev->m2m_dev);
 	video_unregister_device(dev->vfd);
 	v4l2_device_unregister(&dev->v4l2_dev);
-	dma_free_coherent(NULL, VDEC_HW_BUF_SIZE, dev->decoder_buf,
-			  dev->decoder_buf_phys);
 	return 0;
 }
 
