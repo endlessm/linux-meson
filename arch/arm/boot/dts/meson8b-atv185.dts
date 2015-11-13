@@ -1,7 +1,7 @@
 /dts-v1/;
 /{
 	amlogic-dt-id = "m8b_m201_1G";
-	compatible = "endless,ec100", "AMLOGIC,8726_M8B";
+	compatible = "endless,atv185", "AMLOGIC,8726_M8B";
 	model = "AMLOGIC";
 	interrupt-parent = <&gic>;
 	#address-cells = <1>;
@@ -1018,15 +1018,6 @@
 		};
 	};
 
-	meson-eth {
-		compatible = "amlogic,meson-eth";
-		dev_name = "meson-eth";
-		status = "okay";
-		ethbaseaddr = <0xfe0c0000>;
-		interruptnum = <40>;
-		new_maclogic = <1>;
-	};
-
 	meson-rng{
 		compatible = "amlogic,meson-rng";
 		status = "ok";
@@ -1077,15 +1068,4 @@
 	codec {
 		compatible = "amlogic,meson8b-codec";
 	};
-
-	gpio_keys {
-		compatible = "endless,ec100-gpio-keys";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		pwr@1 {
-			linux,code = <116>; /* KEY_POWER */
-			gpio = "GPIOH_9";
-		};
-	};
-
 }; /* end of / */
