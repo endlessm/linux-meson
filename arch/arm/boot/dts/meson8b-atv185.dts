@@ -108,6 +108,7 @@
 
 	rtc {
 		compatible = "amlogic,aml_rtc";
+		sec_adjust = <0x6c7>;
 		status = "okay";
 	};
 
