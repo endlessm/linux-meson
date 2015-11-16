@@ -18,6 +18,7 @@ CONFIG_GPIO_SYSFS=y
 CONFIG_AM_WIFI=y
 CONFIG_AM_WIFI_SD_MMC=y
 CONFIG_RTL8723BS=m
+CONFIG_RTL8189ES=m
 
 # Config options for Amlogic M8B kernel
 # Tried to copy relevant settings from the vendor kernel, without actually
