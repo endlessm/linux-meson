@@ -23,6 +23,8 @@ struct mali_soft_system;
 /* Number of frame builder job lists per session. */
 #define MALI_PP_JOB_FB_LOOKUP_LIST_SIZE 16
 #define MALI_PP_JOB_FB_LOOKUP_LIST_MASK (MALI_PP_JOB_FB_LOOKUP_LIST_SIZE - 1)
+/*Max pending big job allowed in kernel*/
+#define MALI_MAX_PENDING_BIG_JOB (2)
 
 struct mali_session_data {
 	_mali_osk_notification_queue_t *ioctl_queue;
@@ -77,6 +79,7 @@ MALI_STATIC_INLINE void mali_session_unlock(void)
 void mali_session_add(struct mali_session_data *session);
 void mali_session_remove(struct mali_session_data *session);
 u32 mali_session_get_count(void);
+wait_queue_head_t *mali_session_get_wait_queue(void);
 
 #define MALI_SESSION_FOREACH(session, tmp, link) \
 	_MALI_OSK_LIST_FOREACHENTRY(session, tmp, &mali_sessions, struct mali_session_data, link)

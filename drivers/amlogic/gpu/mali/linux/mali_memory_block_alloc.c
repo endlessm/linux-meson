@@ -271,7 +271,7 @@ int mali_mem_block_mali_map(mali_mem_block_mem *block_mem, struct mali_session_d
 
 	list_for_each_entry(m_page, &block_mem->pfns, list) {
 		MALI_DEBUG_ASSERT(m_page->type == MALI_PAGE_NODE_BLOCK);
-		phys = _mali_page_node_get_phy_addr(m_page);
+		phys = _mali_page_node_get_dma_addr(m_page);
 #if defined(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 		/* Verify that the "physical" address is 32-bit and
 		 * usable for Mali, when on a system with bus addresses

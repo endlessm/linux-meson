@@ -164,6 +164,29 @@ int mem_cow_modify_range_wrapper(struct mali_session_data *session_data, _mali_u
 	return 0;
 }
 
+
+int mem_resize_mem_wrapper(struct mali_session_data *session_data, _mali_uk_mem_resize_s __user *uargs)
+{
+	_mali_uk_mem_resize_s kargs;
+	_mali_osk_errcode_t err;
+
+	MALI_CHECK_NON_NULL(uargs, -EINVAL);
+	MALI_CHECK_NON_NULL(session_data, -EINVAL);
+
+	if (0 != copy_from_user(&kargs, uargs, sizeof(_mali_uk_mem_resize_s))) {
+		return -EFAULT;
+	}
+	kargs.ctx = (uintptr_t)session_data;
+
+	err = _mali_ukk_mem_resize(&kargs);
+
+	if (_MALI_OSK_ERR_OK != err) {
+		return map_errcode(err);
+	}
+
+	return 0;
+}
+
 int mem_write_safe_wrapper(struct mali_session_data *session_data, _mali_uk_mem_write_safe_s __user *uargs)
 {
 	_mali_uk_mem_write_safe_s kargs;

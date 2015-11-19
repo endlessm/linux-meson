@@ -34,6 +34,8 @@
 #include "mali_memory_virtual.h"
 #include "mali_memory_cow.h"
 #include "mali_memory_block_alloc.h"
+#include "mali_memory_swap_alloc.h"
+
 
 
 /**
@@ -65,7 +67,7 @@ static u32 _mali_free_allocation_mem(mali_mem_allocation *mali_alloc)
 		mali_mem_unbind_ump_buf(mem_bkend);
 		atomic_sub(mem_bkend->size / MALI_MMU_PAGE_SIZE, &session->mali_mem_array[mem_bkend->type]);
 #else
-		MALI_DEBUG_PRINT(2, ("DMA not supported\n"));
+		MALI_DEBUG_PRINT(2, ("UMP not supported\n"));
 #endif
 		break;
 	case MALI_MEM_DMA_BUF:
@@ -87,8 +89,17 @@ static u32 _mali_free_allocation_mem(mali_mem_allocation *mali_alloc)
 		break;
 
 	case MALI_MEM_COW:
-		free_pages_nr = mali_mem_cow_release(mem_bkend, MALI_TRUE);
+		if (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED) {
+			free_pages_nr = mali_mem_swap_release(mem_bkend, MALI_TRUE);
+		} else {
+			free_pages_nr = mali_mem_cow_release(mem_bkend, MALI_TRUE);
+		}
 		atomic_sub(free_pages_nr, &session->mali_mem_allocated_pages);
+		break;
+	case MALI_MEM_SWAP:
+		free_pages_nr = mali_mem_swap_release(mem_bkend, MALI_TRUE);
+		atomic_sub(free_pages_nr, &session->mali_mem_allocated_pages);
+		atomic_sub(free_pages_nr, &session->mali_mem_array[mem_bkend->type]);
 		break;
 	default:
 		MALI_DEBUG_PRINT(1, ("mem type %d is not in the mali_mem_type enum.\n", mem_bkend->type));

@@ -39,6 +39,8 @@ _mali_osk_errcode_t mali_memory_cow_os_memory(mali_mem_backend *target_bk,
 		u32 range_start,
 		u32 range_size);
 
+void _mali_mem_cow_copy_page(mali_page_node *src_node, mali_page_node *dst_node);
+
 int mali_mem_cow_mali_map(mali_mem_backend *mem_bkend, u32 range_start, u32 range_size);
 u32 mali_mem_cow_release(mali_mem_backend *mem_bkend, mali_bool is_mali_mapped);
 _mali_osk_errcode_t mali_mem_cow_allocate_on_demand(mali_mem_backend *mem_bkend, u32 offset_page);

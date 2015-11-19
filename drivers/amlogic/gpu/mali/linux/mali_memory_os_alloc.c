@@ -47,18 +47,7 @@ static unsigned long mali_mem_os_shrink_count(struct shrinker *shrinker, struct 
 #endif
 static void mali_mem_os_trim_pool(struct work_struct *work);
 
-static struct mali_mem_os_allocator {
-	spinlock_t pool_lock;
-	struct list_head pool_pages;
-	size_t pool_count;
-
-	atomic_t allocated_pages;
-	size_t allocation_limit;
-
-	struct shrinker shrinker;
-	struct delayed_work timed_shrinker;
-	struct workqueue_struct *wq;
-} mali_mem_os_allocator = {
+struct mali_mem_os_allocator mali_mem_os_allocator = {
 	.pool_lock = __SPIN_LOCK_UNLOCKED(pool_lock),
 	.pool_pages = LIST_HEAD_INIT(mali_mem_os_allocator.pool_pages),
 	.pool_count = 0,
@@ -139,6 +128,31 @@ _mali_osk_errcode_t mali_mem_os_put_page(struct page *page)
 	return _MALI_OSK_ERR_OK;
 }
 
+_mali_osk_errcode_t mali_mem_os_resize_pages(mali_mem_os_mem *mem_from, mali_mem_os_mem *mem_to, u32 start_page, u32 page_count)
+{
+	struct mali_page_node *m_page, *m_tmp;
+	u32 i = 0;
+
+	MALI_DEBUG_ASSERT_POINTER(mem_from);
+	MALI_DEBUG_ASSERT_POINTER(mem_to);
+
+	if (mem_from->count < start_page + page_count) {
+		return _MALI_OSK_ERR_INVALID_ARGS;
+	}
+
+	list_for_each_entry_safe(m_page, m_tmp, &mem_from->pages, list) {
+		if (i >= start_page && i < start_page + page_count) {
+			list_move_tail(&m_page->list, &mem_to->pages);
+			mem_from->count--;
+			mem_to->count++;
+		}
+		i++;
+	}
+
+	return _MALI_OSK_ERR_OK;
+}
+
+
 int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 {
 	struct page *new_page;
@@ -192,11 +206,17 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 #if defined(CONFIG_ARM) && !defined(CONFIG_ARM_LPAE)
 		flags |= GFP_HIGHUSER;
 #else
-		/* After 3.15.0 kernel use ZONE_DMA replace ZONE_DMA32 */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0)
+#ifdef CONFIG_ZONE_DMA32
 		flags |= GFP_DMA32;
 #else
+#ifdef CONFIG_ZONE_DMA
 		flags |= GFP_DMA;
+#else
+		/* arm64 utgard only work on < 4G, but the kernel
+		 * didn't provide method to allocte memory < 4G
+		 */
+		MALI_DEBUG_ASSERT(0);
+#endif
 #endif
 #endif
 
@@ -257,33 +277,62 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 }
 
 
-void mali_mem_os_mali_map(mali_mem_backend *mem_bkend, u32 vaddr, u32 props)
+_mali_osk_errcode_t mali_mem_os_mali_map(mali_mem_os_mem *os_mem, struct mali_session_data *session, u32 vaddr, u32 start_page, u32 mapping_pgae_num, u32 props)
 {
-	struct mali_session_data *session;
-	struct mali_page_directory *pagedir;
+	struct mali_page_directory *pagedir = session->page_directory;
 	struct mali_page_node *m_page;
-	u32 virt = vaddr;
+	u32 virt;
 	u32 prop = props;
 
-	MALI_DEBUG_ASSERT_POINTER(mem_bkend);
-	MALI_DEBUG_ASSERT_POINTER(mem_bkend->mali_allocation);
-
-	session = mem_bkend->mali_allocation->session;
 	MALI_DEBUG_ASSERT_POINTER(session);
-	pagedir = session->page_directory;
+	MALI_DEBUG_ASSERT_POINTER(os_mem);
 
-	list_for_each_entry(m_page, &mem_bkend->os_mem.pages, list) {
-		dma_addr_t phys = page_private(m_page->page);
+	MALI_DEBUG_ASSERT(start_page <= os_mem->count);
+	MALI_DEBUG_ASSERT((start_page + mapping_pgae_num) <= os_mem->count);
+
+	if ((start_page + mapping_pgae_num) == os_mem->count) {
+
+		virt = vaddr + MALI_MMU_PAGE_SIZE * (start_page + mapping_pgae_num);
+
+		list_for_each_entry_reverse(m_page, &os_mem->pages, list) {
+
+			virt -= MALI_MMU_PAGE_SIZE;
+			if (mapping_pgae_num > 0) {
+				dma_addr_t phys = page_private(m_page->page);
+#if defined(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+				/* Verify that the "physical" address is 32-bit and
+				* usable for Mali, when on a system with bus addresses
+				* wider than 32-bit. */
+				MALI_DEBUG_ASSERT(0 == (phys >> 32));
+#endif
+				mali_mmu_pagedir_update(pagedir, virt, (mali_dma_addr)phys, MALI_MMU_PAGE_SIZE, prop);
+			} else {
+				break;
+			}
+			mapping_pgae_num--;
+		}
+
+	} else {
+		u32 i = 0;
+		virt = vaddr;
+		list_for_each_entry(m_page, &os_mem->pages, list) {
+
+			if (i >= start_page) {
+				dma_addr_t phys = page_private(m_page->page);
 
 #if defined(CONFIG_ARCH_DMA_ADDR_T_64BIT)
-		/* Verify that the "physical" address is 32-bit and
-		 * usable for Mali, when on a system with bus addresses
-		 * wider than 32-bit. */
-		MALI_DEBUG_ASSERT(0 == (phys >> 32));
+				/* Verify that the "physical" address is 32-bit and
+				* usable for Mali, when on a system with bus addresses
+				* wider than 32-bit. */
+				MALI_DEBUG_ASSERT(0 == (phys >> 32));
 #endif
-		mali_mmu_pagedir_update(pagedir, virt, (mali_dma_addr)phys, MALI_MMU_PAGE_SIZE, prop);
-		virt += MALI_MMU_PAGE_SIZE;
+				mali_mmu_pagedir_update(pagedir, virt, (mali_dma_addr)phys, MALI_MMU_PAGE_SIZE, prop);
+			}
+			i++;
+			virt += MALI_MMU_PAGE_SIZE;
+		}
 	}
+	return _MALI_OSK_ERR_OK;
 }
 
 
@@ -326,6 +375,76 @@ int mali_mem_os_cpu_map(mali_mem_backend *mem_bkend, struct vm_area_struct *vma)
 	return 0;
 }
 
+_mali_osk_errcode_t mali_mem_os_resize_cpu_map_locked(mali_mem_backend *mem_bkend, struct vm_area_struct *vma, unsigned long start_vaddr, u32 mappig_size)
+{
+	mali_mem_os_mem *os_mem = &mem_bkend->os_mem;
+	struct mali_page_node *m_page;
+	int ret;
+	int offset;
+	int mapping_page_num;
+	int count ;
+
+	unsigned long vstart = vma->vm_start;
+	count = 0;
+	MALI_DEBUG_ASSERT(mem_bkend->type == MALI_MEM_OS);
+	MALI_DEBUG_ASSERT(0 == start_vaddr % _MALI_OSK_MALI_PAGE_SIZE);
+	MALI_DEBUG_ASSERT(0 == vstart % _MALI_OSK_MALI_PAGE_SIZE);
+	offset = (start_vaddr - vstart) / _MALI_OSK_MALI_PAGE_SIZE;
+	MALI_DEBUG_ASSERT(offset <= os_mem->count);
+	mapping_page_num = mappig_size / _MALI_OSK_MALI_PAGE_SIZE;
+	MALI_DEBUG_ASSERT((offset + mapping_page_num) <= os_mem->count);
+
+	if ((offset + mapping_page_num) == os_mem->count) {
+
+		unsigned long vm_end = start_vaddr + mappig_size;
+
+		list_for_each_entry_reverse(m_page, &os_mem->pages, list) {
+
+			vm_end -= _MALI_OSK_MALI_PAGE_SIZE;
+			if (mapping_page_num > 0) {
+				ret = vm_insert_pfn(vma, vm_end, page_to_pfn(m_page->page));
+
+				if (unlikely(0 != ret)) {
+					/*will return -EBUSY If the page has already been mapped into table, but it's OK*/
+					if (-EBUSY == ret) {
+						break;
+					} else {
+						MALI_DEBUG_PRINT(1, ("OS Mem: mali_mem_os_resize_cpu_map_locked failed, ret = %d, offset is %d,page_count is %d\n",
+								     ret,  offset + mapping_page_num, os_mem->count));
+					}
+					return _MALI_OSK_ERR_FAULT;
+				}
+			} else {
+				break;
+			}
+			mapping_page_num--;
+
+		}
+	} else {
+
+		list_for_each_entry(m_page, &os_mem->pages, list) {
+			if (count >= offset) {
+
+				ret = vm_insert_pfn(vma, vstart, page_to_pfn(m_page->page));
+
+				if (unlikely(0 != ret)) {
+					/*will return -EBUSY If the page has already been mapped into table, but it's OK*/
+					if (-EBUSY == ret) {
+						break;
+					} else {
+						MALI_DEBUG_PRINT(1, ("OS Mem: mali_mem_os_resize_cpu_map_locked failed, ret = %d, count is %d, offset is %d,page_count is %d\n",
+								     ret, count, offset, os_mem->count));
+					}
+					return _MALI_OSK_ERR_FAULT;
+				}
+			}
+			count++;
+			vstart += _MALI_OSK_MALI_PAGE_SIZE;
+		}
+	}
+	return _MALI_OSK_ERR_OK;
+}
+
 u32 mali_mem_os_release(mali_mem_backend *mem_bkend)
 {
 
@@ -341,7 +460,7 @@ u32 mali_mem_os_release(mali_mem_backend *mem_bkend)
 	mali_mem_os_mali_unmap(alloc);
 	mutex_lock(&mem_bkend->mutex);
 	/* Free pages */
-	if (MALI_MEM_BACKEND_FLAG_COWED & mem_bkend->cow_flag) {
+	if (MALI_MEM_BACKEND_FLAG_COWED & mem_bkend->flags) {
 		free_pages_nr = mali_mem_os_free(&mem_bkend->os_mem.pages, mem_bkend->os_mem.count, MALI_TRUE);
 	} else {
 		free_pages_nr = mali_mem_os_free(&mem_bkend->os_mem.pages, mem_bkend->os_mem.count, MALI_FALSE);

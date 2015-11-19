@@ -28,7 +28,8 @@
 #include "mali_memory_virtual.h"
 #include "mali_memory_manager.h"
 #include "mali_memory_cow.h"
-
+#include "mali_memory_swap_alloc.h"
+#include "mali_memory_defer_bind.h"
 
 extern unsigned int mali_dedicated_mem_size;
 extern unsigned int mali_shared_mem_size;
@@ -39,7 +40,7 @@ static void mali_mem_vma_open(struct vm_area_struct *vma)
 {
 	mali_mem_allocation *alloc = (mali_mem_allocation *)vma->vm_private_data;
 	MALI_DEBUG_PRINT(4, ("Open called on vma %p\n", vma));
-	alloc->cpu_mapping.vma = vma;
+
 	/* If need to share the allocation, add ref_count here */
 	mali_allocation_ref(alloc);
 	return;
@@ -48,8 +49,7 @@ static void mali_mem_vma_close(struct vm_area_struct *vma)
 {
 	/* If need to share the allocation, unref ref_count here */
 	mali_mem_allocation *alloc = (mali_mem_allocation *)vma->vm_private_data;
-	alloc->cpu_mapping.addr = 0;
-	alloc->cpu_mapping.vma = NULL;
+
 	mali_allocation_unref(&alloc);
 	vma->vm_private_data = NULL;
 }
@@ -63,7 +63,6 @@ static int mali_mem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	unsigned long address = (unsigned long)vmf->virtual_address;
 	MALI_DEBUG_ASSERT(alloc->backend_handle);
-	MALI_DEBUG_ASSERT(alloc->cpu_mapping.vma == vma);
 	MALI_DEBUG_ASSERT((unsigned long)alloc->cpu_mapping.addr <= address);
 
 	/* Get backend memory & Map on CPU */
@@ -76,32 +75,49 @@ static int mali_mem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	mutex_unlock(&mali_idr_mutex);
 	MALI_DEBUG_ASSERT(mem_bkend->type == alloc->type);
 
-	if (mem_bkend->type == MALI_MEM_COW) {
+	if ((mem_bkend->type == MALI_MEM_COW && (MALI_MEM_BACKEND_FLAG_SWAP_COWED !=
+			(mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED))) &&
+	    (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_COW_CPU_NO_WRITE)) {
 		/*check if use page fault to do COW*/
-		if (mem_bkend->cow_flag & MALI_MEM_BACKEND_FLAG_COW_CPU_NO_WRITE) {
-			MALI_DEBUG_PRINT(4, ("mali_vma_fault: do cow allocate on demand!, address=0x%x\n", address));
-			mutex_lock(&mem_bkend->mutex);
-			ret = mali_mem_cow_allocate_on_demand(mem_bkend,
-							      (address - (unsigned long)alloc->cpu_mapping.addr) / PAGE_SIZE);
-			mutex_unlock(&mem_bkend->mutex);
-			if (ret != _MALI_OSK_ERR_OK) {
-				return VM_FAULT_OOM;
-			}
-			prefetch_num = 1;
+		MALI_DEBUG_PRINT(4, ("mali_vma_fault: do cow allocate on demand!, address=0x%x\n", address));
+		mutex_lock(&mem_bkend->mutex);
+		ret = mali_mem_cow_allocate_on_demand(mem_bkend,
+						      (address - vma->vm_start) / PAGE_SIZE);
+		mutex_unlock(&mem_bkend->mutex);
+
+		if (ret != _MALI_OSK_ERR_OK) {
+			return VM_FAULT_OOM;
 		}
+		prefetch_num = 1;
 
 		/* handle COW modified range cpu mapping
 		 we zap the mapping in cow_modify_range, it will trigger page fault
 		 when CPU access it, so here we map it to CPU*/
 		mutex_lock(&mem_bkend->mutex);
-		ret = mali_mem_cow_cpu_map_pages_locked(mem_bkend,
-							vma,
-							address,
-							prefetch_num);
+		ret = mali_mem_cow_cpu_map_pages_locked(mem_bkend, vma, address, prefetch_num);
 		mutex_unlock(&mem_bkend->mutex);
 
 		if (unlikely(ret != _MALI_OSK_ERR_OK)) {
 			return VM_FAULT_SIGBUS;
+		}
+	} else if ((mem_bkend->type == MALI_MEM_SWAP) ||
+		   (mem_bkend->type == MALI_MEM_COW && (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED))) {
+		u32 offset_in_bkend = (address - vma->vm_start) / PAGE_SIZE;
+		int ret = _MALI_OSK_ERR_OK;
+
+		mutex_lock(&mem_bkend->mutex);
+		if (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_COW_CPU_NO_WRITE) {
+			ret = mali_mem_swap_cow_page_on_demand(mem_bkend, offset_in_bkend, &vmf->page);
+		} else {
+			ret = mali_mem_swap_allocate_page_on_demand(mem_bkend, offset_in_bkend, &vmf->page);
+		}
+		mutex_unlock(&mem_bkend->mutex);
+
+		if (ret != _MALI_OSK_ERR_OK) {
+			MALI_DEBUG_PRINT(2, ("Mali swap memory page fault process failed, address=0x%x\n", address));
+			return VM_FAULT_OOM;
+		} else {
+			return VM_FAULT_LOCKED;
 		}
 	} else {
 		MALI_DEBUG_ASSERT(0);
@@ -147,24 +163,8 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 			     (unsigned int)vma->vm_start, (unsigned int)(vma->vm_pgoff << PAGE_SHIFT),
 			     (unsigned int)(vma->vm_end - vma->vm_start), vma->vm_flags));
 
-	/* Set some bits which indicate that, the memory is IO memory, meaning
-	 * that no paging is to be performed and the memory should not be
-	 * included in crash dumps. And that the memory is reserved, meaning
-	 * that it's present and can never be paged out (see also previous
-	 * entry)
-	 */
-	vma->vm_flags |= VM_IO;
-	vma->vm_flags |= VM_DONTCOPY;
-	vma->vm_flags |= VM_PFNMAP;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)
-	vma->vm_flags |= VM_RESERVED;
-#else
-	vma->vm_flags |= VM_DONTDUMP;
-	vma->vm_flags |= VM_DONTEXPAND;
-#endif
-
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-	vma->vm_ops = &mali_kernel_vm_ops;
+	/* Operations used on any memory system */
+	/* do not need to anything in vm open/close now */
 
 	/* find mali allocation structure by vaddress*/
 	mali_vma_node = mali_vma_offset_search(&session->allocation_mgr, mali_addr, 0);
@@ -173,6 +173,7 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 		MALI_DEBUG_ASSERT(mali_addr == mali_vma_node->vm_node.start);
 		if (unlikely(mali_addr != mali_vma_node->vm_node.start)) {
 			/* only allow to use start address for mmap */
+			MALI_DEBUG_PRINT(1, ("mali_addr != mali_vma_node->vm_node.start\n"));
 			return -EFAULT;
 		}
 	} else {
@@ -181,6 +182,11 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	mali_alloc->cpu_mapping.addr = (void __user *)vma->vm_start;
+
+	if (mali_alloc->flags & _MALI_MEMORY_ALLOCATE_DEFER_BIND) {
+		MALI_DEBUG_PRINT(1, ("ERROR : trying to access varying memory by CPU!\n"));
+		return -EFAULT;
+	}
 
 	/* Get backend memory & Map on CPU */
 	mutex_lock(&mali_idr_mutex);
@@ -191,6 +197,32 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	mutex_unlock(&mali_idr_mutex);
 
+	if (!(MALI_MEM_SWAP == mali_alloc->type ||
+	      (MALI_MEM_COW == mali_alloc->type && (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED)))) {
+		/* Set some bits which indicate that, the memory is IO memory, meaning
+		 * that no paging is to be performed and the memory should not be
+		 * included in crash dumps. And that the memory is reserved, meaning
+		 * that it's present and can never be paged out (see also previous
+		 * entry)
+		 */
+		vma->vm_flags |= VM_IO;
+		vma->vm_flags |= VM_DONTCOPY;
+		vma->vm_flags |= VM_PFNMAP;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0)
+		vma->vm_flags |= VM_RESERVED;
+#else
+		vma->vm_flags |= VM_DONTDUMP;
+		vma->vm_flags |= VM_DONTEXPAND;
+#endif
+	} else if (MALI_MEM_SWAP == mali_alloc->type) {
+		vma->vm_pgoff = mem_bkend->start_idx;
+	}
+
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_ops = &mali_kernel_vm_ops;
+
+	mali_alloc->cpu_mapping.addr = (void __user *)vma->vm_start;
+
 	/* If it's a copy-on-write mapping, map to read only */
 	if (!(vma->vm_flags & VM_WRITE)) {
 		MALI_DEBUG_PRINT(4, ("mmap allocation with read only !\n"));
@@ -198,28 +230,36 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 		vma->vm_flags |= VM_WRITE | VM_READ;
 		vma->vm_page_prot = PAGE_READONLY;
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-		mem_bkend->cow_flag |= MALI_MEM_BACKEND_FLAG_COW_CPU_NO_WRITE;
+		mem_bkend->flags |= MALI_MEM_BACKEND_FLAG_COW_CPU_NO_WRITE;
 		goto out;
 	}
 
 	if (mem_bkend->type == MALI_MEM_OS) {
 		ret = mali_mem_os_cpu_map(mem_bkend, vma);
-	} else if (mem_bkend->type == MALI_MEM_COW) {
+	} else if (mem_bkend->type == MALI_MEM_COW &&
+		   (MALI_MEM_BACKEND_FLAG_SWAP_COWED != (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED))) {
 		ret = mali_mem_cow_cpu_map(mem_bkend, vma);
 	} else if (mem_bkend->type == MALI_MEM_BLOCK) {
 		ret = mali_mem_block_cpu_map(mem_bkend, vma);
+	} else if ((mem_bkend->type == MALI_MEM_SWAP) || (mem_bkend->type == MALI_MEM_COW &&
+			(MALI_MEM_BACKEND_FLAG_SWAP_COWED == (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED)))) {
+		/*For swappable memory, CPU page table will be created by page fault handler. */
+		ret = 0;
 	} else {
 		/* Not support yet*/
 		MALI_DEBUG_ASSERT(0);
 	}
 
-	if (ret != 0)
+	if (ret != 0) {
+		MALI_DEBUG_PRINT(1, ("ret != 0\n"));
 		return -EFAULT;
+	}
 out:
 	MALI_DEBUG_ASSERT(MALI_MEM_ALLOCATION_VALID_MAGIC == mali_alloc->magic);
 
 	vma->vm_private_data = (void *)mali_alloc;
 	mali_alloc->cpu_mapping.vma = vma;
+
 	mali_allocation_ref(mali_alloc);
 
 	return 0;
@@ -241,6 +281,23 @@ _mali_osk_errcode_t mali_mem_mali_map_prepare(mali_mem_allocation *descriptor)
 	return mali_mmu_pagedir_map(session->page_directory, descriptor->mali_vma_node.vm_node.start, size);
 }
 
+_mali_osk_errcode_t mali_mem_mali_map_resize(mali_mem_allocation *descriptor, u32 new_size)
+{
+	u32 old_size = descriptor->psize;
+	struct mali_session_data *session = descriptor->session;
+
+	MALI_DEBUG_ASSERT(MALI_MEM_ALLOCATION_VALID_MAGIC == descriptor->magic);
+
+	if (descriptor->flags & MALI_MEM_FLAG_MALI_GUARD_PAGE) {
+		new_size  += MALI_MMU_PAGE_SIZE;
+	}
+
+	if (new_size > old_size) {
+		MALI_DEBUG_ASSERT(new_size <= descriptor->mali_vma_node.vm_node.size);
+		return mali_mmu_pagedir_map(session->page_directory, descriptor->mali_vma_node.vm_node.start + old_size, new_size - old_size);
+	}
+	return _MALI_OSK_ERR_OK;
+}
 
 void mali_mem_mali_map_free(struct mali_session_data *session, u32 size, mali_address_t vaddr, u32 flags)
 {
@@ -286,7 +343,6 @@ _mali_osk_errcode_t mali_memory_session_begin(struct mali_session_data *session_
 				    _MALI_OSK_LOCK_ORDER_MEM_SESSION);
 
 	if (NULL == session_data->memory_lock) {
-		_mali_osk_free(session_data);
 		MALI_ERROR(_MALI_OSK_ERR_FAULT);
 	}
 
@@ -317,13 +373,27 @@ void mali_memory_session_end(struct mali_session_data *session)
 
 _mali_osk_errcode_t mali_memory_initialize(void)
 {
+	_mali_osk_errcode_t err;
+
 	idr_init(&mali_backend_idr);
 	mutex_init(&mali_idr_mutex);
-	return mali_mem_os_init();
+
+	err = mali_mem_swap_init();
+	if (err != _MALI_OSK_ERR_OK) {
+		return err;
+	}
+	err = mali_mem_os_init();
+	if (_MALI_OSK_ERR_OK == err) {
+		err = mali_mem_defer_bind_manager_init();
+	}
+
+	return err;
 }
 
 void mali_memory_terminate(void)
 {
+	mali_mem_swap_term();
+	mali_mem_defer_bind_manager_destory();
 	mali_mem_os_term();
 	if (mali_memory_have_dedicated_memory()) {
 		mali_mem_block_allocator_destroy();
@@ -353,6 +423,8 @@ void _mali_page_node_ref(struct mali_page_node *node)
 		get_page(node->page);
 	} else if (node->type == MALI_PAGE_NODE_BLOCK) {
 		mali_mem_block_add_ref(node);
+	} else if (node->type == MALI_PAGE_NODE_SWAP) {
+		atomic_inc(&node->swap_it->ref_count);
 	} else
 		MALI_DEBUG_ASSERT(0);
 }
@@ -376,6 +448,12 @@ void _mali_page_node_add_page(struct mali_page_node *node, struct page *page)
 }
 
 
+void _mali_page_node_add_swap_item(struct mali_page_node *node, struct mali_swap_item *item)
+{
+	MALI_DEBUG_ASSERT(MALI_PAGE_NODE_SWAP == node->type);
+	node->swap_it = item;
+}
+
 void _mali_page_node_add_block_item(struct mali_page_node *node, mali_block_item *item)
 {
 	MALI_DEBUG_ASSERT(MALI_PAGE_NODE_BLOCK == node->type);
@@ -390,6 +468,8 @@ int _mali_page_node_get_ref_count(struct mali_page_node *node)
 		return page_count(node->page);
 	} else if (node->type == MALI_PAGE_NODE_BLOCK) {
 		return mali_mem_block_get_ref_count(node);
+	} else if (node->type == MALI_PAGE_NODE_SWAP) {
+		return atomic_read(&node->swap_it->ref_count);
 	} else {
 		MALI_DEBUG_ASSERT(0);
 	}
@@ -397,12 +477,14 @@ int _mali_page_node_get_ref_count(struct mali_page_node *node)
 }
 
 
-dma_addr_t _mali_page_node_get_phy_addr(struct mali_page_node *node)
+dma_addr_t _mali_page_node_get_dma_addr(struct mali_page_node *node)
 {
 	if (node->type == MALI_PAGE_NODE_OS) {
 		return page_private(node->page);
 	} else if (node->type == MALI_PAGE_NODE_BLOCK) {
 		return _mali_blk_item_get_phy_addr(node->blk_it);
+	} else if (node->type == MALI_PAGE_NODE_SWAP) {
+		return node->swap_it->dma_addr;
 	} else {
 		MALI_DEBUG_ASSERT(0);
 	}
@@ -417,6 +499,8 @@ unsigned long _mali_page_node_get_pfn(struct mali_page_node *node)
 	} else if (node->type == MALI_PAGE_NODE_BLOCK) {
 		/* get phy addr for BLOCK page*/
 		return _mali_blk_item_get_pfn(node->blk_it);
+	} else if (node->type == MALI_PAGE_NODE_SWAP) {
+		return page_to_pfn(node->swap_it->page);
 	} else {
 		MALI_DEBUG_ASSERT(0);
 	}

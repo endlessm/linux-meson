@@ -39,12 +39,14 @@
 #include "mali_memory.h"
 #include "mali_memory_dma_buf.h"
 #include "mali_memory_manager.h"
+#include "mali_memory_swap_alloc.h"
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
 #include "mali_profiling_internal.h"
 #endif
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 #include "mali_osk_profiling.h"
 #include "mali_dvfs_policy.h"
+
 static int is_first_resume = 1;
 /*Store the clk and vol for boot/insmod and mali_resume*/
 static struct mali_gpu_clk_item mali_gpu_clk[2];
@@ -107,6 +109,10 @@ MODULE_PARM_DESC(mali_max_pp_cores_group_1, "Limit the number of PP cores to use
 extern int mali_max_pp_cores_group_2;
 module_param(mali_max_pp_cores_group_2, int, S_IRUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mali_max_pp_cores_group_2, "Limit the number of PP cores to use from second PP group (Mali-450 only).");
+
+extern unsigned int mali_mem_swap_out_threshold_value;
+module_param(mali_mem_swap_out_threshold_value, uint, S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mali_mem_swap_out_threshold_value, "Threshold value used to limit how much swappable memory cached in Mali driver.");
 
 #if defined(CONFIG_MALI_DVFS)
 /** the max fps the same as display vsync default 60, can set by module insert parameter */
@@ -205,7 +211,7 @@ static struct of_device_id base_dt_ids[] = {
 	{.compatible = "arm,mali-300"},
 	{.compatible = "arm,mali-400"},
 	{.compatible = "arm,mali-450"},
-	{.compatible = "arm,mali-utgard"},
+	{.compatible = "arm,mali-470"},
 	{},
 };
 
@@ -674,6 +680,8 @@ static int mali_open(struct inode *inode, struct file *filp)
 	/* link in our session data */
 	filp->private_data = (void *)session_data;
 
+	filp->f_mapping = mali_mem_swap_get_global_swap_file()->f_mapping;
+
 	return 0;
 }
 
@@ -774,6 +782,11 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		err = request_high_priority_wrapper(session_data, (_mali_uk_request_high_priority_s __user *)arg);
 		break;
 
+	case MALI_IOC_PENDING_SUBMIT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_pending_submit_s), sizeof(u64)));
+		err = pending_submit_wrapper(session_data, (_mali_uk_pending_submit_s __user *)arg);
+		break;
+
 #if defined(CONFIG_MALI400_PROFILING)
 	case MALI_IOC_PROFILING_ADD_EVENT:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_add_event_s), sizeof(u64)));
@@ -783,6 +796,16 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 	case MALI_IOC_PROFILING_REPORT_SW_COUNTERS:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_sw_counters_report_s), sizeof(u64)));
 		err = profiling_report_sw_counters_wrapper(session_data, (_mali_uk_sw_counters_report_s __user *)arg);
+		break;
+
+	case MALI_IOC_PROFILING_STREAM_FD_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_stream_fd_get_s), sizeof(u64)));
+		err = profiling_get_stream_fd_wrapper(session_data, (_mali_uk_profiling_stream_fd_get_s __user *)arg);
+		break;
+
+	case MALI_IOC_PROILING_CONTROL_SET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_control_set_s), sizeof(u64)));
+		err = profiling_control_set_wrapper(session_data, (_mali_uk_profiling_control_set_s __user *)arg);
 		break;
 #else
 
@@ -826,6 +849,11 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 	case MALI_IOC_MEM_COW_MODIFY_RANGE:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_cow_modify_range_s), sizeof(u64)));
 		err = mem_cow_modify_range_wrapper(session_data, (_mali_uk_cow_modify_range_s __user *)arg);
+		break;
+
+	case MALI_IOC_MEM_RESIZE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_mem_resize_s), sizeof(u64)));
+		err = mem_resize_mem_wrapper(session_data, (_mali_uk_mem_resize_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_WRITE_SAFE:

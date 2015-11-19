@@ -271,6 +271,11 @@ _mali_osk_errcode_t _mali_ukk_get_user_setting(_mali_uk_get_user_setting_s *args
  */
 _mali_osk_errcode_t _mali_ukk_request_high_priority(_mali_uk_request_high_priority_s *args);
 
+/** @brief Make process sleep if the pending big job in kernel  >= MALI_MAX_PENDING_BIG_JOB
+ *
+ */
+_mali_osk_errcode_t _mali_ukk_pending_submit(_mali_uk_pending_submit_s *args);
+
 /** @} */ /* end group _mali_uk_core */
 
 
@@ -483,6 +488,18 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
  * @param args see _mali_uk_profiling_add_event_s in "mali_utgard_uk_types.h"
  */
 _mali_osk_errcode_t _mali_ukk_profiling_add_event(_mali_uk_profiling_add_event_s *args);
+
+/** @brief Get profiling stream fd.
+ *
+ * @param args see _mali_uk_profiling_stream_fd_get_s in "mali_utgard_uk_types.h"
+ */
+_mali_osk_errcode_t _mali_ukk_profiling_stream_fd_get(_mali_uk_profiling_stream_fd_get_s *args);
+
+/** @brief Profiling control set.
+ *
+ * @param args see _mali_uk_profiling_control_set_s in "mali_utgard_uk_types.h"
+ */
+_mali_osk_errcode_t _mali_ukk_profiling_control_set(_mali_uk_profiling_control_set_s *args);
 
 /** @} */ /* end group _mali_uk_profiling */
 #endif
