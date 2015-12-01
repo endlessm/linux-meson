@@ -508,10 +508,6 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
                 card->ext_csd.rst_n_function |= EXT_CSD_RST_N_ENABLED;
             }
         }
-        else{
-            pr_err("###check hw reset function is already enabled here\n");          
-
-        }
 
 		/*
 		 * RPMB regions are defined in multiples of 128K.
