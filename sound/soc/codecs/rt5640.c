@@ -1899,9 +1899,11 @@ static const struct snd_soc_dapm_widget rt5640_dapm_widgets[] = {
 		RT5640_PWR_IN_L_BIT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("INR VOL", RT5640_PWR_VOL,
 		RT5640_PWR_IN_R_BIT, 0, NULL, 0),
+#if 0
 	/* IN Mux */
 	SND_SOC_DAPM_MUX("INL Mux", SND_SOC_NOPM, 0, 0, &rt5640_inl_mux),
 	SND_SOC_DAPM_MUX("INR Mux", SND_SOC_NOPM, 0, 0, &rt5640_inr_mux),
+#endif
 	/* REC Mixer */
 	SND_SOC_DAPM_MIXER("RECMIXL", RT5640_PWR_MIXER, RT5640_PWR_RM_L_BIT, 0,
 			rt5640_rec_l_mix, ARRAY_SIZE(rt5640_rec_l_mix)),
