@@ -97,3 +97,6 @@ x509.genkey
 
 # customer folder
 customer
+
+# mali generated tmp file
+drivers/amlogic/gpu/mali/__malidrv_build_info.c
