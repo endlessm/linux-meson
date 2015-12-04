@@ -36,6 +36,7 @@
 #include <linux/mm_types.h>
 #include <linux/dma-contiguous.h>
 
+static unsigned int tot_cma;
 
 #define CMA_REGION_NAME_MAX 64
 
@@ -497,6 +498,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	struct cma *cma = dev_get_cma_area(dev);
 	struct page *page = NULL;
 	int ret;
+	const char *from = "Unknown";
 
 	if (!cma || !cma->count)
 		return NULL;
@@ -548,6 +550,14 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	}
 
 	pr_debug("%s(): returned %p\n", __func__, page);
+
+	tot_cma += (count << PAGE_SHIFT);
+
+	if (dev && dev_name(dev))
+		from = dev_name(dev);
+	printk(KERN_EMERG "[%s] %s(cma %p, count %d, size %d, align %d). Tot: [%u]\n", from, __func__, (void *)cma,
+		 count, count << PAGE_SHIFT, align, tot_cma);
+
 	return page;
 }
 
@@ -566,6 +576,7 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 {
 	struct cma *cma = dev_get_cma_area(dev);
 	unsigned long pfn;
+	const char *from = "Unknown";
 
 	if (!cma || !pages)
 		return false;
@@ -580,6 +591,13 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 	VM_BUG_ON(pfn + count > cma->base_pfn + cma->count);
 
 	free_contig_range(pfn, count);
+
+	tot_cma -= (count << PAGE_SHIFT);
+
+	if (dev && dev_name(dev))
+		from = dev_name(dev);
+	printk(KERN_EMERG "[%s] %s(page %p). Tot: [%u]\n", from, __func__, (void *)pages, tot_cma);
+
 	clear_cma_bitmap(cma, pfn, count);
 
 	return true;
