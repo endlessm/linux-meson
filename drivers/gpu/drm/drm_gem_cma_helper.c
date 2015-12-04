@@ -29,6 +29,9 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_vma_manager.h>
 
+unsigned int scanout_tot;
+unsigned int no_scanout_tot;
+
 /*
  * __drm_gem_cma_create - Create a GEM CMA object without allocating memory
  * @drm: The drm device
@@ -73,6 +76,7 @@ static struct drm_gem_cma_object *drm_gem_cma_create_internal(struct drm_device 
 {
 	struct drm_gem_cma_object *cma_obj;
 	int ret;
+	int is_scanout;
 
 	size = round_up(size, PAGE_SIZE);
 
@@ -89,6 +93,16 @@ static struct drm_gem_cma_object *drm_gem_cma_create_internal(struct drm_device 
 		ret = -ENOMEM;
 		goto error;
 	}
+
+	is_scanout = dma_get_attr(DMA_ATTR_WRITE_COMBINE, &cma_obj->dma_attrs);
+
+	if (is_scanout)
+		scanout_tot += size;
+	else
+		no_scanout_tot += size;
+
+	printk(KERN_EMERG "	[%s] %s size: %u, tot: %u\n", (is_scanout) ? "SCANOUT" : "NO SCANOUT", __func__,
+			size, (is_scanout) ? scanout_tot : no_scanout_tot);
 
 	return cma_obj;
 
@@ -161,6 +175,7 @@ EXPORT_SYMBOL_GPL(drm_gem_cma_create_with_handle);
 void drm_gem_cma_free_object(struct drm_gem_object *gem_obj)
 {
 	struct drm_gem_cma_object *cma_obj;
+	int is_scanout;
 
 	drm_gem_free_mmap_offset(gem_obj);
 
@@ -172,6 +187,16 @@ void drm_gem_cma_free_object(struct drm_gem_object *gem_obj)
 	} else if (gem_obj->import_attach) {
 		drm_prime_gem_destroy(gem_obj, cma_obj->sgt);
 	}
+
+	is_scanout = dma_get_attr(DMA_ATTR_WRITE_COMBINE, &cma_obj->dma_attrs);
+
+	if (is_scanout)
+		scanout_tot -= cma_obj->base.size;
+	else
+		no_scanout_tot -= cma_obj->base.size;
+
+	printk(KERN_EMERG "	[%s] %s size: %u, tot: %u\n", (is_scanout) ? "SCANOUT" : "NO SCANOUT", __func__,
+			cma_obj->base.size, (is_scanout) ? scanout_tot : no_scanout_tot);
 
 	drm_gem_object_release(gem_obj);
 
