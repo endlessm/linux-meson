@@ -251,7 +251,7 @@ static int sub_port_inited;
 static wait_queue_head_t amstream_sub_wait;
 atomic_t userdata_ready = ATOMIC_INIT(0);
 static int userdata_length = 0;
-static wait_queue_head_t amstream_userdata_wait;
+DECLARE_WAIT_QUEUE_HEAD(amstream_userdata_wait);
 #define USERDATA_FIFO_NUM    1024
 static struct userdata_poc_info_t userdata_poc_info[USERDATA_FIFO_NUM];
 static int userdata_poc_ri=0, userdata_poc_wi=0;
