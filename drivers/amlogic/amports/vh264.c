@@ -1476,6 +1476,7 @@ static void vh264_isr(void)
 
     sei_itu35_flags = READ_VREG(AV_SCRATCH_J);
     if (sei_itu35_flags & (1<<15)) { // data ready
+#if 0
         //int ltemp;
         //unsigned char *daddr;
         unsigned int sei_itu35_wp = (sei_itu35_flags >> 16) & 0xffff;
@@ -1508,6 +1509,9 @@ static void vh264_isr(void)
         set_userdata_poc(user_data_poc);
         WRITE_VREG(AV_SCRATCH_J, 0);
         wakeup_userdata_poll(sei_itu35_wp, (void *)sei_data_buffer_remap, USER_DATA_SIZE, sei_itu35_data_length);
+#else
+        WRITE_VREG(AV_SCRATCH_J, 0);
+#endif
     }
 #ifdef HANDLE_H264_IRQ
     return IRQ_HANDLED;
@@ -2257,7 +2261,7 @@ static int amvdec_h264_probe(struct platform_device *pdev)
             return -ENOMEM;
         }
         sei_data_buffer_phys = virt_to_phys((u8 *)sei_data_buffer);
-
+#if 0
         sei_data_buffer_remap = ioremap_nocache(sei_data_buffer_phys, USER_DATA_SIZE);
         if (!sei_data_buffer_remap) {
             printk("%s: Can not remap sei_data_buffer\n", __FUNCTION__);
@@ -2267,7 +2271,7 @@ static int amvdec_h264_probe(struct platform_device *pdev)
 
             return -ENOMEM;
         }
-
+#endif
         //printk("buffer 0x%x, phys 0x%x, remap 0x%x\n", sei_data_buffer, sei_data_buffer_phys, (u32)sei_data_buffer_remap);
     }
 
