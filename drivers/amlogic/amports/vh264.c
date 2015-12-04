@@ -1507,7 +1507,7 @@ static void vh264_isr(void)
         user_data_poc.poc_number = READ_VREG(AV_SCRATCH_M);
         set_userdata_poc(user_data_poc);
         WRITE_VREG(AV_SCRATCH_J, 0);
-        wakeup_userdata_poll(sei_itu35_wp, (void *)sei_data_buffer_remap, USER_DATA_SIZE, sei_itu35_data_length);
+       // wakeup_userdata_poll(sei_itu35_wp, (void *)sei_data_buffer_remap, USER_DATA_SIZE, sei_itu35_data_length);
     }
 #ifdef HANDLE_H264_IRQ
     return IRQ_HANDLED;
