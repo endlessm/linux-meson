@@ -158,20 +158,11 @@ void aml_sdio_read_response(struct amlsd_platform * pdata, struct mmc_request *m
     }
 }
 
-/*copy buffer from data->sg to dma buffer, set dma addr to reg*/
-void aml_sdio_prepare_dma(struct amlsd_host *host, struct mmc_request *mrq)
+int aml_sdio_prepare_dma(struct amlsd_host *host, struct mmc_request *mrq)
 {
     struct mmc_data *data = mrq->data;
 
-    if(data->flags & MMC_DATA_WRITE){
-        aml_sg_copy_buffer(data->sg, data->sg_len,
-            host->bn_buf, data->blksz*data->blocks, 1);
-        sdio_dbg(AMLSD_DBG_WR_DATA,"W Cmd %d, %x-%x-%x-%x\n",
-            mrq->cmd->opcode,
-            host->bn_buf[0], host->bn_buf[1],
-            host->bn_buf[2], host->bn_buf[3]);
-    }
-    // host->dma_addr = host->bn_dma_buf;
+    return dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len, ((data->flags & MMC_DATA_WRITE) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
 }
 
 void aml_sdio_set_port_ios(struct mmc_host* mmc)
@@ -359,6 +350,7 @@ void aml_sdio_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
     struct amlsd_host* host = pdata->host;
     unsigned long flags;
     struct mmc_command *cmd;
+    struct mmc_data *data = mrq->data;
     // u32 virqs = readl(host->base + SDIO_IRQS);
     // u32 virqc =readl(host->base + SDIO_IRQC);
     // struct sdio_irq_config* irqc = (void*)&virqc;
@@ -383,6 +375,9 @@ void aml_sdio_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
     if(delayed_work_pending(&host->timeout))
     		cancel_delayed_work(&host->timeout);
   //  cancel_delayed_work(&host->timeout_cmd);
+    if (data) {
+        dma_unmap_sg(mmc_dev(host->mmc), data->sg, data->sg_len, (data->flags & MMC_DATA_WRITE) ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+    }
 
     spin_lock_irqsave(&host->mrq_lock, flags);
     WARN_ON(!host->mrq->cmd);
@@ -626,6 +621,7 @@ void aml_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
     unsigned int timeout;
     u32 virqc ;
     struct sdio_irq_config* irqc ;
+    int ret = 0;
 
 
     BUG_ON(!mmc);
@@ -677,8 +673,13 @@ void aml_sdio_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
     if(mrq->data) {
         /*Copy data to dma buffer for write request*/
-        aml_sdio_prepare_dma(host, mrq);
-        writel(host->bn_dma_buf, host->base + SDIO_ADDR);
+        ret = aml_sdio_prepare_dma(host, mrq);
+        if (ret)
+            writel(sg_dma_address(mrq->data->sg), host->base + SDIO_ADDR);
+        else {
+            sdio_err("DMA map for mrq->data fail !!!\n");
+            return;
+        }
 
         sdio_dbg(AMLSD_DBG_REQ ,"%s: blksz %d blocks %d flags %08x "
             "tsac %d ms nsac %d\n",
@@ -922,16 +923,6 @@ irqreturn_t aml_sdio_irq_thread(int irq, void *data)
             sdio_error_flag |= (1<<30);
         } 
                
-        spin_unlock_irqrestore(&host->mrq_lock, flags);
-        if(mrq->data->flags & MMC_DATA_READ){
-            aml_sg_copy_buffer(mrq->data->sg, mrq->data->sg_len,
-                host->bn_buf, mrq->data->blksz*mrq->data->blocks, 0);
-            sdio_dbg(AMLSD_DBG_RD_DATA, "R Cmd %d, %x-%x-%x-%x\n",
-                host->mrq->cmd->opcode,
-                host->bn_buf[0], host->bn_buf[1],
-                host->bn_buf[2], host->bn_buf[3]);
-        }
-        spin_lock_irqsave(&host->mrq_lock, flags);
         if(mrq->stop){
             aml_sdio_send_stop(host);
             spin_unlock_irqrestore(&host->mrq_lock, flags);
@@ -1213,12 +1204,6 @@ static struct amlsd_host* aml_sdio_init_host(void)
         return NULL;
     }
 
-    host->bn_buf = dma_alloc_coherent(NULL, SDIO_BOUNCE_REQ_SIZE,
-                            &host->bn_dma_buf, GFP_KERNEL);
-    if(NULL == host->bn_buf){
-        sdio_err("Dma alloc Fail!\n");
-        return NULL;
-    }
     //setup_timer(&host->timeout_tlist, aml_sdio_timeout, (ulong)host);
     INIT_DELAYED_WORK(&host->timeout, aml_sdio_timeout);
 
@@ -1326,7 +1311,7 @@ static int aml_sdio_probe(struct platform_device *pdev)
         mmc->max_blk_size = 4095;
         mmc->max_req_size = pdata->max_req_size;
         mmc->max_seg_size = mmc->max_req_size;
-        mmc->max_segs = 1024;
+        mmc->max_segs = 1;
         mmc->ocr_avail = pdata->ocr_avail;
         mmc->ocr = pdata->ocr_avail;
         mmc->caps = pdata->caps;
@@ -1396,8 +1381,6 @@ probe_free_host:
 fail_init_host:
     iounmap(host->base);
     free_irq(INT_SDIO, host);
-    dma_free_coherent(NULL, SDIO_BOUNCE_REQ_SIZE, host->bn_buf,
-            (dma_addr_t)host->bn_dma_buf);
     kfree(host);
     print_tmp("aml_sdio_probe() fail!\n");
     return ret;
@@ -1408,9 +1391,6 @@ int aml_sdio_remove(struct platform_device *pdev)
     struct amlsd_host* host = platform_get_drvdata(pdev);
     struct mmc_host* mmc;
     struct amlsd_platform* pdata;
-
-    dma_free_coherent(NULL, SDIO_BOUNCE_REQ_SIZE, host->bn_buf,
-            (dma_addr_t )host->bn_dma_buf);
 
     free_irq(INT_SDIO, host);
     iounmap(host->base);
