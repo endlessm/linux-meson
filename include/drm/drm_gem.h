@@ -119,6 +119,11 @@ struct drm_gem_object {
 	 * simply leave it as NULL.
 	 */
 	struct dma_buf_attachment *import_attach;
+
+	/*
+	 * is backed by scattered pages
+	 */
+	bool is_scattered;
 };
 
 void drm_gem_object_release(struct drm_gem_object *obj);

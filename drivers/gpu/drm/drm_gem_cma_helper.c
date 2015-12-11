@@ -241,8 +241,8 @@ const struct vm_operations_struct drm_gem_cma_vm_ops = {
 };
 EXPORT_SYMBOL_GPL(drm_gem_cma_vm_ops);
 
-static int drm_gem_cma_mmap_obj(struct drm_gem_cma_object *cma_obj,
-				struct vm_area_struct *vma)
+int drm_gem_cma_mmap_obj(struct drm_gem_cma_object *cma_obj,
+			 struct vm_area_struct *vma)
 {
 	int ret;
 
