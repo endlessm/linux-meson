@@ -119,6 +119,8 @@ struct drm_gem_object {
 	 * simply leave it as NULL.
 	 */
 	struct dma_buf_attachment *import_attach;
+
+	bool is_no_cma;
 };
 
 void drm_gem_object_release(struct drm_gem_object *obj);

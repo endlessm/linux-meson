@@ -39,6 +39,7 @@
 #include "meson_hdmi.h"
 #include "meson_modes.h"
 #include "meson_priv.h"
+#include "meson_gem_prime.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -1170,15 +1171,26 @@ static irqreturn_t meson_irq(int irq, void *arg)
 
 static void meson_gem_free_object(struct drm_gem_object *obj)
 {
-	drm_gem_cma_free_object(obj);
+	if (obj->is_no_cma)
+		meson_drm_gem_free_object(obj);
+	else
+		drm_gem_cma_free_object(obj);
+}
+
+static struct sg_table *meson_gem_get_sg_table(struct drm_gem_object *obj)
+{
+	if (obj->is_no_cma)
+		return meson_drm_gem_get_sg_table(obj);
+	else
+		return drm_gem_cma_prime_get_sg_table(obj);
 }
 
 static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 				       struct drm_file *file)
 {
 	struct drm_meson_gem_create_with_ump *args = data;
-	struct drm_gem_cma_object *cma_obj;
 	unsigned int size;
+	void *gem_obj;
 	DEFINE_DMA_ATTRS(dma_attrs);
 
 	/* UMP requires a page-aligned size for its buffers. */
@@ -1191,19 +1203,30 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &dma_attrs);
 
 	if (args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_SCANOUT) {
+		struct drm_gem_cma_object *gem_cma;
+
 		/* No caching for scanout buffers */
 		dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
+
+		gem_cma = drm_gem_cma_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
+		gem_cma->base.is_no_cma = false;
+		gem_obj = gem_cma;
 	} else {
+		struct meson_drm_gem_object *gem_meson;
+
 		/* Other buffers are textures and caches can be enabled. */
 		WARN_ON(!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
 		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
+
+		gem_meson = meson_drm_gem_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
+		gem_meson->base.is_no_cma = true;
+		gem_obj = gem_meson;
 	}
 
-	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
-	if (IS_ERR(cma_obj))
-		return PTR_ERR(cma_obj);
+	if (IS_ERR(gem_obj))
+		return PTR_ERR(gem_obj);
 
-	return PTR_ERR_OR_ZERO(cma_obj);
+	return PTR_ERR_OR_ZERO(gem_obj);
 }
 
 static const struct drm_ioctl_desc meson_ioctls[] = {
@@ -1280,11 +1303,8 @@ static struct drm_driver meson_driver = {
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 	.gem_prime_import	= drm_gem_prime_import,
 	.gem_prime_export	= drm_gem_prime_export,
-	.gem_prime_get_sg_table	= drm_gem_cma_prime_get_sg_table,
+	.gem_prime_get_sg_table	= meson_gem_get_sg_table,
 	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
-	.gem_prime_vmap		= drm_gem_cma_prime_vmap,
-	.gem_prime_vunmap	= drm_gem_cma_prime_vunmap,
-	.gem_prime_mmap		= drm_gem_cma_prime_mmap,
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
 	.dumb_destroy       = drm_gem_dumb_destroy,
