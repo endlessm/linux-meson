@@ -126,3 +126,7 @@ CONFIG_BT_DEVICE=y
 
 # not supported on this mach
 CONFIG_DEBUG_LL=n
+
+# ZRAM
+CONFIG_ZSMALLOC=y
+CONFIG_ZRAM=m
