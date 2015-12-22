@@ -659,7 +659,17 @@ int32_t dwc_otg_hcd_handle_hc_intr(dwc_otg_hcd_t * dwc_otg_hcd)
 	for (i = 0; i < dwc_otg_hcd->core_if->core_params->host_channels; i++) {
 		if (haint.b2.chint & (1 << i)) {
 			retval |= dwc_otg_hcd_handle_hc_n_intr(dwc_otg_hcd, i);
-		}
+
+            // inform fiq level to know the host channel interrupt been handled
+            // turn on the corresponding bit in haintmsk to allow next hw intr
+		    if (fiq_fsm_enable&&dwc_otg_hcd->core_if->use_fiq_flag && 
+                dwc_otg_hcd->hc_ptr_array[i]->ep_type == DWC_OTG_EP_TYPE_BULK &&
+                dwc_otg_hcd->fiq_state->channel[i].fsm == FIQ_PASSTHROUGH) {
+		        local_fiq_disable();
+                dwc_otg_hcd->fiq_state->channel[i].hcint_handled = 1;
+		        local_fiq_enable();
+            }
+        }
 	}
 
 	return retval;

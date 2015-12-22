@@ -1083,6 +1083,7 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 			dwc_otg_hcd_free(hcd);
 			goto out;
 		}
+        memset(channel, 0, sizeof(dwc_hc_t));
 		channel->hc_num = i;
 		hcd->hc_ptr_array[i] = channel;
 #ifdef DEBUG
@@ -1106,6 +1107,7 @@ int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 
 		for (i = 0; i < num_channels; i++) {
 			hcd->fiq_state->channel[i].fsm = FIQ_PASSTHROUGH;
+            hcd->fiq_state->channel[i].hcint_handled = 0;
 		}
 		hcd->fiq_state->dummy_send = DWC_ALLOC_ATOMIC(16);
 
