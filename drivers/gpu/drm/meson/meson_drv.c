@@ -1215,10 +1215,10 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 		struct meson_drm_gem_object *gem_meson;
 
 		/* Other buffers are textures and caches can be enabled. */
-		WARN_ON(!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
-		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
+	//	WARN_ON(!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
+	//	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
 
-		gem_meson = meson_drm_gem_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
+		gem_meson = meson_drm_gem_create_with_handle(dev, data, file);
 		gem_meson->base.is_no_cma = true;
 		gem_obj = gem_meson;
 	}
