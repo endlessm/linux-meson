@@ -180,7 +180,8 @@ static int meson_drm_gem_handle_create(struct drm_gem_object *obj,
 
 struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
 		struct drm_device *dev, void *data,
-		struct drm_file *file_priv)
+		struct drm_file *file_priv,
+		struct dma_attrs *dma_attrs)
 {
 	struct drm_meson_gem_create_with_ump *args = data;
 	struct meson_drm_gem_object *meson_gem;
@@ -189,6 +190,8 @@ struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
 	meson_gem = meson_drm_gem_create(dev, args->flags, args->size);
 	if (IS_ERR(meson_gem))
 		return meson_gem;
+
+	meson_gem->dma_attrs = *dma_attrs;
 
 	ret = meson_drm_gem_handle_create(&meson_gem->base, file_priv,
 					   &args->handle);
