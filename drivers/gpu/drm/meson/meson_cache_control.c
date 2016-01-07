@@ -81,31 +81,33 @@ static void meson_drm_ump_osk_msync(struct drm_gem_object *gem_obj, void *virt, 
 		for (i = 0; i < meson_gem->nr_pages; i++) {
 			struct page *page = meson_gem->pages[i];
 
-			if (offset >= PAGE_SIZE) {
-				offset -= PAGE_SIZE;
-				return;
-			}
+//			if (offset >= PAGE_SIZE) {
+//				offset -= PAGE_SIZE;
+//				return;
+//			}
 
-			if (offset) {
-				start_p = (u32)page_to_phys(page) + offset;
-				/* We'll zero the offset later, after using it to calculate end_p. */
-			} else {
-				start_p = (u32)page_to_phys(page);
-			}
+//			if (offset) {
+//				//start_p = (u32)page_to_phys(page) + offset;
+//				start_p = (u32)__pa(page_address(page));
+//				/* We'll zero the offset later, after using it to calculate end_p. */
+//			} else {
+				//start_p = (u32)page_to_phys(page);
+				start_p = (u32)__pa(page_address(page));
+//			}
 
-			if (size < PAGE_SIZE - offset) {
-				end_p = start_p + size -1;
-				size = 0;
-			} else {
-				if (offset) {
-					end_p = start_p + (PAGE_SIZE - offset);
-					size -= PAGE_SIZE - offset;
-					offset = 0;
-				} else {
+//			if (size < PAGE_SIZE - offset) {
+//				end_p = start_p + size -1;
+//				size = 0;
+//			} else {
+//				if (offset) {
+//					end_p = start_p + (PAGE_SIZE - offset);
+//					size -= PAGE_SIZE - offset;
+//					offset = 0;
+//				} else {
 					end_p = start_p + PAGE_SIZE - 1;
-					size -= PAGE_SIZE;
-				}
-			}
+//					size -= PAGE_SIZE;
+//				}
+//			}
 
 			switch (op) {
 			case DRM_MESON_MSYNC_CLEAN:
@@ -121,10 +123,10 @@ static void meson_drm_ump_osk_msync(struct drm_gem_object *gem_obj, void *virt, 
 				break;
 			}
 
-			if (0 == size) {
-				/* Nothing left to flush. */
-				break;
-			}
+//			if (0 == size) {
+//				/* Nothing left to flush. */
+//				break;
+//			}
 		}
 	} else {
 		struct drm_gem_cma_object *cma_obj = to_drm_gem_cma_obj(gem_obj);

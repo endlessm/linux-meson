@@ -1214,6 +1214,7 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 	} else {
 		struct meson_drm_gem_object *gem_meson;
 
+		printk(KERN_EMERG "====> [%s][%s]\n", __FILE__, __func__);
 		/* Other buffers are textures and caches can be enabled. */
 		WARN_ON(!(args->flags & DRM_MESON_GEM_CREATE_WITH_UMP_FLAG_TEXTURE));
 		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
@@ -1279,6 +1280,51 @@ static const struct file_operations fops = {
 	.mmap               = drm_gem_cma_mmap,
 };
 
+int meson_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	struct drm_gem_object *obj = vma->vm_private_data;
+
+	if (obj->is_no_cma) {
+		struct meson_drm_gem_object *meson_gem = to_meson_drm_gem_obj(obj);
+		unsigned long pfn;
+		pgoff_t page_offset;
+		int ret;
+
+		page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >> PAGE_SHIFT;
+		if (page_offset >= (meson_gem->size >> PAGE_SHIFT)) {
+			DRM_ERROR("invalid page offset\n");
+			printk(KERN_EMERG "========> invalid page offset\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		pfn = page_to_pfn(meson_gem->pages[page_offset]);
+//		ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address, pfn);
+		ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, pfn);
+
+out:
+		switch (ret) {
+		case 0:
+		case -ERESTARTSYS:
+		case -EINTR:
+			return VM_FAULT_NOPAGE;
+		case -ENOMEM:
+			return VM_FAULT_OOM;
+		default:
+			return VM_FAULT_SIGBUS;
+		}
+
+	} else {
+		return 0;
+	}
+}
+
+const struct vm_operations_struct meson_gem_vm_ops = {
+	.fault = meson_drm_gem_fault,
+	.open = drm_gem_vm_open,
+	.close = drm_gem_vm_close,
+};
+
 static struct drm_driver meson_driver = {
 	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET | DRIVER_PRIME,
 	.load               = meson_load,
@@ -1298,7 +1344,7 @@ static struct drm_driver meson_driver = {
 	.major              = 1,
 	.minor              = 0,
 	.gem_free_object    = meson_gem_free_object,
-	.gem_vm_ops         = &drm_gem_cma_vm_ops,
+	.gem_vm_ops         = &meson_gem_vm_ops,
 	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 	.gem_prime_import	= drm_gem_prime_import,

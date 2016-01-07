@@ -121,6 +121,7 @@ struct drm_gem_object {
 	struct dma_buf_attachment *import_attach;
 
 	bool is_no_cma;
+	unsigned int id;
 };
 
 void drm_gem_object_release(struct drm_gem_object *obj);

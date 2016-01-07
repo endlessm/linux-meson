@@ -126,6 +126,7 @@ struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
 {
 	struct drm_gem_cma_object *cma_obj;
 	struct drm_gem_object *gem_obj;
+	static unsigned int id = 0;
 	int ret;
 
 	cma_obj = drm_gem_cma_create_internal(drm, size, dma_attrs);
@@ -144,6 +145,7 @@ struct drm_gem_cma_object *drm_gem_cma_create_with_handle(
 
 	/* drop reference from allocate - handle holds it now. */
 	drm_gem_object_unreference_unlocked(gem_obj);
+	cma_obj->base.id = id++;
 
 	return cma_obj;
 
@@ -281,6 +283,11 @@ int drm_gem_cma_mmap(struct file *filp, struct vm_area_struct *vma)
 	gem_obj = vma->vm_private_data;
 	cma_obj = to_drm_gem_cma_obj(gem_obj);
 
+	//-------
+	printk(KERN_EMERG "==================> [%s][%s] is_no_cma: %d, ID: %d\n", __FILE__, __func__, gem_obj->is_no_cma, gem_obj->id);
+	if (gem_obj->is_no_cma)
+		return 0;
+	//-----
 	return drm_gem_cma_mmap_obj(cma_obj, vma);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_mmap);

@@ -92,6 +92,14 @@ static int meson_drm_gem_alloc_buf(struct meson_drm_gem_object *meson_gem)
 				meson_gem->pages[i + j] = meson_gem->pages[i] + j;
 		}
 
+		{
+			struct page *page = meson_gem->pages[i];
+			void *ptr = page_address(page);
+			memset(ptr, 0, PAGE_SIZE << order);
+			dmac_flush_range(ptr, ptr + (PAGE_SIZE << order));
+			outer_flush_range(__pa(ptr), __pa(ptr) + (PAGE_SIZE << order));
+		}
+
 		i += 1 << order;
 		count -= 1 << order;
 	}
@@ -185,6 +193,7 @@ struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
 {
 	struct drm_meson_gem_create_with_ump *args = data;
 	struct meson_drm_gem_object *meson_gem;
+	static unsigned int id = 0;
 	int ret;
 
 	meson_gem = meson_drm_gem_create(dev, args->flags, args->size);
@@ -199,6 +208,8 @@ struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
 		meson_drm_gem_destroy(meson_gem);
 		return ERR_PTR(ret);
 	}
+
+	meson_gem->base.id = id++;
 
 	return meson_gem;
 }
