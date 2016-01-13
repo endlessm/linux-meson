@@ -215,42 +215,26 @@ struct meson_drm_gem_scattered_object *meson_drm_gem_scattered_create_with_handl
 	return scattered_obj;
 }
 
-int meson_drm_gem_scattered_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+int meson_drm_gem_scattered_mmap_obj(struct drm_gem_object *obj,
+				     struct vm_area_struct *vma)
 {
-	struct drm_gem_object *obj = vma->vm_private_data;
-	struct meson_drm_gem_scattered_object *meson_gem = to_meson_drm_gem_scattered_obj(obj);
-	struct scatterlist *sgl;
-	unsigned long pfn;
-	pgoff_t page_offset;
+	struct meson_drm_gem_scattered_object *meson_gem;
+	unsigned long addr = vma->vm_start;
 	int i, ret;
 
-	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >> PAGE_SHIFT;
-	if (page_offset >= (meson_gem->size >> PAGE_SHIFT)) {
-		DRM_ERROR("invalid page offset\n");
-		ret = -EINVAL;
-		goto out;
+	meson_gem = to_meson_drm_gem_scattered_obj(obj);
+
+	for (i = 0; i < meson_gem->nr_pages; i++) {
+		struct page *page = meson_gem->pages[i];
+
+		ret = vm_insert_pfn(vma, addr, page_to_pfn(page));
+		if (unlikely(0 != ret)) {
+			return -EFAULT;
+		}
+
+		addr += PAGE_SIZE;
 	}
 
-	sgl = meson_gem->sgt->sgl;
-	for_each_sg(meson_gem->sgt->sgl, sgl, meson_gem->sgt->nents, i) {
-		if (page_offset < (sgl->length >> PAGE_SHIFT))
-			break;
-		page_offset -= (sgl->length >> PAGE_SHIFT);
-	}
-
-	pfn = __phys_to_pfn(sg_phys(sgl)) + page_offset;
-	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, pfn);
-
-out:
-	switch (ret) {
-	case 0:
-	case -ERESTARTSYS:
-	case -EINTR:
-		return VM_FAULT_NOPAGE;
-	case -ENOMEM:
-		return VM_FAULT_OOM;
-	default:
-		return VM_FAULT_SIGBUS;
-	}
+	return 0;
 }
 

@@ -1185,16 +1185,6 @@ static struct sg_table *meson_gem_get_sg_table(struct drm_gem_object *obj)
 		return drm_gem_cma_prime_get_sg_table(obj);
 }
 
-int meson_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
-{
-	struct drm_gem_object *obj = vma->vm_private_data;
-
-	if (obj->is_scattered)
-		return meson_drm_gem_scattered_fault(vma, vmf);
-
-	return 0;
-}
-
 int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct drm_gem_object *obj;
@@ -1208,8 +1198,12 @@ int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	obj = vma->vm_private_data;
 	cma_obj = to_drm_gem_cma_obj(obj);
 
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+
 	if (!obj->is_scattered)
 		return drm_gem_cma_mmap_obj(cma_obj, vma);
+	else
+		return meson_drm_gem_scattered_mmap_obj(obj, vma);
 
 	return 0;
 }
@@ -1258,7 +1252,6 @@ static const struct drm_ioctl_desc meson_ioctls[] = {
 };
 
 const struct vm_operations_struct meson_gem_vm_ops = {
-	.fault = meson_drm_gem_fault,
 	.open = drm_gem_vm_open,
 	.close = drm_gem_vm_close,
 };

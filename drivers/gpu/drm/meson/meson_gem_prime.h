@@ -29,6 +29,7 @@ struct meson_drm_gem_scattered_object *meson_drm_gem_scattered_create_with_handl
 		struct dma_attrs *dma_attrs);
 struct sg_table *meson_drm_gem_scattered_prime_get_sg_table(struct drm_gem_object *obj);
 void meson_drm_gem_scattered_free_object(struct drm_gem_object *gem_obj);
-int meson_drm_gem_scattered_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
+int meson_drm_gem_scattered_mmap_obj(struct drm_gem_object *obj,
+				     struct vm_area_struct *vma);
 
 #endif
