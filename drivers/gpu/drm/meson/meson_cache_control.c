@@ -77,12 +77,13 @@ static void meson_drm_ump_osk_msync(struct drm_gem_object *gem_obj, void *virt, 
 
 	if (gem_obj->is_scattered) {
 		struct meson_drm_gem_scattered_object *meson_gem = to_meson_drm_gem_scattered_obj(gem_obj);
+		struct scatterlist *sgl;
+		int i;
 
-		for (i = 0; i < meson_gem->nr_pages; i++) {
-			struct page *page = meson_gem->pages[i];
-
-			start_p = (u32)__pa(page_address(page));
-			end_p = start_p + PAGE_SIZE;
+		for_each_sg(meson_gem->sgt->sgl, sgl, meson_gem->sgt->nents, i) {
+			// start_p = (u32)__pa(page_address(sg_page(sgl)));
+			start_p = sg_phys(sgl);
+			end_p = start_p + sgl->length;
 
 			switch (op) {
 			case DRM_MESON_MSYNC_CLEAN:

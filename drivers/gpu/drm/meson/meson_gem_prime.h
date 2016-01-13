@@ -14,6 +14,7 @@ struct meson_drm_gem_scattered_object {
 	struct drm_gem_object base;
 	struct page **pages;
 	struct dma_attrs dma_attrs;
+	struct sg_table *sgt;
 };
 
 static inline struct meson_drm_gem_scattered_object *

@@ -96,6 +96,13 @@ static int meson_drm_gem_alloc_buf(struct meson_drm_gem_scattered_object *scatte
 
 	scattered_obj->nr_pages = i;
 
+	/* sgt for backend lowlevel buffer */
+	scattered_obj->sgt = drm_prime_pages_to_sg(scattered_obj->pages, scattered_obj->nr_pages);
+	if (IS_ERR(scattered_obj->sgt)) {
+		ret = PTR_ERR(scattered_obj->sgt);
+		goto error;
+	}
+
 	return 0;
 
 error:
@@ -121,6 +128,7 @@ static struct meson_drm_gem_scattered_object *meson_drm_gem_create(
 
 	ret = meson_drm_gem_alloc_buf(scattered_obj);
 	if (ret < 0) {
+		drm_gem_free_mmap_offset(&scattered_obj->base);
 		drm_gem_object_release(&scattered_obj->base);
 		kfree(scattered_obj);
 		return ERR_PTR(ret);
@@ -133,11 +141,16 @@ void meson_drm_gem_destroy(struct meson_drm_gem_scattered_object *scattered_obj)
 {
 	struct drm_gem_object *obj = &scattered_obj->base;
 
+	drm_gem_free_mmap_offset(obj);
+
 	DRM_DEBUG_KMS("handle count = %d\n", obj->handle_count);
 
 	// TODO: we do not deal yet with dma_buf imported as a (scattered) gem object
-	if (!obj->import_attach)
+	if (!obj->import_attach) {
 		meson_drm_gem_free(scattered_obj, scattered_obj->nr_pages);
+		sg_free_table(scattered_obj->sgt);
+		kfree(scattered_obj->sgt);
+	}
 
 	drm_gem_object_release(obj);
 
@@ -154,6 +167,8 @@ struct sg_table *meson_drm_gem_scattered_prime_get_sg_table(struct drm_gem_objec
 	struct meson_drm_gem_scattered_object *scattered_obj;
 
 	scattered_obj = to_meson_drm_gem_scattered_obj(gem_obj);
+
+	/* the returned sgt will be deallocated by the buffer-user when detaching */
 	return drm_prime_pages_to_sg(scattered_obj->pages, scattered_obj->nr_pages);
 }
 
