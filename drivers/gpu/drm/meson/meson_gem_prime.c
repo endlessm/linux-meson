@@ -219,9 +219,10 @@ int meson_drm_gem_scattered_fault(struct vm_area_struct *vma, struct vm_fault *v
 {
 	struct drm_gem_object *obj = vma->vm_private_data;
 	struct meson_drm_gem_scattered_object *meson_gem = to_meson_drm_gem_scattered_obj(obj);
+	struct scatterlist *sgl;
 	unsigned long pfn;
 	pgoff_t page_offset;
-	int ret;
+	int i, ret;
 
 	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >> PAGE_SHIFT;
 	if (page_offset >= (meson_gem->size >> PAGE_SHIFT)) {
@@ -230,7 +231,14 @@ int meson_drm_gem_scattered_fault(struct vm_area_struct *vma, struct vm_fault *v
 		goto out;
 	}
 
-	pfn = page_to_pfn(meson_gem->pages[page_offset]);
+	sgl = meson_gem->sgt->sgl;
+	for_each_sg(meson_gem->sgt->sgl, sgl, meson_gem->sgt->nents, i) {
+		if (page_offset < (sgl->length >> PAGE_SHIFT))
+			break;
+		page_offset -= (sgl->length >> PAGE_SHIFT);
+	}
+
+	pfn = __phys_to_pfn(sg_phys(sgl)) + page_offset;
 	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, pfn);
 
 out:
