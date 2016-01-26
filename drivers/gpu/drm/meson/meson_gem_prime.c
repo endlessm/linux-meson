@@ -97,6 +97,12 @@ static int meson_drm_gem_scattered_alloc_buf(struct meson_drm_gem_object *meson_
 
 	meson_gem_obj->nr_pages = i;
 
+	meson_gem_obj->sgt = drm_prime_pages_to_sg(meson_gem_obj->pages, meson_gem_obj->nr_pages);
+	if (IS_ERR(meson_gem_obj->sgt)) {
+		ret = PTR_ERR(meson_gem_obj->sgt);
+		goto error;
+	}
+
 	return 0;
 
 error:
@@ -176,8 +182,11 @@ static void meson_drm_gem_destroy(struct meson_drm_gem_object *meson_gem_obj)
 	/*
 	 * TODO: we do not deal yet with dma_buf imported as a (scattered) gem object
 	 */
-	else if (!gem_obj->import_attach)
+	else if (!gem_obj->import_attach) {
 		meson_drm_gem_scattered_free(meson_gem_obj, meson_gem_obj->nr_pages);
+		sg_free_table(meson_gem_obj->sgt);
+		kfree(meson_gem_obj->sgt);
+	}
 
 	drm_gem_object_release(gem_obj);
 	kfree(meson_gem_obj);

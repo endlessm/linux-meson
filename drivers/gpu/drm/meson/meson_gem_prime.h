@@ -11,6 +11,7 @@ struct meson_drm_gem_object {
 	struct drm_gem_object base;
 	struct dma_attrs dma_attrs;
 	struct page **pages;
+	struct sg_table *sgt;
 
 	unsigned long size;
 	unsigned int flags;
