@@ -241,10 +241,7 @@ struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
 
 void meson_drm_gem_free_object(struct drm_gem_object *gem_obj)
 {
-	if (gem_obj->is_dumb)
-		drm_gem_cma_free_object(gem_obj);
-	else
-		meson_drm_gem_destroy(to_meson_drm_gem_obj(gem_obj));
+	meson_drm_gem_destroy(to_meson_drm_gem_obj(gem_obj));
 }
 
 static struct sg_table *meson_drm_gem_cma_prime_get_sg_table(struct drm_gem_object *gem_obj)
@@ -327,31 +324,6 @@ static int meson_drm_gem_cma_mmap_obj(struct meson_drm_gem_object *meson_gem_obj
 	return ret;
 }
 
-static int drm_gem_cma_mmap_obj(struct drm_gem_cma_object *cma_obj,
-				struct vm_area_struct *vma)
-{
-	int ret;
-
-	/*
-	 * Clear the VM_PFNMAP flag that was set by drm_gem_mmap(), and set the
-	 * vm_pgoff (used as a fake buffer offset by DRM) to 0 as we want to map
-	 * the whole buffer.
-	 */
-	vma->vm_flags &= ~VM_PFNMAP;
-	vma->vm_pgoff = 0;
-	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
-
-	ret = dma_mmap_attrs(cma_obj->base.dev->dev, vma,
-			     cma_obj->vaddr, cma_obj->paddr,
-			     vma->vm_end - vma->vm_start,
-			     &cma_obj->dma_attrs);
-	if (ret)
-		drm_gem_vm_close(vma);
-
-	return ret;
-}
-
-
 int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct drm_gem_object *gem_obj;
@@ -363,11 +335,6 @@ int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		return ret;
 
 	gem_obj = vma->vm_private_data;
-	if (gem_obj->is_dumb) {
-		struct drm_gem_cma_object *cma_obj;
-		cma_obj = to_drm_gem_cma_obj(gem_obj);
-		return drm_gem_cma_mmap_obj(cma_obj, vma);
-	}
 	meson_gem_obj = to_meson_drm_gem_obj(gem_obj);
 
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);

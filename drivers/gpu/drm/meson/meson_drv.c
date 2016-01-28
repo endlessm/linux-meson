@@ -952,9 +952,6 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	drm_kms_helper_poll_init(dev);
 
 #if !NO_FBDEV
-//	priv->fbdev = drm_fbdev_cma_init(dev, 32,
-//					 dev->mode_config.num_crtc,
-//					 dev->mode_config.num_connector);
 	priv->fbdev = meson_fbdev_init(dev, 32,
 			dev->mode_config.num_crtc,
 			dev->mode_config.num_connector);
