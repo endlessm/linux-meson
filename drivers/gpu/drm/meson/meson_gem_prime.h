@@ -37,5 +37,7 @@ void meson_drm_gem_free_object(struct drm_gem_object *gem_obj);
 int meson_drm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 struct sg_table *meson_drm_gem_get_sg_table(struct drm_gem_object *obj);
 int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
+struct meson_drm_gem_object *meson_drm_gem_create_obj(struct drm_device *dev,
+		unsigned int size);
 
 #endif

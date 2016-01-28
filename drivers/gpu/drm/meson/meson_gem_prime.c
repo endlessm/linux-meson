@@ -209,6 +209,16 @@ static int meson_drm_gem_handle_create(struct drm_gem_object *obj,
 	return 0;
 }
 
+struct meson_drm_gem_object *meson_drm_gem_create_obj(struct drm_device *dev,
+		unsigned int size)
+{
+	DEFINE_DMA_ATTRS(dma_attrs);
+	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
+
+	size = PAGE_ALIGN(size);
+	return meson_drm_gem_create(dev, 0, size, &dma_attrs);
+}
+
 struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
 		struct drm_device *dev, void *data,
 		struct drm_file *file_priv,

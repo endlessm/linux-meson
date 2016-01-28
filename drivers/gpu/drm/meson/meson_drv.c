@@ -33,6 +33,7 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_rect.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/meson_drm.h>
 
 #include "meson_cvbs.h"
@@ -40,6 +41,7 @@
 #include "meson_modes.h"
 #include "meson_priv.h"
 #include "meson_gem_prime.h"
+#include "meson_fb.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -678,7 +680,7 @@ fail:
 
 struct meson_drm_private {
 	struct drm_crtc *crtc;
-	struct drm_fbdev_cma *fbdev;
+	struct drm_fb_helper *fbdev;
 
 	struct drm_atomic_state *cleanup_state;
 	struct workqueue_struct *unref_wq;
@@ -689,7 +691,10 @@ static void meson_fb_output_poll_changed(struct drm_device *dev)
 {
 #if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
-	drm_fbdev_cma_hotplug_event(priv->fbdev);
+	struct drm_fb_helper *fbh = priv->fbdev;
+
+	if (fbh)
+		drm_fb_helper_hotplug_event(fbh);
 #endif
 }
 
@@ -732,7 +737,7 @@ static int meson_atomic_commit(struct drm_device *dev,
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
-	.fb_create           = drm_fb_cma_create,
+	.fb_create           = meson_fb_create,
 	.output_poll_changed = meson_fb_output_poll_changed,
 	.atomic_check        = drm_atomic_helper_check,
 	.atomic_commit       = meson_atomic_commit,
@@ -947,9 +952,12 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	drm_kms_helper_poll_init(dev);
 
 #if !NO_FBDEV
-	priv->fbdev = drm_fbdev_cma_init(dev, 32,
-					 dev->mode_config.num_crtc,
-					 dev->mode_config.num_connector);
+//	priv->fbdev = drm_fbdev_cma_init(dev, 32,
+//					 dev->mode_config.num_crtc,
+//					 dev->mode_config.num_connector);
+	priv->fbdev = meson_fbdev_init(dev, 32,
+			dev->mode_config.num_crtc,
+			dev->mode_config.num_connector);
 #endif
 
 	device_create_file(dev->dev, &dev_attr_underscan_hborder);
@@ -999,7 +1007,10 @@ static void meson_lastclose(struct drm_device *dev)
 {
 #if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
-	drm_fbdev_cma_restore_mode(priv->fbdev);
+	struct drm_fb_helper *fbh = priv->fbdev;
+
+	if (fbh)
+		drm_fb_helper_restore_fbdev_mode_unlocked(fbh);
 #endif
 }
 
@@ -1100,13 +1111,13 @@ static void update_plane_shadow_registers(struct drm_plane *plane)
 
 	if (meson_plane->visible) {
 		if (meson_plane->fb_changed) {
-			struct drm_gem_cma_object *cma_bo;
+			struct meson_drm_gem_object *bo;
 
-			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+			bo = meson_drm_get_gem_obj(state->fb, 0);
 
 			/* Swap out the OSD canvas with the new addr. */
 			canvas_setup(meson_plane->def->canvas_index,
-				     cma_bo->paddr,
+				     bo->paddr,
 				     state->fb->pitches[0],
 				     state->fb->height,
 				     MESON_CANVAS_WRAP_NONE,
