@@ -14,7 +14,6 @@ struct meson_drm_gem_object {
 	struct sg_table *sgt;
 
 	unsigned long size;
-	unsigned int flags;
 	unsigned int nr_pages;
 
 	dma_addr_t paddr;
@@ -30,7 +29,8 @@ to_meson_drm_gem_obj(struct drm_gem_object *gem_obj)
 }
 
 struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
-		struct drm_device *dev, void *data,
+		struct drm_device *dev, unsigned int size,
+		unsigned int *handle,
 		struct drm_file *file_priv,
 		struct dma_attrs *dma_attrs);
 void meson_drm_gem_free_object(struct drm_gem_object *gem_obj);
@@ -39,5 +39,11 @@ struct sg_table *meson_drm_gem_get_sg_table(struct drm_gem_object *obj);
 int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 struct meson_drm_gem_object *meson_drm_gem_create_obj(struct drm_device *dev,
 		unsigned int size);
+int meson_drm_gem_dumb_create(struct drm_file *file_priv,
+			      struct drm_device *dev,
+			      struct drm_mode_create_dumb *args);
+int meson_drm_gem_dumb_map_offset(struct drm_file *file_priv,
+				  struct drm_device *drm,
+				  uint32_t handle, uint64_t *offset);
 
 #endif

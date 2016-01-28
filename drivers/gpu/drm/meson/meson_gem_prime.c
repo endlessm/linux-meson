@@ -137,7 +137,6 @@ static int meson_drm_gem_alloc_buf(struct meson_drm_gem_object *meson_gem_obj,
 
 static struct meson_drm_gem_object *meson_drm_gem_create(
 		struct drm_device *dev,
-		unsigned int flags,
 		unsigned long size,
 		struct dma_attrs *dma_attrs)
 {
@@ -151,13 +150,11 @@ static struct meson_drm_gem_object *meson_drm_gem_create(
 		return meson_gem_obj;
 
 	meson_gem_obj->size = size;
-	meson_gem_obj->flags = flags;
 	meson_gem_obj->dma_attrs = *dma_attrs;
 	meson_gem_obj->is_scattered = !dma_get_attr(DMA_ATTR_WRITE_COMBINE, dma_attrs);
 
 	ret = meson_drm_gem_alloc_buf(meson_gem_obj, dev);
 	if (ret < 0) {
-		drm_gem_free_mmap_offset(&meson_gem_obj->base);
 		drm_gem_object_release(&meson_gem_obj->base);
 		kfree(meson_gem_obj);
 		return ERR_PTR(ret);
@@ -171,8 +168,6 @@ static void meson_drm_gem_destroy(struct meson_drm_gem_object *meson_gem_obj)
 	struct drm_gem_object *gem_obj = &meson_gem_obj->base;
 
 	DRM_DEBUG_KMS("handle count = %d\n", gem_obj->handle_count);
-
-	drm_gem_free_mmap_offset(gem_obj);
 
 	if (meson_gem_obj->vaddr)
 		dma_free_attrs(gem_obj->dev->dev, meson_gem_obj->base.size,
@@ -216,28 +211,26 @@ struct meson_drm_gem_object *meson_drm_gem_create_obj(struct drm_device *dev,
 	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
 
 	size = PAGE_ALIGN(size);
-	return meson_drm_gem_create(dev, 0, size, &dma_attrs);
+	return meson_drm_gem_create(dev, size, &dma_attrs);
 }
 
 struct meson_drm_gem_object *meson_drm_gem_create_with_handle(
-		struct drm_device *dev, void *data,
+		struct drm_device *dev, unsigned int size,
+		unsigned int *handle,
 		struct drm_file *file_priv,
 		struct dma_attrs *dma_attrs)
 {
-	struct drm_meson_gem_create_with_ump *args = data;
 	struct meson_drm_gem_object *meson_gem_obj;
-	unsigned int size;
 	int ret;
 
 	/* UMP requires a page-aligned size for its buffers. */
-	size = PAGE_ALIGN (args->size);
+	size = PAGE_ALIGN (size);
 
-	meson_gem_obj = meson_drm_gem_create(dev, args->flags, size, dma_attrs);
+	meson_gem_obj = meson_drm_gem_create(dev, size, dma_attrs);
 	if (IS_ERR(meson_gem_obj))
 		return meson_gem_obj;
 
-	ret = meson_drm_gem_handle_create(&meson_gem_obj->base, file_priv,
-					  &args->handle);
+	ret = meson_drm_gem_handle_create(&meson_gem_obj->base, file_priv, handle);
 	if (ret) {
 		meson_drm_gem_destroy(meson_gem_obj);
 		return ERR_PTR(ret);
@@ -387,4 +380,48 @@ int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
+int meson_drm_gem_dumb_create(struct drm_file *file_priv,
+			      struct drm_device *dev,
+			      struct drm_mode_create_dumb *args)
+{
+	struct meson_drm_gem_object *meson_gem_obj;
+	int min_pitch = DIV_ROUND_UP(args->width * args->bpp, 8);
+	DEFINE_DMA_ATTRS(dma_attrs);
+
+	if (args->pitch < min_pitch)
+		args->pitch = min_pitch;
+
+	if (args->size < args->pitch * args->height)
+		args->size = args->pitch * args->height;
+
+	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs);
+
+	meson_gem_obj = meson_drm_gem_create_with_handle(dev, args->size, &args->handle, file_priv, &dma_attrs);
+
+	return PTR_ERR_OR_ZERO(meson_gem_obj);
+}
+
+int meson_drm_gem_dumb_map_offset(struct drm_file *file_priv,
+				  struct drm_device *drm,
+				  uint32_t handle, uint64_t *offset)
+{
+	struct drm_gem_object *gem_obj;
+
+	mutex_lock(&drm->struct_mutex);
+
+	gem_obj = drm_gem_object_lookup(drm, file_priv, handle);
+	if (!gem_obj) {
+		dev_err(drm->dev, "failed to lookup gem object\n");
+		mutex_unlock(&drm->struct_mutex);
+		return -EINVAL;
+	}
+
+	*offset = drm_vma_node_offset_addr(&gem_obj->vma_node);
+
+	drm_gem_object_unreference(gem_obj);
+
+	mutex_unlock(&drm->struct_mutex);
+
+	return 0;
+}
 

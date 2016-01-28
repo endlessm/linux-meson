@@ -1202,7 +1202,7 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
 	}
 
-	gem_obj = meson_drm_gem_create_with_handle(dev, data, file, &dma_attrs);
+	gem_obj = meson_drm_gem_create_with_handle(dev, args->size, &args->handle, file, &dma_attrs);
 
 	if (IS_ERR(gem_obj))
 		return PTR_ERR(gem_obj);
@@ -1291,8 +1291,8 @@ static struct drm_driver meson_driver = {
 	.gem_prime_export	= drm_gem_prime_export,
 	.gem_prime_get_sg_table	= meson_drm_gem_get_sg_table,
 	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
-	.dumb_create        = drm_gem_cma_dumb_create,
-	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
+	.dumb_create        = meson_drm_gem_dumb_create,
+	.dumb_map_offset    = meson_drm_gem_dumb_map_offset,
 	.dumb_destroy       = drm_gem_dumb_destroy,
 	.ioctls             = meson_ioctls,
 	.num_ioctls         = DRM_MESON_NUM_IOCTLS,
