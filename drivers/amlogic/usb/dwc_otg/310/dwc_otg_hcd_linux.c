@@ -795,7 +795,6 @@ static int urb_enqueue(struct usb_hcd *hcd,
 	DWC_SPINLOCK_IRQSAVE(dwc_otg_hcd->lock, &flags_lock);
 	DWC_SPINUNLOCK_IRQRESTORE(dwc_otg_hcd->lock, flags_lock);	
 	if (unlikely(atomic_read(&urb->reject))) {
-		printk("%s:urb(%p) had been killed\n",__func__,urb);
 		return -EPERM;
 	}
 
@@ -871,7 +870,6 @@ static int urb_enqueue(struct usb_hcd *hcd,
 						    iso_frame_desc[i].length);
 	}
 	if (unlikely(atomic_read(&urb->reject))) {
-		printk("%s:urb(%p) had been killed2\n",__func__,urb);
 		DWC_FREE(dwc_otg_urb);
 		return -EPERM;
 	}
