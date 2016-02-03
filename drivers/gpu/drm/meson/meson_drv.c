@@ -33,12 +33,15 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_rect.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/meson_drm.h>
 
 #include "meson_cvbs.h"
 #include "meson_hdmi.h"
 #include "meson_modes.h"
 #include "meson_priv.h"
+#include "meson_gem.h"
+#include "meson_fb.h"
 
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
@@ -677,7 +680,7 @@ fail:
 
 struct meson_drm_private {
 	struct drm_crtc *crtc;
-	struct drm_fbdev_cma *fbdev;
+	struct drm_fb_helper *fbdev;
 
 	struct drm_atomic_state *cleanup_state;
 	struct workqueue_struct *unref_wq;
@@ -688,7 +691,10 @@ static void meson_fb_output_poll_changed(struct drm_device *dev)
 {
 #if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
-	drm_fbdev_cma_hotplug_event(priv->fbdev);
+	struct drm_fb_helper *fbh = priv->fbdev;
+
+	if (fbh)
+		drm_fb_helper_hotplug_event(fbh);
 #endif
 }
 
@@ -731,7 +737,7 @@ static int meson_atomic_commit(struct drm_device *dev,
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
-	.fb_create           = drm_fb_cma_create,
+	.fb_create           = meson_fb_create,
 	.output_poll_changed = meson_fb_output_poll_changed,
 	.atomic_check        = drm_atomic_helper_check,
 	.atomic_commit       = meson_atomic_commit,
@@ -946,9 +952,9 @@ static int meson_load(struct drm_device *dev, unsigned long flags)
 	drm_kms_helper_poll_init(dev);
 
 #if !NO_FBDEV
-	priv->fbdev = drm_fbdev_cma_init(dev, 32,
-					 dev->mode_config.num_crtc,
-					 dev->mode_config.num_connector);
+	priv->fbdev = meson_fbdev_init(dev, 32,
+			dev->mode_config.num_crtc,
+			dev->mode_config.num_connector);
 #endif
 
 	device_create_file(dev->dev, &dev_attr_underscan_hborder);
@@ -998,7 +1004,10 @@ static void meson_lastclose(struct drm_device *dev)
 {
 #if !NO_FBDEV
 	struct meson_drm_private *priv = dev->dev_private;
-	drm_fbdev_cma_restore_mode(priv->fbdev);
+	struct drm_fb_helper *fbh = priv->fbdev;
+
+	if (fbh)
+		drm_fb_helper_restore_fbdev_mode_unlocked(fbh);
 #endif
 }
 
@@ -1099,13 +1108,13 @@ static void update_plane_shadow_registers(struct drm_plane *plane)
 
 	if (meson_plane->visible) {
 		if (meson_plane->fb_changed) {
-			struct drm_gem_cma_object *cma_bo;
+			struct meson_drm_gem_object *bo;
 
-			cma_bo = drm_fb_cma_get_gem_obj(state->fb, 0);
+			bo = meson_drm_get_gem_obj(state->fb, 0);
 
 			/* Swap out the OSD canvas with the new addr. */
 			canvas_setup(meson_plane->def->canvas_index,
-				     cma_bo->paddr,
+				     bo->paddr,
 				     state->fb->pitches[0],
 				     state->fb->height,
 				     MESON_CANVAS_WRAP_NONE,
@@ -1168,21 +1177,12 @@ static irqreturn_t meson_irq(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
-static void meson_gem_free_object(struct drm_gem_object *obj)
-{
-	drm_gem_cma_free_object(obj);
-}
-
 static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 				       struct drm_file *file)
 {
 	struct drm_meson_gem_create_with_ump *args = data;
-	struct drm_gem_cma_object *cma_obj;
-	unsigned int size;
+	struct meson_drm_gem_object *gem_obj;
 	DEFINE_DMA_ATTRS(dma_attrs);
-
-	/* UMP requires a page-aligned size for its buffers. */
-	size = PAGE_ALIGN (args->size);
 
 	/* All allocations currently contiguous, to be improved later. */
 	dma_set_attr(DMA_ATTR_FORCE_CONTIGUOUS, &dma_attrs);
@@ -1199,11 +1199,12 @@ static int meson_ioctl_create_with_ump(struct drm_device *dev, void *data,
 		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &dma_attrs);
 	}
 
-	cma_obj = drm_gem_cma_create_with_handle(file, dev, size, &args->handle, &dma_attrs);
-	if (IS_ERR(cma_obj))
-		return PTR_ERR(cma_obj);
+	gem_obj = meson_drm_gem_create_with_handle(dev, args->size, &args->handle, file, &dma_attrs);
 
-	return PTR_ERR_OR_ZERO(cma_obj);
+	if (IS_ERR(gem_obj))
+		return PTR_ERR(gem_obj);
+
+	return PTR_ERR_OR_ZERO(gem_obj);
 }
 
 static const struct drm_ioctl_desc meson_ioctls[] = {
@@ -1213,9 +1214,14 @@ static const struct drm_ioctl_desc meson_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MESON_CACHE_OPERATIONS_CONTROL, meson_ioctl_cache_operations_control, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
+const struct vm_operations_struct meson_drm_gem_vm_ops = {
+	.open = drm_gem_vm_open,
+	.close = drm_gem_vm_close,
+};
+
 #ifdef CONFIG_DEBUG_FS
 static struct drm_info_list meson_debugfs_list[] = {
-	{ "fb",   drm_fb_cma_debugfs_show, 0 },
+	{ "fb", meson_drm_debugfs_show, 0 },
 };
 
 static int meson_debugfs_init(struct drm_minor *minor)
@@ -1253,7 +1259,7 @@ static const struct file_operations fops = {
 	.poll               = drm_poll,
 	.read               = drm_read,
 	.llseek             = no_llseek,
-	.mmap               = drm_gem_cma_mmap,
+	.mmap               = meson_drm_gem_mmap,
 };
 
 static struct drm_driver meson_driver = {
@@ -1274,19 +1280,16 @@ static struct drm_driver meson_driver = {
 	.date               = "20141113",
 	.major              = 1,
 	.minor              = 0,
-	.gem_free_object    = meson_gem_free_object,
-	.gem_vm_ops         = &drm_gem_cma_vm_ops,
+	.gem_free_object    = meson_drm_gem_free_object,
+	.gem_vm_ops         = &meson_drm_gem_vm_ops,
 	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 	.gem_prime_import	= drm_gem_prime_import,
 	.gem_prime_export	= drm_gem_prime_export,
-	.gem_prime_get_sg_table	= drm_gem_cma_prime_get_sg_table,
+	.gem_prime_get_sg_table	= meson_drm_gem_get_sg_table,
 	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
-	.gem_prime_vmap		= drm_gem_cma_prime_vmap,
-	.gem_prime_vunmap	= drm_gem_cma_prime_vunmap,
-	.gem_prime_mmap		= drm_gem_cma_prime_mmap,
-	.dumb_create        = drm_gem_cma_dumb_create,
-	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
+	.dumb_create        = meson_drm_gem_dumb_create,
+	.dumb_map_offset    = meson_drm_gem_dumb_map_offset,
 	.dumb_destroy       = drm_gem_dumb_destroy,
 	.ioctls             = meson_ioctls,
 	.num_ioctls         = DRM_MESON_NUM_IOCTLS,

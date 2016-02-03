@@ -26,8 +26,26 @@
 #include <linux/mutex.h>
 
 #include "meson_priv.h"
+#include "meson_gem.h"
 
 #define DBG_MSG(level,args) do {} while(0) /* FIXME: debug properly */
+
+static void cache_control_op(enum drm_meson_msync_op op, u32 start_p, u32 end_p)
+{
+	switch (op) {
+	case DRM_MESON_MSYNC_CLEAN:
+		outer_clean_range(start_p, end_p);
+		break;
+	case DRM_MESON_MSYNC_CLEAN_AND_INVALIDATE:
+		outer_flush_range(start_p, end_p);
+		break;
+	case DRM_MESON_MSYNC_INVALIDATE:
+		outer_inv_range(start_p, end_p);
+		break;
+	default:
+		break;
+	}
+}
 
 static void level1_cache_flush_all(void)
 {
@@ -37,14 +55,17 @@ static void level1_cache_flush_all(void)
 
 /* This is a copy of _ump_osk_msync from drivers/amlogic/gpu/ump/linux/ump_osk_low_level_mem.c
  * with adapted parameters */
-static void meson_drm_ump_osk_msync(struct drm_gem_cma_object *cma_obj, void *virt, u32 offset, size_t size, enum drm_meson_msync_op op, struct meson_drm_session_data *session_data)
+static void meson_drm_ump_osk_msync(struct drm_gem_object *gem_obj, void *virt, u32 offset, size_t size, enum drm_meson_msync_op op, struct meson_drm_session_data *session_data)
 {
-	struct drm_gem_object *gem_obj;
+	struct meson_drm_gem_object *meson_gem_obj;
 	u32 start_p, end_p;
+	int i;
+	struct scatterlist *sgl;
+
 
 	/* Flush L1 using virtual address, the entire range in one go.
 	 * Only flush if user space process has a valid write mapping on given address. */
-	if ((cma_obj) && (virt != NULL) && (access_ok(VERIFY_WRITE, virt, size))) {
+	if ((gem_obj) && (virt != NULL) && (access_ok(VERIFY_WRITE, virt, size))) {
 		__cpuc_flush_dcache_area(virt, size);
 		DBG_MSG(3, ("meson_drm_ump_osk_msync(): Flushing CPU L1 Cache. CPU address: %x, size: %x\n", virt, size));
 	} else {
@@ -69,53 +90,18 @@ static void meson_drm_ump_osk_msync(struct drm_gem_cma_object *cma_obj, void *vi
 		}
 	}
 
-	if (!cma_obj)
+	if (!gem_obj)
 		return;
-	gem_obj = &cma_obj->base;
 
 	DBG_MSG(3, ("meson_drm_ump_osk_msync(): Flushing CPU L2 Cache\n"));
 
-	/* Flush L2 using physical addresses
-	 * Our allocations are always contiguous (GEM CMA), so we have only one mem block */
+	meson_gem_obj = to_meson_drm_gem_obj(gem_obj);
 
-	if (offset >= gem_obj->size) {
-		offset -= gem_obj->size;
-		return;
-	}
+	for_each_sg(meson_gem_obj->sgt->sgl, sgl, meson_gem_obj->sgt->nents, i) {
+		start_p = sg_phys(sgl);
+		end_p = start_p + sgl->length;
 
-	if (offset) {
-		start_p = (u32)cma_obj->paddr + offset;
-		/* We'll zero the offset later, after using it to calculate end_p. */
-	} else {
-		start_p = (u32)cma_obj->paddr;
-	}
-
-	if (size < gem_obj->size - offset) {
-		end_p = start_p + size;
-		size = 0;
-	} else {
-		if (offset) {
-			end_p = start_p + (gem_obj->size - offset);
-			size -= gem_obj->size - offset;
-			offset = 0;
-		} else {
-			end_p = start_p + gem_obj->size;
-			size -= gem_obj->size;
-		}
-	}
-
-	switch (op) {
-	case DRM_MESON_MSYNC_CLEAN:
-		outer_clean_range(start_p, end_p);
-		break;
-	case DRM_MESON_MSYNC_CLEAN_AND_INVALIDATE:
-		outer_flush_range(start_p, end_p);
-		break;
-	case DRM_MESON_MSYNC_INVALIDATE:
-		outer_inv_range(start_p, end_p);
-		break;
-	default:
-		break;
+		cache_control_op(op, start_p, end_p);
 	}
 
 	return;
@@ -126,7 +112,7 @@ static void meson_drm_ump_osk_msync(struct drm_gem_cma_object *cma_obj, void *vi
 int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	struct drm_gem_object *gem_obj;
-	struct drm_gem_cma_object *cma_obj;
+	struct meson_drm_gem_object *meson_gem_obj;
 	struct drm_meson_msync *args = data;
 	struct meson_drm_session_data *session_data = file->driver_priv;
 	int ret = 0;
@@ -144,10 +130,9 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 		return -EFAULT;
 	}
 
-	cma_obj = to_drm_gem_cma_obj(gem_obj);
+	meson_gem_obj = to_meson_drm_gem_obj(gem_obj);
 
-	/* Returns the cache settings back to Userspace */
-	args->is_cached = dma_get_attr(DMA_ATTR_NON_CONSISTENT, &cma_obj->dma_attrs);
+	args->is_cached = dma_get_attr(DMA_ATTR_NON_CONSISTENT, &meson_gem_obj->dma_attrs);
 
 	DBG_MSG(3, ("meson_ioctl_msync(): %02u cache_enabled %d\n op %d address 0x%08x mapping 0x%08x\n",
 		    args->handle, args->is_cached, args->op, args->address, args->mapping));
@@ -178,7 +163,7 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 	}
 
 	/* No need to lock here since session_data=NULL */
-	meson_drm_ump_osk_msync(cma_obj, virtual, offset, gem_obj->size, args->op, NULL);
+	meson_drm_ump_osk_msync(gem_obj, virtual, offset, gem_obj->size, args->op, NULL);
 
  out:
 	drm_gem_object_unreference_unlocked(gem_obj);
@@ -190,10 +175,11 @@ int meson_ioctl_msync(struct drm_device *dev, void *data, struct drm_file *file)
 int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	struct drm_gem_object *gem_obj;
-	struct drm_gem_cma_object *cma_obj;
+	struct meson_drm_gem_object *meson_gem_obj;
 	struct drm_meson_gem_set_domain *args = data;
 	struct meson_drm_session_data *session_data = file->driver_priv;
 	enum drm_meson_msync_op cache_op = DRM_MESON_MSYNC_CLEAN_AND_INVALIDATE;
+	int ret = 0;
 
 	if (!args || !session_data)
 		return -EINVAL;
@@ -204,7 +190,7 @@ int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *
 		return -EFAULT;
 	}
 
-	cma_obj = to_drm_gem_cma_obj(gem_obj);
+	meson_gem_obj = to_meson_drm_gem_obj(gem_obj);
 
 	DBG_MSG(3, ("meson_ioctl_set_domain(): %02u %s -> %s\n",
 		    args->handle,
@@ -212,10 +198,10 @@ int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *
 		    args->write_domain == DRM_MESON_GEM_DOMAIN_CPU ? "CPU" : "MALI"));
 
 	/* If the buffer is not cacheable there is no need to do anything */
-	if (!dma_get_attr(DMA_ATTR_NON_CONSISTENT, &cma_obj->dma_attrs)) {
+	if (!dma_get_attr(DMA_ATTR_NON_CONSISTENT, &meson_gem_obj->dma_attrs)) {
 		DBG_MSG(3, ("meson_ioctl_set_domain(): %02u Changing owner of uncached memory, cache flushing not needed.\n",
 			    args->handle));
-		cma_obj = ERR_PTR(-EINVAL);
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -232,7 +218,7 @@ int meson_ioctl_set_domain(struct drm_device *dev, void *data, struct drm_file *
 		DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Cache clean and invalidate\n", args->handle));
 
 	mutex_lock(&session_data->mutex);
-	meson_drm_ump_osk_msync(cma_obj, NULL, 0, gem_obj->size, cache_op, session_data);
+	meson_drm_ump_osk_msync(gem_obj, NULL, 0, gem_obj->size, cache_op, session_data);
 	mutex_unlock(&session_data->mutex);
 
 out:
@@ -242,7 +228,8 @@ out:
 	drm_gem_object_unreference_unlocked(gem_obj);
 
 	DBG_MSG(4, ("meson_ioctl_set_domain(): %02u Finish\n", args->handle));
-	return PTR_ERR_OR_ZERO(cma_obj);
+
+	return ret;
 }
 
 /* this code was heavily inspired by _ump_ukk_cache_operations_control() in
