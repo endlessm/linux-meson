@@ -2,12 +2,6 @@
 # 1. WL_IFACE_COMB_NUM_CHANNELS must be added if Android version is 4.4 with Kernel version 3.0~3.4,
 #    otherwise please remove it.
 
-CONFIG_BCMDHD_SDIO := y
-#CONFIG_BCMDHD_PCIE := y
-
-export CONFIG_BCMDHD = m
-export CONFIG_BCMDHD_OOB = y
-
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER -DSDTEST       \
 	-DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DBCMFILEIMAGE            \
 	-DDHDTHREAD -DDHD_DEBUG -DSHOW_EVENTS -DBCMDBG -DGET_OTP_MAC_ENABLE   \
@@ -98,15 +92,3 @@ else
 DHDCFLAGS += -DBUILD_IN_KERNEL
 endif
 
-ARCH ?= arm64
-CROSS_COMPILE ?=aarch64-linux-gnu-
-KDIR ?=/mnt/fileroot/jiamin.miao/amlogic_kernel/common
-
-dhd:
-	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
-
-
-clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) clean
-	$(RM) Module.markers
-	$(RM) modules.order
