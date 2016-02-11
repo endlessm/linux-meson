@@ -100,7 +100,6 @@ ifneq ($(wildcard $(srctree)/../hardware/wifi),)
 	obj-$(CONFIG_SDIO_DHD_CDC_WIFI_40181_MODULE) += ../../../hardware/wifi/broadcom/drivers/ap6xxx/broadcm_40181/
 	obj-$(CONFIG_BCMDHD_141_AMPAK) += ../../../hardware/wifi/broadcom/drivers/ap6xxx/bcmdhd_1_141_xx/
 	obj-$(CONFIG_BCMDHD_4354_AMPAK) += ../../../hardware/wifi/broadcom/drivers/ap6xxx/broadcm_4354/
-	obj-$(CONFIG_BCMDHD) += ../../../hardware/wifi/broadcom/drivers/usi/bcmdhd/
 	obj-$(CONFIG_RTL8188EU) += ../../../hardware/wifi/realtek/drivers/8188eu/rtl8xxx_EU/
 	obj-$(CONFIG_RTL8188EU_MP) += ../../../hardware/wifi/realtek/drivers/8188eu/rtl8xxx_EU_MP/
 	obj-$(CONFIG_RTL8192CU) += ../../../hardware/wifi/realtek/drivers/8192cu/rtl8xxx_CU/
