@@ -712,12 +712,8 @@ sdioh_enable_hw_oob_intr(sdioh_info_t *sd, bool enable)
 	SDIOH_API_RC status;
 	uint8 data;
 
-	if (enable) {
-		if (wifi_irq_trigger_level() == GPIO_IRQ_LOW)
-			data = SDIO_SEPINT_MASK | SDIO_SEPINT_OE;
-		else
+	if (enable)
 			data = SDIO_SEPINT_MASK | SDIO_SEPINT_OE | SDIO_SEPINT_ACT_HI;
-	}
 	else
 		data = SDIO_SEPINT_ACT_HI;	/* disable hw oob interrupt */
 
