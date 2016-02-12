@@ -106,12 +106,6 @@
 		status = "okay";
 	};
 
-	rtc {
-		compatible = "amlogic,aml_rtc";
-		sec_adjust = <0x6c7>;
-		status = "okay";
-	};
-
 	uart_ao {
 		compatible = "amlogic,aml_uart";
 		port_name = "uart_ao";
