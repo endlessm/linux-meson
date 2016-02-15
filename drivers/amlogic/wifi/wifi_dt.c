@@ -144,6 +144,20 @@ static int wifi_dev_probe(struct platform_device *pdev)
 	}
 #endif
 
+	/*
+	 * This is taken from bcm_wlan_set_power(). This is needed to power-up
+	 * the WiFi transceiver at boot to be recognized as a SDIO device. udev
+	 * will load the correspective module.
+	 */
+
+	if (of_property_read_bool(pdev->dev.of_node, "power-up-boot")) {
+		wifi_setup_dt();
+		extern_wifi_set_enable(0);
+		mdelay(200);
+		extern_wifi_set_enable(1);
+		mdelay(300);
+	}
+
     return 0;
 }
 
