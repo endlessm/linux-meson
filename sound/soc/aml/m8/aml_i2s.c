@@ -641,7 +641,7 @@ static int aml_i2s_close(struct snd_pcm_substream *substream)
     //  if(s->device_type == AML_AUDIO_SPDIFOUT)
     //      WRITE_MPEG_REG_BITS( HHI_MPLL_CNTL8, 0,14, 1);
 #if USE_HRTIMER == 0
-    printk("aml_i2s_close device type %d \n", s->device_type);
+    ALSA_DEBUG("aml_i2s_close device type %d \n", s->device_type);
 #ifdef USE_HW_TIMER
     snd_free_hw_timer_irq(prtd);
 #else

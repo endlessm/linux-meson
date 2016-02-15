@@ -329,7 +329,7 @@ static void spdifin_fifo1_set_buf(u32 addr, u32 size)
 }
 void audio_in_i2s_set_buf(u32 addr, u32 size,u32 i2s_mode, u32 i2s_sync)
 {
-    printk("i2sin_fifo0_set_buf \n");       
+//    printk("i2sin_fifo0_set_buf \n");
     i2sin_fifo0_set_buf(addr,size,i2s_mode,i2s_sync);
     audio_in_buf_ready = 1;
 }
