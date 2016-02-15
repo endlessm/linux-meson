@@ -161,6 +161,7 @@
 		irq_trigger_type = "GPIO_IRQ_HIGH";
 		power_on_pin2 = "GPIOX_11";
 		clock_32k_pin = "GPIOX_10";
+		power-up-boot;
 	};
 
 	wifi_power {
