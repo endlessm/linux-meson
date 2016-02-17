@@ -746,21 +746,11 @@ void aml_sdhc_set_pdma(struct amlsd_platform* pdata, struct mmc_request* mrq)
     }
 }
 
-/*copy buffer from data->sg to dma buffer, set dma addr to reg*/
-void aml_sdhc_prepare_dma(struct amlsd_host *host, struct mmc_request *mrq)
+int aml_sdhc_prepare_dma(struct amlsd_host *host, struct mmc_request *mrq)
 {
     struct mmc_data *data = mrq->data;
     
-#if 1 //for temp write test
-    if(data->flags & MMC_DATA_WRITE){
-        aml_sg_copy_buffer(data->sg, data->sg_len,
-                host->bn_buf, data->blksz*data->blocks, 1);
-        sdhc_dbg(AMLSD_DBG_WR_DATA,"W Cmd %d, %x-%x-%x-%x\n",
-                mrq->cmd->opcode,
-                host->bn_buf[0], host->bn_buf[1],
-                host->bn_buf[2], host->bn_buf[3]);
-    }
- #endif
+    return dma_map_sg(mmc_dev(host->mmc), data->sg, data->sg_len, ((data->flags & MMC_DATA_WRITE) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
 }
 
 /*
@@ -917,7 +907,6 @@ void aml_sdhc_start_cmd(struct amlsd_platform* pdata, struct mmc_request* mrq)
 
     writel(mrq->cmd->arg, host->base+SDHC_ARGU);
     writel(vctrl, host->base+SDHC_CTRL);
-    writel(host->bn_dma_buf, host->base+SDHC_ADDR);
     if(aml_sdhc_wait_ready(host, STAT_POLL_TIMEOUT)){ /*Wait command busy*/
 		sdhc_err("aml_sdhc_wait_ready error before start cmd\n");
 	}
@@ -976,8 +965,12 @@ void aml_sdhc_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
 {
     struct amlsd_platform * pdata = mmc_priv(mmc);
     struct amlsd_host* host = pdata->host;
+    struct mmc_data *data = mrq->data;
     unsigned long flags;
 
+    if (data) {
+        dma_unmap_sg(mmc_dev(host->mmc), data->sg, data->sg_len, (data->flags & MMC_DATA_WRITE) ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+    }
     spin_lock_irqsave(&host->mrq_lock, flags);
     host->xfer_step = XFER_FINISHED;
     host->mrq = NULL;
@@ -1309,6 +1302,7 @@ void aml_sdhc_request(struct mmc_host *mmc, struct mmc_request *mrq)
     unsigned long flags;
     unsigned int timeout;
     u32 tuning_opcode;
+    int ret = 0;
     
     BUG_ON(!mmc);
     BUG_ON(!mrq);
@@ -1369,9 +1363,13 @@ void aml_sdhc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
     /*setup reg  especially for cmd with transfering data*/
     if(mrq->data) {
-        /*Copy data to dma buffer for write request*/
-        aml_sdhc_prepare_dma(host, mrq);
-
+        ret = aml_sdhc_prepare_dma(host, mrq);
+        if (ret)
+            writel(sg_dma_address(mrq->data->sg), host->base + SDHC_ADDR);
+        else {
+            sdhc_err("DMA map for mrq->data fail !!!\n");
+            return;
+        }
         sdhc_dbg(AMLSD_DBG_REQ ,"%s: blksz %d blocks %d flags %08x "
             "tsac %d ms nsac %d\n",
             mmc_hostname(mmc), mrq->data->blksz,
@@ -1751,17 +1749,6 @@ irqreturn_t aml_sdhc_data_thread(int irq, void *data)
 	                }                              
 		   }
 #endif
-                aml_sg_copy_buffer(mrq->data->sg, mrq->data->sg_len, host->bn_buf,
-                            xfer_bytes, 0);
-                sdhc_dbg(AMLSD_DBG_RD_DATA, "R Cmd%d, arg %x, size=%d\n",
-                        mrq->cmd->opcode, mrq->cmd->arg, xfer_bytes);
-                sdhc_dbg(AMLSD_DBG_RD_DATA, "R Cmd %d, %x-%x-%x-%x-%x-%x-%x-%x\n",
-                    host->mrq->cmd->opcode,
-                    host->bn_buf[0], host->bn_buf[1],
-                    host->bn_buf[2], host->bn_buf[3],
-                    host->bn_buf[4], host->bn_buf[5],
-                    host->bn_buf[6], host->bn_buf[7]);
-                // aml_debug_print_buf(host->bn_buf, xfer_bytes);
             }
 
             vstat = readl(host->base + SDHC_STAT);
@@ -2331,14 +2318,6 @@ static struct amlsd_host* aml_sdhc_init_host(void)
         return NULL;
     }
 
-    host->bn_buf = dma_alloc_coherent(NULL, SDHC_BOUNCE_REQ_SIZE,
-                            &host->bn_dma_buf, GFP_KERNEL);
-    // sdhc_err("host->bn_buf %x, host->bn_dma_buf %x\n", (int)host->bn_buf,
-                // (int)host->bn_dma_buf);
-    if(NULL == host->bn_buf){
-        sdhc_err("Dma alloc Fail!\n");
-        return NULL;
-    }
     // setup_timer(&host->timeout_tlist, aml_sdhc_timeout, (ulong)host);
     INIT_DELAYED_WORK(&host->timeout, aml_sdhc_timeout);
 
@@ -2447,7 +2426,7 @@ static int aml_sdhc_probe(struct platform_device *pdev)
         mmc->max_blk_size = 4095; //
         mmc->max_req_size = pdata->max_req_size;
         mmc->max_seg_size = mmc->max_req_size;
-        mmc->max_segs = 1024;
+        mmc->max_segs = 1;
         mmc->ocr_avail = pdata->ocr_avail;
         mmc->ocr = pdata->ocr_avail;
         mmc->caps = pdata->caps;
@@ -2538,8 +2517,6 @@ probe_free_host:
 fail_init_host:
     iounmap(host->base);
     free_irq(INT_SDHC, host);
-    dma_free_coherent(NULL, SDHC_BOUNCE_REQ_SIZE, host->bn_buf,
-        (dma_addr_t)host->bn_dma_buf);
     kfree(host);
     print_tmp("aml_sdhc_probe() fail!\n");
     return ret;
@@ -2550,9 +2527,6 @@ int aml_sdhc_remove(struct platform_device *pdev)
     struct amlsd_host* host  = platform_get_drvdata(pdev);
     struct mmc_host* mmc;
     struct amlsd_platform* pdata;
-
-    dma_free_coherent(NULL, SDHC_BOUNCE_REQ_SIZE, host->bn_buf,
-        (dma_addr_t )host->bn_dma_buf);
 
     free_irq(INT_SDHC, host);
     iounmap(host->base);
