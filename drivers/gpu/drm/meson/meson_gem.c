@@ -386,6 +386,28 @@ int meson_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	return meson_drm_gem_scattered_mmap_obj(meson_gem_obj, vma);
 }
 
+int meson_drm_gem_prime_mmap(struct drm_gem_object *obj,
+			     struct vm_area_struct *vma)
+{
+	struct meson_drm_gem_object *meson_gem_obj;
+	struct drm_device *dev = obj->dev;
+	int ret;
+
+	mutex_lock(&dev->struct_mutex);
+	ret = drm_gem_mmap_obj(obj, obj->size, vma);
+	mutex_unlock(&dev->struct_mutex);
+	if (ret < 0)
+		return ret;
+
+	meson_gem_obj = to_meson_drm_gem_obj(obj);
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+
+	if (!meson_gem_obj->is_scattered)
+		return meson_drm_gem_cma_mmap_obj(meson_gem_obj, vma);
+
+	return meson_drm_gem_scattered_mmap_obj(meson_gem_obj, vma);
+}
+
 int meson_drm_gem_dumb_create(struct drm_file *file_priv,
 			      struct drm_device *dev,
 			      struct drm_mode_create_dumb *args)
