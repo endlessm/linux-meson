@@ -1288,6 +1288,7 @@ static struct drm_driver meson_driver = {
 	.gem_prime_export	= drm_gem_prime_export,
 	.gem_prime_get_sg_table	= meson_drm_gem_get_sg_table,
 	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
+	.gem_prime_mmap     = meson_drm_gem_prime_mmap,
 	.dumb_create        = meson_drm_gem_dumb_create,
 	.dumb_map_offset    = meson_drm_gem_dumb_map_offset,
 	.dumb_destroy       = drm_gem_dumb_destroy,
