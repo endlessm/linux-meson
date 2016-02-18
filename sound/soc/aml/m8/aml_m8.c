@@ -839,6 +839,9 @@ static int aml_m8_audio_probe(struct platform_device *pdev)
     if (ret)
         goto err;
 
+    if (of_property_read_bool(pdev->dev.of_node, "force_no_pcm"))
+	    aml_codec_dai_link[0].no_pcm = 1;
+
 	printk("codec_name = %s\n", codec_info.name_bus);
 
 	aml_codec_dai_link[0].codec_name = codec_info.name_bus;
