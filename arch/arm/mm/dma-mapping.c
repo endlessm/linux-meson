@@ -685,7 +685,7 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 		addr = __alloc_simple_buffer(dev, size, gfp, &page);
 	else if (!(gfp & __GFP_WAIT))
 		addr = __alloc_from_pool(size, &page);
-	else if (!IS_ENABLED(CONFIG_CMA))
+	else if (!IS_ENABLED(CONFIG_CMA) || size <= PAGE_SIZE)
 		addr = __alloc_remap_buffer(dev, size, gfp, prot, &page, caller, want_vaddr);
 	else
 		addr = __alloc_from_contiguous(dev, size, prot, &page, caller, want_vaddr);
@@ -775,7 +775,7 @@ static void __arm_dma_free(struct device *dev, size_t size, void *cpu_addr,
 		__dma_free_buffer(page, size);
 	} else if (__free_from_pool(cpu_addr, size)) {
 		return;
-	} else if (!IS_ENABLED(CONFIG_CMA)) {
+	} else if (!IS_ENABLED(CONFIG_CMA) || size <= PAGE_SIZE) {
 		if (want_vaddr)
 			__dma_free_remap(cpu_addr, size);
 		__dma_free_buffer(page, size);
