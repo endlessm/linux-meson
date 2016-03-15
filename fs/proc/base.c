@@ -1006,6 +1006,7 @@ out:
 	return err < 0 ? err : count;
 }
 
+#if 0
 static int oom_adjust_permission(struct inode *inode, int mask)
 {
 	uid_t uid;
@@ -1034,6 +1035,7 @@ static int oom_adjust_permission(struct inode *inode, int mask)
 static const struct inode_operations proc_oom_adj_inode_operations = {
 	.permission	= oom_adjust_permission,
 };
+#endif
 
 static const struct file_operations proc_oom_adj_operations = {
 	.read		= oom_adj_read,
@@ -2732,7 +2734,6 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("cgroup",  S_IRUGO, proc_cgroup_operations),
 #endif
 	INF("oom_score",  S_IRUGO, proc_oom_score),
-	ANDROID("oom_adj", S_IRUGO|S_IWUSR, oom_adj),
 	REG("oom_score_adj", S_IRUGO|S_IWUSR, proc_oom_score_adj_operations),
 #ifdef CONFIG_AUDITSYSCALL
 	REG("loginuid",   S_IWUSR|S_IRUGO, proc_loginuid_operations),
