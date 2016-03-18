@@ -207,7 +207,7 @@ static void __efuse_read_dword( unsigned long addr, unsigned long *data )
 }
 #endif
 
-static ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos )
+ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos )
 {
 	unsigned long* contents = (unsigned long*)kzalloc(sizeof(unsigned long)*EFUSE_DWORDS, GFP_KERNEL);
 	unsigned pos = *ppos;
@@ -278,7 +278,7 @@ static ssize_t __efuse_read( char *buf, size_t count, loff_t *ppos )
 	return count;
 }
 
-static ssize_t __efuse_write(const char *buf, size_t count, loff_t *ppos )
+ssize_t __efuse_write(const char *buf, size_t count, loff_t *ppos )
 {
 	unsigned pos = *ppos;
 #ifdef CONFIG_MESON_TRUSTZONE
