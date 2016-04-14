@@ -684,8 +684,6 @@ static int efuse_raw_probe(struct platform_device *pdev)
 		 goto error3;
 	 }
 
-	 printk(KERN_EMERG "%s ok\n", __func__);
-
 	 return 0;
 
  error3:
