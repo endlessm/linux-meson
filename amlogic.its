@@ -47,6 +47,16 @@
 				algo = "crc32";
 			};
 		};
+		fdt@4 {
+			description = "Amlogic ShiningStart M8 Flattened Device Tree blob";
+			data = /incbin/("arch/arm/boot/dts/meson8b_m201C_2G.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
 	};
 
 	configurations {
@@ -65,6 +75,11 @@
 			description = "Boot Endless ATV185";
 			kernel = "kernel@1";
 			fdt = "fdt@3";
+		};
+		m8 {
+			description = "Boot Endless M8";
+			kernel = "kernel@1";
+			fdt = "fdt@4";
 		};
 	};
 };
