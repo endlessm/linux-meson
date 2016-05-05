@@ -197,7 +197,7 @@ static bool parse(void)
 		if (!entry->valid)
 			continue;
 
-		sysfs_attr_init(&entry->attr->attr);
+		sysfs_attr_init(&entry->attr.attr);
 		entry->attr.attr.name = entry->tag;
 		entry->attr.attr.mode = 0400;
 		entry->attr.show = mfgdata_attr_show;
