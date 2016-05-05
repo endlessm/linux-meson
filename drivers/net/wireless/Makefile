@@ -58,5 +58,6 @@ obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 obj-$(CONFIG_BRCMFMAC)	+= brcm80211/
 obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
 obj-$(CONFIG_BCMDHD)	+= brcm80211/
+obj-$(CONFIG_SDIO_DHD_CDC_WIFI_40181_MODULE)	+= broadcom/
 obj-$(CONFIG_RTL8723BS) += rtl8723bs/
 obj-$(CONFIG_RTL8189ES) += rtl8189ES/
