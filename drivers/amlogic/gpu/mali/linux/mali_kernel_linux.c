@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2015 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2016 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -24,6 +24,8 @@
 #include <linux/miscdevice.h>
 #include <linux/bug.h>
 #include <linux/of.h>
+#include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
@@ -63,13 +65,31 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mali_hw_counter);
 EXPORT_TRACEPOINT_SYMBOL_GPL(mali_sw_counters);
 #endif /* CONFIG_TRACEPOINTS */
 
-extern int mpgpu_class_init(void);
-extern void mpgpu_class_exit(void);
+#ifdef CONFIG_MALI_DEVFREQ
+#include "mali_devfreq.h"
+#include "mali_osk_mali.h"
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
+#include <linux/pm_opp.h>
+#else
+/* In 3.13 the OPP include header file, types, and functions were all
+ * renamed. Use the old filename for the include, and define the new names to
+ * the old, when an old kernel is detected.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0)
+#include <linux/pm_opp.h>
+#else
+#include <linux/opp.h>
+#endif /* Linux >= 3.13*/
+#define dev_pm_opp_of_add_table of_init_opp_table
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
+#define dev_pm_opp_of_remove_table of_free_opp_table
+#endif /* Linux >= 3.19 */
+#endif /* Linux >= 4.4.0 */
+#endif
 
 /* from the __malidrv_build_info.c file that is generated during build */
 extern const char *__malidrv_build_info(void);
-extern void mali_post_init(void);
-extern int mali_pdev_dts_init(struct platform_device* mali_gpu_device);
 
 /* Module parameter to control log level */
 int mali_debug_level = 2;
@@ -218,16 +238,6 @@ static struct of_device_id base_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, base_dt_ids);
 #endif
 
-#ifdef CONFIG_USE_OF
-static const struct of_device_id amlogic_mesonstream_dt_match[]={
-	{	.compatible = "arm,mali",
-	},
-	{},
-};
-#else
-#define amlogic_mesonstream_dt_match NULL
-#endif
-
 /* The Mali device driver struct */
 static struct platform_driver mali_platform_driver = {
 	.probe  = mali_probe,
@@ -245,10 +255,6 @@ static struct platform_driver mali_platform_driver = {
 #endif
 #ifdef CONFIG_MALI_DT
 		.of_match_table = of_match_ptr(base_dt_ids),
-#endif
-
-#ifdef CONFIG_USE_OF
-		.of_match_table = amlogic_mesonstream_dt_match,
 #endif
 	},
 };
@@ -292,6 +298,7 @@ void mali_init_cpu_time_counters(int reset, int enable_divide_by_64)
 
 	/* PMOVSR Overflow Flag Status Register - Clear Clock and Event overflows */
 	asm volatile("MCR p15, 0, %0, c9, c12, 3\t\n" :: "r"(0x8000000f));
+
 
 	/* See B4.1.124 PMUSERENR - setting p15 c9 c14 to 1" */
 	/* User mode access to the Performance Monitors enabled. */
@@ -447,8 +454,6 @@ int mali_module_init(void)
 
 	MALI_PRINT(("Mali device driver loaded\n"));
 
-	mpgpu_class_init();
-
 	return 0; /* Success */
 }
 
@@ -479,14 +484,27 @@ void mali_module_exit(void)
 	_mali_internal_profiling_term();
 #endif
 
-	mpgpu_class_exit();
-
 	MALI_PRINT(("Mali device driver unloaded\n"));
 }
+
+#ifdef CONFIG_MALI_DEVFREQ
+struct mali_device *mali_device_alloc(void)
+{
+	return kzalloc(sizeof(struct mali_device), GFP_KERNEL);
+}
+
+void mali_device_free(struct mali_device *mdev)
+{
+	kfree(mdev);
+}
+#endif
 
 static int mali_probe(struct platform_device *pdev)
 {
 	int err;
+#ifdef CONFIG_MALI_DEVFREQ
+	struct mali_device *mdev;
+#endif
 
 	MALI_DEBUG_PRINT(2, ("mali_probe(): Called for platform device %s\n", pdev->name));
 
@@ -503,14 +521,65 @@ static int mali_probe(struct platform_device *pdev)
 	err = mali_platform_device_init(mali_platform_device);
 	if (0 != err) {
 		MALI_PRINT_ERROR(("mali_probe(): Failed to initialize platform device."));
+		mali_platform_device = NULL;
 		return -EFAULT;
 	}
 #endif
 
-#ifndef MALI_FAKE_PLATFORM_DEVICE
-	if (mali_pdev_dts_init(pdev) < 0)
+#ifdef CONFIG_MALI_DEVFREQ
+	mdev = mali_device_alloc();
+	if (!mdev) {
+		MALI_PRINT_ERROR(("Can't allocate mali device private data\n"));
 		return -ENOMEM;
+	}
+
+	mdev->dev = &pdev->dev;
+	dev_set_drvdata(mdev->dev, mdev);
+
+	/*Initilization clock and regulator*/
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
+                        && defined(CONFIG_REGULATOR)
+	mdev->regulator = regulator_get_optional(mdev->dev, "mali");
+	if (IS_ERR_OR_NULL(mdev->regulator)) {
+		MALI_DEBUG_PRINT(2, ("Continuing without Mali regulator control\n"));
+		mdev->regulator = NULL;
+		/* Allow probe to continue without regulator */
+	}
+#endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)) && defined(CONFIG_OF) \
+                        && defined(CONFIG_PM_OPP)
+	/* Register the OPPs if they are available in device tree */
+	if (dev_pm_opp_of_add_table(mdev->dev) < 0)
+		MALI_DEBUG_PRINT(3, ("OPP table not found\n"));
 #endif
+
+	/* Need to name the gpu clock "clk_mali" in the device tree */
+	mdev->clock = clk_get(mdev->dev, "clk_mali");
+	if (IS_ERR_OR_NULL(mdev->clock)) {
+		MALI_DEBUG_PRINT(2, ("Continuing without Mali clock control\n"));
+		mdev->clock = NULL;
+		/* Allow probe to continue without clock. */
+	} else {
+		err = clk_prepare_enable(mdev->clock);
+		if (err) {
+			MALI_PRINT_ERROR(("Failed to prepare and enable clock (%d)\n", err));
+			goto clock_prepare_failed;
+		}
+	}
+
+	/* initilize pm metrics related */
+	if (mali_pm_metrics_init(mdev) < 0) {
+		MALI_DEBUG_PRINT(2, ("mali pm metrics init failed\n"));
+		goto pm_metrics_init_failed;
+	}
+
+	if (mali_devfreq_init(mdev) < 0) {
+		MALI_DEBUG_PRINT(2, ("mali devfreq init failed\n"));
+		goto devfreq_init_failed;
+	}
+#endif
+
 
 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init()) {
 		/* Initialize the Mali GPU HW specified by pdev */
@@ -522,7 +591,6 @@ static int mali_probe(struct platform_device *pdev)
 				err = mali_sysfs_register(mali_dev_name);
 
 				if (0 == err) {
-					mali_post_init();
 					MALI_DEBUG_PRINT(2, ("mali_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
 
 					return 0;
@@ -540,17 +608,67 @@ static int mali_probe(struct platform_device *pdev)
 		_mali_osk_wq_term();
 	}
 
+#ifdef CONFIG_MALI_DEVFREQ
+	mali_devfreq_term(mdev);
+devfreq_init_failed:
+	mali_pm_metrics_term(mdev);
+pm_metrics_init_failed:
+	clk_disable_unprepare(mdev->clock);
+clock_prepare_failed:
+	clk_put(mdev->clock);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)) && defined(CONFIG_OF) \
+                        && defined(CONFIG_PM_OPP)
+	dev_pm_opp_of_remove_table(mdev->dev);
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
+                        && defined(CONFIG_REGULATOR)
+	regulator_put(mdev->regulator);
+#endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
+	mali_device_free(mdev);
+#endif
+
+#ifdef CONFIG_MALI_DT
+	mali_platform_device_deinit(mali_platform_device);
+#endif
 	mali_platform_device = NULL;
 	return -EFAULT;
 }
 
 static int mali_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_MALI_DEVFREQ
+	struct mali_device *mdev = dev_get_drvdata(&pdev->dev);
+#endif
+
 	MALI_DEBUG_PRINT(2, ("mali_remove() called for platform device %s\n", pdev->name));
 	mali_sysfs_unregister();
 	mali_miscdevice_unregister();
 	mali_terminate_subsystems();
 	_mali_osk_wq_term();
+
+#ifdef CONFIG_MALI_DEVFREQ
+	mali_devfreq_term(mdev);
+
+	mali_pm_metrics_term(mdev);
+
+	if (mdev->clock) {
+		clk_disable_unprepare(mdev->clock);
+		clk_put(mdev->clock);
+		mdev->clock = NULL;
+	}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)) && defined(CONFIG_OF) \
+                        && defined(CONFIG_PM_OPP)
+	dev_pm_opp_of_remove_table(mdev->dev);
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
+                        && defined(CONFIG_REGULATOR)
+	regulator_put(mdev->regulator);
+#endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
+	mali_device_free(mdev);
+#endif
+
 #ifdef CONFIG_MALI_DT
 	mali_platform_device_deinit(mali_platform_device);
 #endif
@@ -582,6 +700,17 @@ static void mali_miscdevice_unregister(void)
 
 static int mali_driver_suspend_scheduler(struct device *dev)
 {
+#ifdef CONFIG_MALI_DEVFREQ
+	struct mali_device *mdev = dev_get_drvdata(dev);
+	if (!mdev)
+		return -ENODEV;
+#endif
+
+#if defined(CONFIG_MALI_DEVFREQ) && \
+                (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+	devfreq_suspend_device(mdev->devfreq);
+#endif
+
 	mali_pm_os_suspend(MALI_TRUE);
 	/* Tracing the frequency and voltage after mali is suspended */
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
@@ -595,6 +724,12 @@ static int mali_driver_suspend_scheduler(struct device *dev)
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
+#ifdef CONFIG_MALI_DEVFREQ
+	struct mali_device *mdev = dev_get_drvdata(dev);
+	if (!mdev)
+		return -ENODEV;
+#endif
+
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 	/* Just call mali_get_current_gpu_clk_item() once,to record current clk info.*/
@@ -610,12 +745,24 @@ static int mali_driver_resume_scheduler(struct device *dev)
 				      0, 0, 0);
 #endif
 	mali_pm_os_resume();
+
+#if defined(CONFIG_MALI_DEVFREQ) && \
+                (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+	devfreq_resume_device(mdev->devfreq);
+#endif
+
 	return 0;
 }
 
 #ifdef CONFIG_PM_RUNTIME
 static int mali_driver_runtime_suspend(struct device *dev)
 {
+#ifdef CONFIG_MALI_DEVFREQ
+	struct mali_device *mdev = dev_get_drvdata(dev);
+	if (!mdev)
+		return -ENODEV;
+#endif
+
 	if (MALI_TRUE == mali_pm_runtime_suspend()) {
 		/* Tracing the frequency and voltage after mali is suspended */
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
@@ -625,6 +772,12 @@ static int mali_driver_runtime_suspend(struct device *dev)
 					      0,
 					      0, 0, 0);
 
+#if defined(CONFIG_MALI_DEVFREQ) && \
+                (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+		MALI_DEBUG_PRINT(4, ("devfreq_suspend_device: stop devfreq monitor\n"));
+		devfreq_suspend_device(mdev->devfreq);
+#endif
+
 		return 0;
 	} else {
 		return -EBUSY;
@@ -633,6 +786,12 @@ static int mali_driver_runtime_suspend(struct device *dev)
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
+#ifdef CONFIG_MALI_DEVFREQ
+	struct mali_device *mdev = dev_get_drvdata(dev);
+	if (!mdev)
+		return -ENODEV;
+#endif
+
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 	/* Just call mali_get_current_gpu_clk_item() once,to record current clk info.*/
@@ -649,6 +808,12 @@ static int mali_driver_runtime_resume(struct device *dev)
 #endif
 
 	mali_pm_runtime_resume();
+
+#if defined(CONFIG_MALI_DEVFREQ) && \
+                (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+	MALI_DEBUG_PRINT(4, ("devfreq_resume_device: start devfreq monitor\n"));
+	devfreq_resume_device(mdev->devfreq);
+#endif
 	return 0;
 }
 

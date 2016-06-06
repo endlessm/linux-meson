@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 ARM Limited. All rights reserved.
+ * Copyright (C) 2013-2016 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -237,16 +237,16 @@ static void mali_timeline_destroy(struct mali_timeline *timeline)
 		MALI_DEBUG_ASSERT(NULL != timeline->system);
 		MALI_DEBUG_ASSERT(MALI_TIMELINE_MAX > timeline->id);
 
+		if (NULL != timeline->delayed_work) {
+			_mali_osk_wq_delayed_cancel_work_sync(timeline->delayed_work);
+			_mali_osk_wq_delayed_delete_work_nonflush(timeline->delayed_work);
+		}
+
 #if defined(CONFIG_SYNC)
 		if (NULL != timeline->sync_tl) {
 			sync_timeline_destroy(timeline->sync_tl);
 		}
 #endif /* defined(CONFIG_SYNC) */
-
-		if (NULL != timeline->delayed_work) {
-			_mali_osk_wq_delayed_cancel_work_sync(timeline->delayed_work);
-			_mali_osk_wq_delayed_delete_work_nonflush(timeline->delayed_work);
-		}
 
 #ifndef CONFIG_SYNC
 		_mali_osk_free(timeline);
@@ -1460,11 +1460,11 @@ void mali_timeline_debug_print_tracker(struct mali_timeline_tracker *tracker, _m
 				    is_waiting_on_timeline(tracker, MALI_TIMELINE_GP) ? "WaitGP" : " ", tracker->fence.points[0],
 				    is_waiting_on_timeline(tracker, MALI_TIMELINE_PP) ? "WaitPP" : " ", tracker->fence.points[1],
 				    is_waiting_on_timeline(tracker, MALI_TIMELINE_SOFT) ? "WaitSOFT" : " ", tracker->fence.points[2],
-				    tracker->fence.sync_fd, tracker->sync_fence, tracker->job);
+				    tracker->fence.sync_fd, (unsigned int)(uintptr_t)(tracker->sync_fence), (unsigned int)(uintptr_t)(tracker->job));
 	} else {
 		_mali_osk_ctxprintf(print_ctx, "TL:  %s %u %c  fd:%d  fence:(0x%08X)  job:(0x%08X)\n",
 				    tracker_type, tracker->point, state_char,
-				    tracker->fence.sync_fd, tracker->sync_fence, tracker->job);
+				    tracker->fence.sync_fd, (unsigned int)(uintptr_t)(tracker->sync_fence), (unsigned int)(uintptr_t)(tracker->job));
 	}
 #else
 	if (0 != tracker->trigger_ref_count) {
@@ -1473,11 +1473,11 @@ void mali_timeline_debug_print_tracker(struct mali_timeline_tracker *tracker, _m
 				    is_waiting_on_timeline(tracker, MALI_TIMELINE_GP) ? "WaitGP" : " ", tracker->fence.points[0],
 				    is_waiting_on_timeline(tracker, MALI_TIMELINE_PP) ? "WaitPP" : " ", tracker->fence.points[1],
 				    is_waiting_on_timeline(tracker, MALI_TIMELINE_SOFT) ? "WaitSOFT" : " ", tracker->fence.points[2],
-				    tracker->job);
+				    (unsigned int)(uintptr_t)(tracker->job));
 	} else {
 		_mali_osk_ctxprintf(print_ctx, "TL:  %s %u %c  job:(0x%08X)\n",
 				    tracker_type, tracker->point, state_char,
-				    tracker->job);
+				    (unsigned int)(uintptr_t)(tracker->job));
 	}
 #endif
 }

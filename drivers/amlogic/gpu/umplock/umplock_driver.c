@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2015 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2016 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -226,7 +226,7 @@ static int do_umplock_process(_lock_cmd_priv *lock_cmd)
 			}
 		}
 
-		PDEBUG(1, "failed lock, pid: %d, secure_id: 0x%x, ref_count: %d\n", lock_cmd->pid, lock_item->secure_id, device.items[i_index].references[ref_index].ref_count);
+		PERROR("failed lock, pid: %d, secure_id: 0x%x, ref_count: %d\n", lock_cmd->pid, lock_item->secure_id, device.items[i_index].references[ref_index].ref_count);
 
 		mutex_unlock(&device.item_list_lock);
 		return -ERESTARTSYS;
