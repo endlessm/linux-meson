@@ -32,16 +32,6 @@ typedef struct _mali_osk_irq_t_struct {
 typedef irqreturn_t (*irq_handler_func_t)(int, void *, struct pt_regs *);
 static irqreturn_t irq_handler_upper_half(int port_name, void *dev_id);   /* , struct pt_regs *regs*/
 
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-u32 get_irqnum(struct _mali_osk_irq_t_struct* irq)
-{
-	if (irq)
-		return irq->irqnum;
-	else
-		return 0;
-}
-#endif
-
 #if defined(DEBUG)
 
 struct test_interrupt_data {

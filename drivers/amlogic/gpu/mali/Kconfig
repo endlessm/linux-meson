@@ -89,14 +89,6 @@ config MALI_SHARED_INTERRUPTS
 	  works when the GPU is not using shared interrupts, but might have a slight performance
 	  impact.
 
-if ARCH_MESON6
-config	MESON6_GPU_EXTRA
-	bool "M6 fix"
-	depends on MALI400
-	default y
-	select MALI_SHARED_INTERRUPTS
-endif
-
 config MALI_PMU_PARALLEL_POWER_UP
 	bool "Power up Mali PMU domains in parallel"
 	depends on MALI400

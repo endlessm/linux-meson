@@ -9,29 +9,10 @@
 #
 
 # This file is called by the Linux build system.
-############## Kasin Added, for platform. ################
 TARGET_PLATFORM:=meson_m450
-ifeq ($(CONFIG_ARCH_MESON1),y)
-TARGET_PLATFORM:= meson_m400
-endif
-ifeq ($(CONFIG_ARCH_MESON3),y)
-TARGET_PLATFORM:= meson_m400
-endif
-ifeq ($(CONFIG_ARCH_MESON6),y)
-TARGET_PLATFORM:= meson_m400
-endif
-ifeq ($(CONFIG_ARCH_MESON6TV),y)
-TARGET_PLATFORM:= meson_m400
-endif
-##################### end Kasin Added. ###################
 
 # set up defaults if not defined by the user
 TIMESTAMP ?= default
-ifeq ($(CONFIG_UMP), m)
-  USING_UMP ?= 1
-else
-  USING_UMP ?= 0
-endif
 
 ifneq ($(KBUILD_SRC),)
 	ifneq ($(wildcard $(KBUILD_SRC)/$(src)),)
@@ -41,21 +22,11 @@ endif
 
 OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 16
 USING_GPU_UTILIZATION ?= 0
-############## Kasin Added, for platform. ################
 ifeq ($(CONFIG_MALI400_DEBUG),y)
 	BUILD ?= debug
 else
 	BUILD ?= release
-	#ldflags-y += --strip-debug
 endif
-##################### end Kasin Added. ###################
-
-############## Kasin Added, useless now. ################
-ifeq ($(USING_UMP),1)
-	UMP_SYMVERS_FILE = ../ump/Module.symvers
-	KBUILD_EXTRA_SYMBOLS = $(srctree)/$(src)/$(UMP_SYMVERS_FILE)
-endif
-##################### end Kasin Added. ###################
 
 PROFILING_SKIP_PP_JOBS ?= 0
 PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
@@ -173,38 +144,18 @@ ifneq ($(wildcard $(src)/linux/mali_slp_global_lock.c),)
 	mali-y += linux/mali_slp_global_lock.o
 endif
 
-############## Kasin Added, for platform. ################
 mali-y += \
 	platform/meson_main.o \
 	platform/mali_pm_device.o \
 	platform/mali_clock.o \
 	platform/mpgpu.o \
 
-ifeq ($(TARGET_PLATFORM),meson_m400)
-MALI_PLATFORM_FILES:= \
-	platform/meson_m400/mali_fix.o \
-	platform/meson_m400/mali_platform.o \
-	platform/meson_m400/platform_mx.o
-endif
-
-ifeq ($(TARGET_PLATFORM),meson_m450)
 ccflags-y += -DCONFIG_MALI450=y
 mali-y += \
 	platform/meson_m450/scaling.o 
 
-mali-$(CONFIG_ARCH_MESON8) += \
-	platform/meson_m450/platform_m8.o
-
-mali-$(CONFIG_ARCH_MESON6TVD) += \
-	platform/meson_m450/platform_m6tvd.o
-
 mali-$(CONFIG_ARCH_MESON8B) += \
 	platform/meson_m450/platform_m8b.o
-
-mali-$(CONFIG_ARCH_MESONG9TV) += \
-	platform/meson_m450/platform_g9tv.o
-endif
-##################### end Kasin Added. ###################
 
 ifneq ($(MALI_PLATFORM_FILES),)
 	mali-y += $(MALI_PLATFORM_FILES:.c=.o)
