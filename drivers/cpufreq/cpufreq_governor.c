@@ -194,9 +194,9 @@ void gov_queue_work(struct dbs_data *dbs_data, struct cpufreq_policy *policy,
 {
 	int i;
 
-	mutex_lock(&cpufreq_governor_lock);
 	if (!policy->governor_enabled)
-		goto out_unlock;
+		return;
+
 	if (!all_cpus) {
 		__gov_queue_work(raw_smp_processor_id(), dbs_data, delay);
 	} else {
