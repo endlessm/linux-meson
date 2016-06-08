@@ -149,6 +149,11 @@ static const struct dev_pm_ops cirrus_pm_ops = {
 				cirrus_pm_resume)
 };
 
+static const struct dev_pm_ops cirrus_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(cirrus_pm_suspend,
+				cirrus_pm_resume)
+};
+
 static struct pci_driver cirrus_pci_driver = {
 	.name = DRIVER_NAME,
 	.id_table = pciidlist,
