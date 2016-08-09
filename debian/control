@@ -10,6 +10,21 @@ Vcs-Svn: svn://svn.debian.org/svn/kernel/dists/trunk/linux/
 Vcs-Browser: http://anonscm.debian.org/viewvc/kernel/dists/trunk/linux/
 Homepage: https://www.kernel.org/
 
+Package: linux-source-3.10
+Architecture: all
+Section: kernel
+Provides: linux-source
+Depends: binutils, bzip2, ${misc:Depends}
+Recommends: libc6-dev | libc-dev, gcc, make, bc
+Suggests: libncurses-dev | ncurses-dev, libqt4-dev, pkg-config
+Description: Linux kernel source for version 3.10 with Debian patches
+ This package provides source code for the Linux kernel version 3.10. This
+ source closely tracks official Linux kernel releases.  Debian's
+ modifications to that source consist of security fixes, bug fixes, and
+ features that have already been (or are believed to be) accepted by the
+ upstream maintainers.
+Multi-Arch: foreign
+
 Package: linux-libc-dev
 Architecture: armhf
 Section: devel
