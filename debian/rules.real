@@ -57,9 +57,8 @@ endif
 
 #binary-indep: install-doc
 #binary-indep: install-manual
-#binary-indep: install-source
+binary-indep: install-source
 #binary-indep: install-support
-binary-indep:
 
 build-arch: $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_$(TYPE)
 #build-indep: $(STAMPS_DIR)/build-doc
