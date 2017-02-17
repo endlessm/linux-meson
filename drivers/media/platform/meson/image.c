@@ -83,7 +83,7 @@ static int dst_canvas_config(struct vframe_s *vf, struct vb2_buffer *buf,
 			      plane0stride, vf->height >> 1,
 			      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
 		return DST_CANVAS_INDEX | ((DST_CANVAS_INDEX + 1) << 8);
-	} else if (pixelformat == V4L2_PIX_FMT_BGR32) {
+	} else if (pixelformat == V4L2_PIX_FMT_ABGR32) {
 		canvas_config(DST_CANVAS_INDEX,
 			      vb2_dma_contig_plane_dma_addr(buf, 0),
 			      plane0stride, vf->height,
@@ -107,7 +107,7 @@ int vdec_process_image(struct vdec_dev *dev, struct vframe_s *vf,
 		  vf->index, vf, dst->v4l2_buf.index);
 
 	switch (pixelformat) {
-	case V4L2_PIX_FMT_BGR32:
+	case V4L2_PIX_FMT_ABGR32:
 		dst_pixel_format = GE2D_FORMAT_S32_ARGB;
 		break;
 	case V4L2_PIX_FMT_NV12M:
