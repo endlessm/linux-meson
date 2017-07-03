@@ -18,6 +18,10 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
 
+#ifndef V4L2_PIX_FMT_ABGR32
+#define V4L2_PIX_FMT_ABGR32   v4l2_fourcc('A', 'R', '2', '4') /* 32  BGRA-8-8-8-8   */
+#endif
+
 struct vdec_dev {
 	struct v4l2_device	v4l2_dev;
 	struct vframe_receiver_s video_vf_receiver;

@@ -109,8 +109,8 @@ static struct vdec_fmt {
 		.pixelformat = V4L2_PIX_FMT_NV12M,
 	},
 	{
-		.name = "BGRA",
-		.pixelformat = V4L2_PIX_FMT_BGR32,
+		.name = "AR24",
+		.pixelformat = V4L2_PIX_FMT_ABGR32,
 	},
 };
 
@@ -164,7 +164,7 @@ static void get_buffer_size_info(struct vdec_fmt *fmt, u32 width, u32 height,
 	/* GE2D can only work with output buffers with certain aligned widths */
 
 	switch (fmt->pixelformat) {
-	case V4L2_PIX_FMT_BGR32:
+	case V4L2_PIX_FMT_ABGR32:
 		i->num_planes = 1;
 		i->plane_stride[0] = round_up(width, 8) * 4;
 		i->buffer_size[0] = i->plane_stride[0] * height;
