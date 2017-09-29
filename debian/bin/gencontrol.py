@@ -107,8 +107,10 @@ class Gencontrol(Base):
             headers_arch = self.templates["control.headers.arch"]
             packages_headers_arch = self.process_packages(headers_arch, vars)
 
-        libc_dev = self.templates["control.libc-dev"]
-        packages_headers_arch[0:0] = self.process_packages(libc_dev, {})
+        # Don't install linux-libc-dev
+        # https://phabricator.endlessm.com/T19475
+        #libc_dev = self.templates["control.libc-dev"]
+        #packages_headers_arch[0:0] = self.process_packages(libc_dev, {})
 
         packages_headers_arch[-1]['Depends'].extend(PackageRelation())
         extra['headers_arch_depends'] = packages_headers_arch[-1]['Depends']
