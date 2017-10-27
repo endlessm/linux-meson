@@ -91,7 +91,7 @@ static void jbd2_commit_block_csum_set(journal_t *j,
 	struct commit_header *h;
 	__u32 csum;
 
-	if (!JBD2_HAS_INCOMPAT_FEATURE(j, JBD2_FEATURE_INCOMPAT_CSUM_V2))
+	if (!jbd2_journal_has_csum_v2or3(j))
 		return;
 
 	h = (struct commit_header *)(jh2bh(descriptor)->b_data);
@@ -312,11 +312,11 @@ static __u32 jbd2_checksum_data(__u32 crc32_sum, struct buffer_head *bh)
 	return checksum;
 }
 
-static void write_tag_block(int tag_bytes, journal_block_tag_t *tag,
+static void write_tag_block(journal_t *j, journal_block_tag_t *tag,
 				   unsigned long long block)
 {
 	tag->t_blocknr = cpu_to_be32(block & (u32)~0);
-	if (tag_bytes > JBD2_TAG_SIZE32)
+	if (JBD2_HAS_INCOMPAT_FEATURE(j, JBD2_FEATURE_INCOMPAT_64BIT))
 		tag->t_blocknr_high = cpu_to_be32((block >> 31) >> 1);
 }
 
@@ -326,7 +326,7 @@ static void jbd2_descr_block_csum_set(journal_t *j,
 	struct jbd2_journal_block_tail *tail;
 	__u32 csum;
 
-	if (!JBD2_HAS_INCOMPAT_FEATURE(j, JBD2_FEATURE_INCOMPAT_CSUM_V2))
+	if (!jbd2_journal_has_csum_v2or3(j))
 		return;
 
 	tail = (struct jbd2_journal_block_tail *)
@@ -341,11 +341,12 @@ static void jbd2_descr_block_csum_set(journal_t *j,
 static void jbd2_block_tag_csum_set(journal_t *j, journal_block_tag_t *tag,
 				    struct buffer_head *bh, __u32 sequence)
 {
+	journal_block_tag3_t *tag3 = (journal_block_tag3_t *)tag;
 	struct page *page = bh->b_page;
 	__u8 *addr;
 	__u32 csum;
 
-	if (!JBD2_HAS_INCOMPAT_FEATURE(j, JBD2_FEATURE_INCOMPAT_CSUM_V2))
+	if (!jbd2_journal_has_csum_v2or3(j))
 		return;
 
 	sequence = cpu_to_be32(sequence);
@@ -356,7 +357,10 @@ static void jbd2_block_tag_csum_set(journal_t *j, journal_block_tag_t *tag,
 			  bh->b_size);
 	kunmap_atomic(addr);
 
-	tag->t_checksum = cpu_to_be32(csum);
+	if (JBD2_HAS_INCOMPAT_FEATURE(j, JBD2_FEATURE_INCOMPAT_CSUM_V3))
+		tag3->t_checksum = cpu_to_be32(csum);
+	else
+		tag->t_checksum = cpu_to_be16(csum);
 }
 /*
  * jbd2_journal_commit_transaction
@@ -393,7 +397,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	int update_tail;
 	int csum_size = 0;
 
-	if (JBD2_HAS_INCOMPAT_FEATURE(journal, JBD2_FEATURE_INCOMPAT_CSUM_V2))
+	if (jbd2_journal_has_csum_v2or3(journal))
 		csum_size = sizeof(struct jbd2_journal_block_tail);
 
 	/*
@@ -692,7 +696,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 			tag_flag |= JBD2_FLAG_SAME_UUID;
 
 		tag = (journal_block_tag_t *) tagp;
-		write_tag_block(tag_bytes, tag, jh2bh(jh)->b_blocknr);
+		write_tag_block(journal, tag, jh2bh(jh)->b_blocknr);
 		tag->t_flags = cpu_to_be16(tag_flag);
 		jbd2_block_tag_csum_set(journal, tag, jh2bh(new_jh),
 					commit_transaction->t_tid);
