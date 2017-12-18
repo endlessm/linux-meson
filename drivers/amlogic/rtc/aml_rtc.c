@@ -351,7 +351,7 @@ static unsigned int _ser_access_read_locked(unsigned long addr)
 #endif
 	if (get_rtc_status())
 		return 0;
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B) && defined(CONFIG_SUSPEND)
 	ret = stop_ao_cpu();
 #endif
 	while(rtc_comm_init()<0){
@@ -374,7 +374,7 @@ static unsigned int _ser_access_read_locked(unsigned long addr)
 	rtc_set_mode(0); //Read
 	rtc_get_data(&val);
 out:
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B) && defined(CONFIG_SUSPEND)
 	if (ret >= 0)
 		run_arc_program_rtc();
 #endif
@@ -390,7 +390,7 @@ static void _ser_access_write_locked(unsigned long addr, unsigned long data)
 #endif
 	if (get_rtc_status())
 		return;
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B) && defined(CONFIG_SUSPEND)
 	ret = stop_ao_cpu();
 #endif
 	while(rtc_comm_init()<0){
@@ -413,7 +413,7 @@ static void _ser_access_write_locked(unsigned long addr, unsigned long data)
 	rtc_send_addr_data(1,addr);
 	rtc_set_mode(1); //Write
 out:
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+#if (MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B) && defined(CONFIG_SUSPEND)
 	if (ret >= 0)
 		run_arc_program_rtc();
 #endif
