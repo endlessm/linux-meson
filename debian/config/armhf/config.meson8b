@@ -23,6 +23,8 @@ CONFIG_AM_WIFI_SD_MMC=y
 CONFIG_RTL8723BS=m
 CONFIG_RTL8189ES=m
 
+CONFIG_SUSPEND=n
+
 # Config options for Amlogic M8B kernel
 # Tried to copy relevant settings from the vendor kernel, without actually
 # verifying that each and every entry is needed.
@@ -30,8 +32,6 @@ CONFIG_PLAT_MESON=y
 CONFIG_ARCH_MESON8B=y
 CONFIG_MACH_MESON8B_COMMON_BOARD=y
 CONFIG_MESON_LEGACY_REGISTER_API=y
-CONFIG_MESON_SUSPEND=y
-CONFIG_MESON_SUSPEND_FIRMWARE_BASE=0x04f00000
 CONFIG_AMLOGIC_MESON_CPUFREQ=y
 CONFIG_NEON=y
 CONFIG_I2C_AML=y
