@@ -24,6 +24,7 @@ CONFIG_RTL8723BS=m
 CONFIG_RTL8189ES=m
 
 CONFIG_SUSPEND=n
+CONFIG_CPU_FREQ_GOV_HOTPLUG=n
 
 # Config options for Amlogic M8B kernel
 # Tried to copy relevant settings from the vendor kernel, without actually
