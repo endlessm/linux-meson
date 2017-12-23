@@ -101,7 +101,9 @@ PBCMSDH_SDMMC_INSTANCE gInstance;
 /* Maximum number of bcmsdh_sdmmc devices supported by driver */
 #define BCMSDH_SDMMC_MAX_DEVICES 1
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 extern volatile bool dhd_mmc_suspend;
+#endif
 
 static int sdioh_probe(struct sdio_func *func)
 {
@@ -263,7 +265,9 @@ static int bcmsdh_sdmmc_suspend(struct device *pdev)
 #if defined(OOB_INTR_ONLY)
 	bcmsdh_oob_intr_set(sdioh->bcmsdh, FALSE);
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 	dhd_mmc_suspend = TRUE;
+#endif
 	smp_mb();
 
 	printf("%s Exit\n", __FUNCTION__);
@@ -281,7 +285,9 @@ static int bcmsdh_sdmmc_resume(struct device *pdev)
 	if (func->num != 2)
 		return 0;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 	dhd_mmc_suspend = FALSE;
+#endif
 #if defined(OOB_INTR_ONLY)
 	sdioh = sdio_get_drvdata(func);
 	bcmsdh_resume(sdioh->bcmsdh);
