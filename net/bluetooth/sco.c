@@ -479,7 +479,6 @@ static int sco_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
 	}
 
 	bacpy(&bt_sk(sk)->src, &sa.sco_bdaddr);
-	sco_pi(sk)->pkt_type = sa.sco_pkt_type;
 
 	sk->sk_state = BT_BOUND;
 
@@ -517,7 +516,6 @@ static int sco_sock_connect(struct socket *sock, struct sockaddr *addr, int alen
 
 	/* Set destination address and psm */
 	bacpy(&bt_sk(sk)->dst, &sa.sco_bdaddr);
-	sco_pi(sk)->pkt_type = sa.sco_pkt_type;
 
 	err = sco_connect(sk);
 	if (err)
@@ -641,7 +639,6 @@ static int sco_sock_getname(struct socket *sock, struct sockaddr *addr, int *len
 		bacpy(&sa->sco_bdaddr, &bt_sk(sk)->dst);
 	else
 		bacpy(&sa->sco_bdaddr, &bt_sk(sk)->src);
-	sa->sco_pkt_type = sco_pi(sk)->pkt_type;
 
 	return 0;
 }
