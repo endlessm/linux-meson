@@ -186,6 +186,8 @@ static void configure_v4l2_plane_fmt(struct vdec_ctx *ctx,
 {
 	struct buffer_size_info buf_info;
 
+	memset(mp->reserved, 0, sizeof(mp->reserved));
+
 	mp->pixelformat = ctx->fmt->pixelformat;
 	if (ctx->frame_width)
 		mp->width = ctx->frame_width;
@@ -480,6 +482,8 @@ static int vidioc_g_fmt_vid_out(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "g_fmt_vid_out\n");
 
+	memset (&f->fmt.pix_mp.reserved, 0, sizeof (f->fmt.pix_mp.reserved));
+
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix_mp.width = f->fmt.pix_mp.height = 0;
 	f->fmt.pix_mp.field = V4L2_FIELD_NONE;
@@ -545,6 +549,8 @@ static int vidioc_try_fmt_vid_out(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_out\n");
+
+	memset (&f->fmt.pix_mp.reserved, 0, sizeof(f->fmt.pix_mp.reserved));
 
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix_mp.num_planes = 1;
