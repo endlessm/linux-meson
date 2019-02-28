@@ -123,6 +123,8 @@ struct vdec_ctx {
 	struct timer_list eos_idle_timer;
 	struct vframe_receiver_s vf_receiver;
 
+	u32 colorspace;
+
 	void *buf_vaddr;
 
 	/* Protects concurrent access to:
@@ -186,7 +188,8 @@ static void configure_v4l2_plane_fmt(struct vdec_ctx *ctx,
 {
 	struct buffer_size_info buf_info;
 
-	mp->pixelformat = ctx->fmt->pixelformat;
+	memset(mp->reserved, 0, sizeof(mp->reserved));
+
 	if (ctx->frame_width)
 		mp->width = ctx->frame_width;
         if (ctx->frame_height)
@@ -194,6 +197,8 @@ static void configure_v4l2_plane_fmt(struct vdec_ctx *ctx,
 	mp->field = V4L2_FIELD_NONE;
 
 	get_buffer_size_info(ctx->fmt, mp->width, mp->height, &buf_info);
+	/* we don't know anything about colorspace unless it's told to us */
+	mp->colorspace = 0;
 	mp->num_planes = buf_info.num_planes;
 	mp->plane_fmt[0].bytesperline = buf_info.plane_stride[0];
 	mp->plane_fmt[1].bytesperline = buf_info.plane_stride[1];
@@ -480,6 +485,8 @@ static int vidioc_g_fmt_vid_out(struct file *file, void *priv,
 	struct vdec_ctx *ctx = file2ctx(file);
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "g_fmt_vid_out\n");
 
+	memset (&f->fmt.pix_mp.reserved, 0, sizeof (f->fmt.pix_mp.reserved));
+
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	f->fmt.pix_mp.width = f->fmt.pix_mp.height = 0;
 	f->fmt.pix_mp.field = V4L2_FIELD_NONE;
@@ -502,7 +509,9 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
         if (ctx->frame_width == 0 || ctx->frame_height == 0)
 		return -EINVAL;
 
+	f->fmt.pix_mp.pixelformat = ctx->fmt->pixelformat;
 	configure_v4l2_plane_fmt(ctx, &f->fmt.pix_mp);
+	f->fmt.pix_mp.colorspace = ctx->colorspace;
 	return 0;
 }
 
@@ -546,7 +555,10 @@ static int vidioc_try_fmt_vid_out(struct file *file, void *priv,
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "ioc_try_fmt_vid_out\n");
 
+	memset (&f->fmt.pix_mp.reserved, 0, sizeof(f->fmt.pix_mp.reserved));
+
 	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+	f->fmt.pix_mp.colorspace = 0;
 	f->fmt.pix_mp.num_planes = 1;
 	f->fmt.pix_mp.plane_fmt[0].bytesperline = 0;
 
@@ -584,8 +596,10 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *priv,
 
 	ret = vidioc_try_fmt_vid_out (file, priv, f);
 
-	if (ret == 0)
+	if (ret == 0) {
 		ctx->src_bufs_size = f->fmt.pix_mp.plane_fmt[0].sizeimage;
+		ctx->colorspace = f->fmt.pix_mp.colorspace;
+	}
 
         return ret;
 }
