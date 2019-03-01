@@ -28,7 +28,5 @@
 #include <linux/platform_device.h>
 #include <drm/drmP.h>
 
-struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev,
-                                                  bool enabled);
-
+struct drm_connector *meson_hdmi_connector_create(struct drm_device *dev);
 #endif

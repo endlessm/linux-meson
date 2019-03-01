@@ -131,7 +131,6 @@ fail:
 struct meson_connector {
 	struct drm_connector base;
 	struct drm_encoder *encoder;
-	bool enabled;
 	struct drm_display_mode *mode;
 };
 #define to_meson_connector(x) container_of(x, struct meson_connector, base)
@@ -164,9 +163,6 @@ static enum drm_connector_status meson_connector_detect(struct drm_connector *co
 	int vrefresh = drm_mode_vrefresh(meson_connector->mode);
 	enum meson_cvbs_switch_state s = meson_cvbs_get_switch_state();
 	struct device *d = connector->dev->dev;
-
-	if (!meson_connector->enabled)
-		return connector_status_disconnected;
 
 	/* PAL connector */
 	if (vrefresh == 100 && s != MESON_CVBS_SWITCH_PAL) {
@@ -220,9 +216,8 @@ static const struct drm_connector_helper_funcs meson_connector_helper_funcs = {
 	.best_encoder       = meson_connector_best_encoder,
 };
 
-struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
-						  bool enabled,
-						  struct drm_display_mode *mode)
+static struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
+							 struct drm_display_mode *mode)
 {
 	struct meson_connector *meson_connector;
 	struct drm_connector *connector;
@@ -239,7 +234,6 @@ struct drm_connector *meson_cvbs_connector_create(struct drm_device *dev,
 
 	connector = &meson_connector->base;
 	meson_connector->encoder = encoder;
-	meson_connector->enabled = enabled;
 	meson_connector->mode = mode;
 
 	drm_connector_init(dev, connector, &meson_connector_funcs, DRM_MODE_CONNECTOR_Composite);
@@ -281,6 +275,7 @@ static irqreturn_t cvbs_switch_intr_handler(int irq, void *user_data)
 
 int meson_cvbs_init(struct drm_device *dev)
 {
+	struct drm_display_mode *mode;
 	struct device *d = dev->dev;
 	const char *str;
 	int ret;
@@ -363,6 +358,16 @@ int meson_cvbs_init(struct drm_device *dev)
 		dev_warn(d, "Failed to claim cvbs_pal_gpio falling IRQ\n");
 		goto out;
 	}
+
+	mode = drm_cvt_mode(dev, CVBS_HACK_MODE_SIZE(720),
+			    CVBS_HACK_MODE_SIZE(480), 60, false, true, false);
+	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	meson_cvbs_connector_create(dev, mode);
+
+	mode = drm_cvt_mode(dev, CVBS_HACK_MODE_SIZE(720),
+			    CVBS_HACK_MODE_SIZE(576), 50, false, true, false);
+	mode->type |= DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	meson_cvbs_connector_create(dev, mode);
 
 out:
 	return ret;
