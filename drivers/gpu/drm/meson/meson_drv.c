@@ -55,7 +55,7 @@ enum meson_connectors {
 	MESON_CONNECTORS_CVBS_NTSC = 0x2,
 	MESON_CONNECTORS_CVBS_PAL  = 0x4,
 };
-static char enabled_connectors = 0;
+static char enabled_connectors = 1;
 module_param(enabled_connectors, byte, S_IRUGO | S_IWUSR);
 
 #define DRIVER_NAME "meson"
