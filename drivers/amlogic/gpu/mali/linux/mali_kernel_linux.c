@@ -966,4 +966,54 @@ module_exit(mali_module_exit);
 
 MODULE_LICENSE(MALI_KERNEL_LINUX_LICENSE);
 MODULE_AUTHOR("ARM Ltd.");
-MODULE_VERSION(SVN_REV_STRING);
+
+static ssize_t mali_version_show(struct module_attribute *mattr,
+			         struct module_kobject *mk, char *buf)
+{
+	struct module_version_attribute *vattr =
+		container_of(mattr, struct module_version_attribute, mattr);
+	const char *product;
+
+	switch (mali_kernel_core_get_product_id()) {
+		case _MALI_PRODUCT_ID_MALI200:
+			product = "mali200";
+		break;
+		case _MALI_PRODUCT_ID_MALI300:
+			product = "mali300";
+		break;
+		case _MALI_PRODUCT_ID_MALI400:
+			product = "mali400";
+		break;
+		case _MALI_PRODUCT_ID_MALI450:
+			product = "mali450";
+		break;
+		case _MALI_PRODUCT_ID_MALI470:
+			product = "mali470";
+		break;
+		default:
+			product = "unknown";
+		break;
+	}
+
+	return sprintf(buf, "%s_%s-r%up%u\n",
+		       vattr->version,
+		       product,
+		       mali_kernel_core_get_gpu_major_version(),
+		       mali_kernel_core_get_gpu_minor_version());
+}
+
+static struct module_version_attribute ___modver_attr = {
+	.mattr	= {
+		.attr	= {
+			.name	= "version",
+			.mode	= S_IRUGO,
+		},
+		.show	= mali_version_show,
+	},
+	.module_name	= KBUILD_MODNAME,
+	.version	= SVN_REV_STRING,
+};
+static const struct module_version_attribute
+__used __attribute__ ((__section__ ("__modver")))
+* __moduleparam_const __modver_attr = &___modver_attr;
+
