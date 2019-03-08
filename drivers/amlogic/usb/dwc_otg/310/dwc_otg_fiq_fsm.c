@@ -1172,6 +1172,15 @@ void notrace __dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 		int i;
 		haint.d32 = FIQ_READ(state->dwc_regs_base + HAINT);
 		haintmsk.d32 = FIQ_READ(state->dwc_regs_base + HAINTMSK);
+
+        // check the host channel intr been handled or not. if yes, allow
+        // interrupt trigger.
+        for (i = 0; i < num_channels; i++) {
+            if (state->channel[i].hcint_handled) {
+                haintmsk.d32 |= (1 << i);
+                state->channel[i].hcint_handled = 0;
+            }
+        }
 		haint.d32 &= haintmsk.d32;
 		haint_handled.d32 = 0;
 		for (i=0; i<num_channels; i++) {
@@ -1204,6 +1213,7 @@ void notrace __dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 			FIQ_WRITE(state->dwc_regs_base + HAINTMSK, haintmsk.d32);
 			kick_irq |= 1;
 		}
+
 		/* Top-Level interrupt - always handled because it's level-sensitive */
 		gintsts_handled.b.hcintr = 1;
 	}
@@ -1216,9 +1226,6 @@ void notrace __dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 		gintmsk.d32 &= state->gintmsk_saved.d32;
 		gintmsk.b.sofintr = 1;
 		FIQ_WRITE(state->dwc_regs_base + GINTMSK, gintmsk.d32);
-//		fiq_print(FIQDBG_INT, state, "KICKGINT");
-//		fiq_print(FIQDBG_INT, state, "%08x", gintmsk.d32);
-//		fiq_print(FIQDBG_INT, state, "%08x", state->gintmsk_saved.d32);
 		kick_irq |= 1;
 	}
 
@@ -1227,13 +1234,6 @@ void notrace __dwc_otg_fiq_fsm(struct fiq_state *state, int num_channels)
 		FIQ_WRITE(state->dwc_regs_base + GINTSTS, gintsts_handled.d32);
 	}
 
-	/* We got an interrupt, didn't handle it. */
-	//if (kick_irq) {
-	//	state->mphi_int_count++;
-	//	FIQ_WRITE(state->mphi_regs.outdda, (int) state->dummy_send);
-	//	FIQ_WRITE(state->mphi_regs.outddb, (1<<29));
-
-	//}
 	state->fiq_done++;
 	if (kick_irq)
 		WRITE_CBUS_REG(ISA_TIMERD, 1);
@@ -1293,15 +1293,11 @@ void notrace dwc_otg_fiq_nop(struct fiq_state *state)
 
 	/* We got an interrupt, didn't handle it and want to mask it */
 	if (~(state->gintmsk_saved.d32)) {
-//		state->mphi_int_count++;
-		gintmsk.d32 &= state->gintmsk_saved.d32;
-		FIQ_WRITE(state->dwc_regs_base + GINTMSK, gintmsk.d32);
-		/* Force a clear before another dummy send */
-//		FIQ_WRITE(state->mphi_regs.intstat, (1<<29));
-//		FIQ_WRITE(state->mphi_regs.outdda, (int) state->dummy_send);
-//		FIQ_WRITE(state->mphi_regs.outddb, (1<<29));
-		state->fiq_done++;
-		WRITE_CBUS_REG(ISA_TIMERD, 1);
+            gintmsk.d32 &= state->gintmsk_saved.d32;
+            FIQ_WRITE(state->dwc_regs_base + GINTMSK, gintmsk.d32);
+
+	    state->fiq_done++;
+	    WRITE_CBUS_REG(ISA_TIMERD, 1);
 	}
 	//mb();
 }

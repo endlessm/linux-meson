@@ -289,6 +289,7 @@ struct fiq_channel_state {
 	unsigned int expected_uframe; 
 	/* in/out for communicating number of dma buffers used, or number of ISOC to do */
 	unsigned int nrpackets;
+    unsigned int hcint_handled;
 	struct fiq_dma_info dma_info;
 	struct fiq_hs_isoc_info hs_isoc_info;
 	/* Copies of HC registers - in/out communication from/to IRQ handler
